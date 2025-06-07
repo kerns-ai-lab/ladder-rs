@@ -1,1 +1,1 @@
-No instructions found. Please look around the filesystem and update me
+Rust development environment for implementing TrueSkill Phase 3. Contains the ladder-rs library with core traits and TrueSkill foundations. Need to implement message passing scheduler, factor updates, V/W functions for comparison factors, and skill update mechanism.
