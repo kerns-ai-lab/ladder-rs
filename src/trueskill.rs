@@ -109,6 +109,20 @@ impl Variable {
     pub fn id(&self) -> usize {
         self.id
     }
+
+    /// Update this variable's belief by multiplying incoming factor messages
+    /// and return the absolute difference from the previous value.
+    pub fn update_belief(&mut self, messages: &[&Message]) -> f64 {
+        let old_value = self.value.clone();
+
+        let mut new_value = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        for msg in messages {
+            new_value = new_value.multiply(msg.value());
+        }
+
+        self.value = new_value.clone();
+        old_value.absolute_difference(&new_value)
+    }
 }
 
 /// Message passed between factors and variables
@@ -135,6 +149,7 @@ impl Message {
 pub trait Factor {
     fn update_message(&mut self, variable_id: usize) -> Result<f64>;
     fn connected_variables(&self) -> Vec<usize>;
+    fn message_to(&self, variable_id: usize) -> Result<&Message>;
 }
 
 /// Prior factor that sets initial skill distribution
@@ -172,6 +187,14 @@ impl Factor for GaussianPriorFactor {
     
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.variable_id]
+    }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.variable_id {
+            Ok(&self.message)
+        } else {
+            Err(Error::InvalidInput("Variable ID mismatch".to_string()))
+        }
     }
 }
 
@@ -220,6 +243,16 @@ impl Factor for GaussianLikelihoodFactor {
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.skill_variable_id, self.performance_variable_id]
     }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.performance_variable_id {
+            Ok(&self.skill_to_perf_message)
+        } else if variable_id == self.skill_variable_id {
+            Ok(&self.perf_to_skill_message)
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
+    }
 }
 
 /// Factor graph for TrueSkill computation
@@ -261,13 +294,26 @@ impl FactorGraph {
         while delta > max_delta && iteration < max_iterations {
             delta = 0.0;
             iteration += 1;
-            
+
             // Update all factor messages
             for factor in &mut self.factors {
                 for variable_id in factor.connected_variables() {
                     let factor_delta = factor.update_message(variable_id)?;
                     delta = delta.max(factor_delta);
                 }
+            }
+
+            // Update all variable beliefs
+            for variable in self.variables.values_mut() {
+                let var_id = variable.id();
+                let mut messages = Vec::new();
+                for factor in &self.factors {
+                    if factor.connected_variables().iter().any(|&id| id == var_id) {
+                        messages.push(factor.message_to(var_id)?);
+                    }
+                }
+                let var_delta = variable.update_belief(&messages);
+                delta = delta.max(var_delta);
             }
         }
         
