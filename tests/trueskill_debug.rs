@@ -1,6 +1,6 @@
 use ladder_rs::{
     trueskill::{TrueSkill, TrueSkillTeam, TrueSkillImplementation},
-    core::{RatingSystem},
+    core::{RatingSystem, TeamRating},
 };
 
 #[test]
