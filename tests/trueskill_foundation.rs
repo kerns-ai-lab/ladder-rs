@@ -1,5 +1,5 @@
 use ladder_rs::{
-    trueskill::{TrueSkill, TrueSkillRating},
+    trueskill::{TrueSkill, TrueSkillRating, TrueSkillImplementation},
     core::{Rating, RatingSystem},
 };
 
@@ -31,6 +31,7 @@ fn test_trueskill_custom_parameters() {
         beta_squared,
         gamma_squared,
         draw_probability,
+        TrueSkillImplementation::Simplified,
     ).unwrap();
     
     let rating = ts.create_rating();
@@ -57,6 +58,7 @@ fn test_trueskill_invalid_parameters() {
         beta_squared,
         gamma_squared,
         0.1,
+        TrueSkillImplementation::Simplified,
     );
     assert!(result.is_err());
     
@@ -67,6 +69,7 @@ fn test_trueskill_invalid_parameters() {
         beta_squared,
         gamma_squared,
         0.1,
+        TrueSkillImplementation::Simplified,
     );
     assert!(result.is_err());
     
@@ -77,6 +80,7 @@ fn test_trueskill_invalid_parameters() {
         -1.0,
         gamma_squared,
         0.1,
+        TrueSkillImplementation::Simplified,
     );
     assert!(result.is_err());
     
@@ -87,6 +91,7 @@ fn test_trueskill_invalid_parameters() {
         beta_squared,
         gamma_squared,
         0.0,
+        TrueSkillImplementation::Simplified,
     );
     assert!(result.is_err());
     
@@ -96,6 +101,7 @@ fn test_trueskill_invalid_parameters() {
         beta_squared,
         gamma_squared,
         1.0,
+        TrueSkillImplementation::Simplified,
     );
     assert!(result.is_err());
 }
