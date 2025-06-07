@@ -1,3 +1,7 @@
 /target/
 /.container-use/
 /instruction/
+
+# Coverage reports
+coverage.json
+coverage.lcov
