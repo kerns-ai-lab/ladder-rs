@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 /// Trait for individual player skill representation.
 pub trait Rating: Clone + std::fmt::Debug {
@@ -99,10 +99,19 @@ impl GameOutcome {
     }
 
     /// Creates an outcome where the team at index `winner_idx` wins.
-    pub fn win(winner_idx: usize, team_count: usize) -> Self {
+    ///
+    /// Returns an error if `winner_idx` is not a valid team index.
+    pub fn win(winner_idx: usize, team_count: usize) -> Result<Self> {
+        if winner_idx >= team_count {
+            return Err(Error::InvalidOutcome(format!(
+                "winner index {} out of range for team count {}",
+                winner_idx, team_count
+            )));
+        }
+
         let mut ranks = vec![2; team_count];
         ranks[winner_idx] = 1;
-        Self { ranks }
+        Ok(Self { ranks })
     }
 
     /// Creates an outcome representing a draw between all teams.
