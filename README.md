@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="img/ladder-rs-banner.png" alt="ladder-rs" width="100%" style="max-width: 800px;">
+</div>
+
 # ladder-rs
 
 A high-performance, extensible matchmaking library in Rust.
