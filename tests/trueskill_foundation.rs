@@ -152,7 +152,7 @@ fn test_rating_system_implementation() {
     let team1 = TrueSkillTeam::from_player_ratings(vec![ts.create_rating()]);
     let team2 = TrueSkillTeam::from_player_ratings(vec![ts.create_rating()]);
     let teams = vec![team1, team2];
-    let outcome = GameOutcome::win(0, 2);
+    let outcome = GameOutcome::win(0, 2).unwrap();
     
     let rate_result = ts.rate(&teams, &outcome);
     assert!(rate_result.is_err());
