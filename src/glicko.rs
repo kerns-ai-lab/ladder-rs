@@ -1,5 +1,6 @@
 use crate::core::{Rating, RatingSystem, TeamRating, Outcome, GameOutcome};
 use crate::error::Result;
+use rayon::prelude::*;
 use std::f64::consts::PI;
 
 const GLICKO_SCALE: f64 = 173.7178;
@@ -195,18 +196,20 @@ impl Glicko {
             return GlickoRating::new(rating.mu, new_rd);
         }
 
-        let mut d_squared_inv = 0.0;
-        let mut delta_sum = 0.0;
+        let (d_squared_inv_sum, delta_sum) = opponents
+            .par_iter()
+            .map(|(opponent, score)| {
+                let g_rd = self.g(opponent.rd);
+                let expected = self.expected_score(rating.mu, opponent.mu, opponent.rd);
 
-        for (opponent, score) in opponents {
-            let g_rd = self.g(opponent.rd);
-            let expected = self.expected_score(rating.mu, opponent.mu, opponent.rd);
-            
-            d_squared_inv += g_rd * g_rd * expected * (1.0 - expected);
-            delta_sum += g_rd * (score - expected);
-        }
+                (
+                    g_rd * g_rd * expected * (1.0 - expected),
+                    g_rd * (score - expected),
+                )
+            })
+            .reduce(|| (0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
 
-        d_squared_inv *= self.config.q * self.config.q;
+        let d_squared_inv = d_squared_inv_sum * self.config.q * self.config.q;
 
         // Calculate new rating deviation
         let rd_new_inv_squared = 1.0 / (rating.rd * rating.rd) + d_squared_inv;
@@ -371,19 +374,21 @@ impl Glicko2 {
             return Glicko2Rating::from_glicko2_scale(mu, new_phi, sigma);
         }
 
-        let mut nu_inv = 0.0;
-        let mut delta_sum = 0.0;
+        let (nu_inv_sum, delta_sum) = opponents
+            .par_iter()
+            .map(|(opponent, score)| {
+                let (mu_j, phi_j, _) = opponent.to_glicko2_scale();
+                let g_phi = self.g(phi_j);
+                let expected = self.expected_score(mu, mu_j, phi_j);
 
-        for (opponent, score) in opponents {
-            let (mu_j, phi_j, _) = opponent.to_glicko2_scale();
-            let g_phi = self.g(phi_j);
-            let expected = self.expected_score(mu, mu_j, phi_j);
-            
-            nu_inv += g_phi * g_phi * expected * (1.0 - expected);
-            delta_sum += g_phi * (score - expected);
-        }
+                (
+                    g_phi * g_phi * expected * (1.0 - expected),
+                    g_phi * (score - expected),
+                )
+            })
+            .reduce(|| (0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
 
-        let nu = 1.0 / nu_inv;
+        let nu = 1.0 / nu_inv_sum;
         let delta = nu * delta_sum;
 
         // Calculate new volatility using iterative method
