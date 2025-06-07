@@ -1,0 +1,23 @@
+[package]
+name = "ladder-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Zanion"]
+description = "High-performance, extensible matchmaking library in Rust"
+repository = "https://github.com/zanion/ladder-rs"
+license = "MIT"
+keywords = ["matchmaking", "rating", "trueskill", "elo", "glicko"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+thiserror = "1.0"
+rand = "0.8"
+statrs = "0.16"
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.3"
+
+[[bench]]
+name = "rating_update"
+harness = false
