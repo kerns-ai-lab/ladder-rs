@@ -361,7 +361,7 @@ impl Factor for GaussianComparisonFactor {
                 Ok(delta)
             } else {
                 let v = -v_win();
-                let w = w_win(v);
+                let w = v * (v - eps);
                 let new_msg = GaussianDistribution::from_precision_mean(v, w);
                 let delta = self.msg_lesser.value().absolute_difference(&new_msg);
                 self.msg_lesser.set_value(new_msg);
