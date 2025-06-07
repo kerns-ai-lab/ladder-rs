@@ -3,6 +3,7 @@ use crate::{
     error::{Error, Result},
 };
 use statrs::distribution::{Normal, ContinuousCDF};
+use std::collections::HashMap;
 
 /// Implementation of Microsoft's TrueSkill rating system.
 /// 
@@ -28,6 +29,12 @@ pub struct TrueSkill {
     
     /// Draw margin (ε) - calculated from draw_probability
     draw_margin: f64,
+    
+    /// Convergence threshold for message passing iterations
+    convergence_threshold: f64,
+    
+    /// Maximum number of iterations for message passing
+    max_iterations: usize,
 }
 
 impl Default for TrueSkill {
@@ -42,6 +49,8 @@ impl Default for TrueSkill {
             gamma_squared: (sigma_0 / 100.0) * (sigma_0 / 100.0),
             draw_probability: 0.10, // 10% default draw probability
             draw_margin: 0.0, // Will be calculated in new()
+            convergence_threshold: 0.0001,
+            max_iterations: 20,
         }.calculate_draw_margin()
     }
 }
@@ -97,6 +106,8 @@ impl TrueSkill {
             gamma_squared,
             draw_probability,
             draw_margin: 0.0, // Will be calculated below
+            convergence_threshold: 0.0001,
+            max_iterations: 20,
         }.calculate_draw_margin())
     }
     
@@ -247,54 +258,384 @@ mod factor_graph {
                 1.0 / self.precision
             }
         }
+        
+        /// Multiplies two Gaussian messages (product of Gaussians)
+        pub fn multiply(&self, other: &Self) -> Self {
+            Self {
+                precision: self.precision + other.precision,
+                precision_adjusted_mean: self.precision_adjusted_mean + other.precision_adjusted_mean,
+            }
+        }
+        
+        /// Divides two Gaussian messages (division of Gaussians)
+        pub fn divide(&self, other: &Self) -> Result<Self> {
+            let new_precision = self.precision - other.precision;
+            if new_precision <= 0.0 {
+                return Err(Error::NumericalIssue(
+                    "Division resulted in non-positive precision".to_string(),
+                ));
+            }
+            
+            Ok(Self {
+                precision: new_precision,
+                precision_adjusted_mean: self.precision_adjusted_mean - other.precision_adjusted_mean,
+            })
+        }
     }
     
-    /// Variable node types in the TrueSkill factor graph
-    #[derive(Debug, Clone, PartialEq)]
-    pub enum VariableNode {
-        /// Player skill (s_i)
-        Skill(GaussianMessage),
+    /// Variable node in the TrueSkill factor graph
+    #[derive(Debug, Clone)]
+    pub struct VariableNode {
+        /// Current marginal belief
+        pub marginal: GaussianMessage,
         
-        /// Player performance (p_i)
-        Performance(GaussianMessage),
+        /// Messages from connected factor nodes
+        pub messages_from_factors: HashMap<usize, GaussianMessage>,
+    }
+    
+    impl VariableNode {
+        /// Creates a new variable node with the given prior
+        pub fn new(prior: GaussianMessage) -> Self {
+            Self {
+                marginal: prior,
+                messages_from_factors: HashMap::new(),
+            }
+        }
         
-        /// Team performance (t_j)
-        TeamPerformance(GaussianMessage),
+        /// Updates the marginal by multiplying all incoming messages
+        pub fn update_marginal(&mut self) -> Result<()> {
+            let mut new_marginal = GaussianMessage::new(0.0, 0.0);
+            
+            for message in self.messages_from_factors.values() {
+                new_marginal = new_marginal.multiply(message);
+            }
+            
+            self.marginal = new_marginal;
+            Ok(())
+        }
         
-        /// Performance difference (d_k)
-        PerformanceDiff(GaussianMessage),
+        /// Computes the message to send to a specific factor (cavity distribution)
+        pub fn message_to_factor(&self, factor_id: usize) -> Result<GaussianMessage> {
+            let mut cavity = self.marginal.clone();
+            
+            if let Some(incoming_message) = self.messages_from_factors.get(&factor_id) {
+                cavity = cavity.divide(incoming_message)?;
+            }
+            
+            Ok(cavity)
+        }
     }
     
     /// Factor node types in the TrueSkill factor graph
     #[derive(Debug)]
     pub enum FactorNode {
         /// Prior factor connecting to skill variable
-        Prior,
+        Prior {
+            variable_id: usize,
+            prior_message: GaussianMessage,
+        },
         
         /// Likelihood factor connecting skill to performance
         Likelihood {
-            /// Performance variance (β²)
+            skill_id: usize,
+            performance_id: usize,
             beta_squared: f64,
         },
         
         /// Sum factor for team performance
         Sum {
-            /// Coefficients for each player's contribution
+            performance_ids: Vec<usize>,
+            team_performance_id: usize,
             coefficients: Vec<f64>,
         },
         
         /// Difference factor for performance difference
-        Difference,
+        Difference {
+            team_a_id: usize,
+            team_b_id: usize,
+            difference_id: usize,
+        },
         
         /// Comparison factor for win/loss/draw outcomes
         Comparison {
-            /// Epsilon for draw margin
+            difference_id: usize,
             epsilon: f64,
-            /// Whether this is a draw
-            is_draw: bool,
+            outcome: ComparisonOutcome,
         },
     }
+    
+    #[derive(Debug, Clone)]
+    pub enum ComparisonOutcome {
+        Win, // Team A wins (difference > epsilon)
+        Draw, // Draw (|difference| <= epsilon)
+    }
+    
+    impl FactorNode {
+        /// Updates messages from this factor to connected variables
+        pub fn update_messages(
+            &self,
+            variables: &mut HashMap<usize, VariableNode>,
+        ) -> Result<()> {
+            match self {
+                FactorNode::Prior { variable_id, prior_message } => {
+                    if let Some(var) = variables.get_mut(variable_id) {
+                        var.messages_from_factors.insert(0, prior_message.clone());
+                    }
+                }
+                
+                FactorNode::Likelihood { skill_id, performance_id, beta_squared } => {
+                    // Message from skill to performance
+                    if let Some(skill_var) = variables.get(skill_id) {
+                        let skill_message = skill_var.message_to_factor(1)?;
+                        let perf_message = GaussianMessage::new(
+                            skill_message.precision,
+                            skill_message.precision_adjusted_mean,
+                        );
+                        
+                        if let Some(perf_var) = variables.get_mut(performance_id) {
+                            perf_var.messages_from_factors.insert(1, perf_message);
+                        }
+                    }
+                    
+                    // Message from performance to skill
+                    if let Some(perf_var) = variables.get(performance_id) {
+                        let perf_message = perf_var.message_to_factor(1)?;
+                        let new_precision = 1.0 / (perf_message.variance() + beta_squared);
+                        let new_precision_adjusted_mean = new_precision * perf_message.mean();
+                        
+                        let skill_message = GaussianMessage::new(
+                            new_precision,
+                            new_precision_adjusted_mean,
+                        );
+                        
+                        if let Some(skill_var) = variables.get_mut(skill_id) {
+                            skill_var.messages_from_factors.insert(1, skill_message);
+                        }
+                    }
+                }
+                
+                FactorNode::Sum { performance_ids, team_performance_id, coefficients } => {
+                    // Sum factor: team_performance = sum(coefficients[i] * performance[i])
+                    let n = performance_ids.len();
+                    
+                    // Message to team performance
+                    let mut sum_precision = 0.0;
+                    let mut sum_precision_adjusted_mean = 0.0;
+                    
+                    for (i, &perf_id) in performance_ids.iter().enumerate() {
+                        if let Some(perf_var) = variables.get(&perf_id) {
+                            let perf_message = perf_var.message_to_factor(2)?;
+                            let coeff = coefficients.get(i).copied().unwrap_or(1.0);
+                            sum_precision += coeff * coeff * perf_message.precision;
+                            sum_precision_adjusted_mean += coeff * perf_message.precision_adjusted_mean;
+                        }
+                    }
+                    
+                    let team_message = GaussianMessage::new(sum_precision, sum_precision_adjusted_mean);
+                    if let Some(team_var) = variables.get_mut(team_performance_id) {
+                        team_var.messages_from_factors.insert(2, team_message);
+                    }
+                    
+                    // Messages to individual performances
+                    for (i, &perf_id) in performance_ids.iter().enumerate() {
+                        if let Some(team_var) = variables.get(team_performance_id) {
+                            let team_message = team_var.message_to_factor(2)?;
+                            let coeff = coefficients.get(i).copied().unwrap_or(1.0);
+                            
+                            // Subtract contributions from other performances
+                            let mut other_precision = 0.0;
+                            let mut other_precision_adjusted_mean = 0.0;
+                            
+                            for (j, &other_perf_id) in performance_ids.iter().enumerate() {
+                                if i != j {
+                                    if let Some(other_perf_var) = variables.get(&other_perf_id) {
+                                        let other_message = other_perf_var.message_to_factor(2)?;
+                                        let other_coeff = coefficients.get(j).copied().unwrap_or(1.0);
+                                        other_precision += other_coeff * other_coeff * other_message.precision;
+                                        other_precision_adjusted_mean += other_coeff * other_message.precision_adjusted_mean;
+                                    }
+                                }
+                            }
+                            
+                            let remaining_precision = team_message.precision - other_precision;
+                            let remaining_precision_adjusted_mean = team_message.precision_adjusted_mean - other_precision_adjusted_mean;
+                            
+                            if remaining_precision > 0.0 {
+                                let perf_message = GaussianMessage::new(
+                                    remaining_precision / (coeff * coeff),
+                                    remaining_precision_adjusted_mean / coeff,
+                                );
+                                
+                                if let Some(perf_var) = variables.get_mut(&perf_id) {
+                                    perf_var.messages_from_factors.insert(2, perf_message);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                FactorNode::Difference { team_a_id, team_b_id, difference_id } => {
+                    // Difference factor: difference = team_a - team_b
+                    
+                    // Message to difference
+                    if let (Some(team_a_var), Some(team_b_var)) = 
+                        (variables.get(team_a_id), variables.get(team_b_id)) {
+                        let team_a_message = team_a_var.message_to_factor(3)?;
+                        let team_b_message = team_b_var.message_to_factor(3)?;
+                        
+                        let diff_precision = team_a_message.precision + team_b_message.precision;
+                        let diff_precision_adjusted_mean = 
+                            team_a_message.precision_adjusted_mean - team_b_message.precision_adjusted_mean;
+                        
+                        let diff_message = GaussianMessage::new(diff_precision, diff_precision_adjusted_mean);
+                        if let Some(diff_var) = variables.get_mut(difference_id) {
+                            diff_var.messages_from_factors.insert(3, diff_message);
+                        }
+                    }
+                    
+                    // Messages to teams (more complex, simplified here)
+                    // In a full implementation, these would use the cavity distribution approach
+                }
+                
+                FactorNode::Comparison { difference_id, epsilon, outcome } => {
+                    // Comparison factor using V and W functions
+                    if let Some(diff_var) = variables.get_mut(difference_id) {
+                        let cavity = diff_var.message_to_factor(4)?;
+                        let d_cavity = cavity.mean();
+                        let c_cavity = cavity.variance();
+                        
+                        if c_cavity <= 0.0 {
+                            return Err(Error::NumericalIssue(
+                                "Non-positive cavity variance in comparison factor".to_string(),
+                            ));
+                        }
+                        
+                        let sqrt_c = c_cavity.sqrt();
+                        let t_arg = d_cavity / sqrt_c;
+                        let epsilon_arg = epsilon / sqrt_c;
+                        
+                        let normal = Normal::new(0.0, 1.0).unwrap();
+                        
+                        let (v_val, w_val) = match outcome {
+                            ComparisonOutcome::Win => {
+                                let v = normal.pdf(t_arg - epsilon_arg) / normal.cdf(t_arg - epsilon_arg);
+                                let w = v * (v + t_arg - epsilon_arg);
+                                (v, w)
+                            }
+                            ComparisonOutcome::Draw => {
+                                let phi_upper = normal.cdf(epsilon_arg - t_arg);
+                                let phi_lower = normal.cdf(-epsilon_arg - t_arg);
+                                let pdf_upper = normal.pdf(epsilon_arg - t_arg);
+                                let pdf_lower = normal.pdf(-epsilon_arg - t_arg);
+                                
+                                let denom = phi_upper - phi_lower;
+                                if denom.abs() < f64::EPSILON {
+                                    return Err(Error::NumericalIssue(
+                                        "Near-zero denominator in draw comparison".to_string(),
+                                    ));
+                                }
+                                
+                                let v = (pdf_lower - pdf_upper) / denom;
+                                let w = v * v + 
+                                    ((epsilon_arg - t_arg) * pdf_upper + (epsilon_arg + t_arg) * pdf_lower) / denom;
+                                (v, w)
+                            }
+                        };
+                        
+                        let new_precision = cavity.precision + w_val / c_cavity;
+                        let new_precision_adjusted_mean = 
+                            cavity.precision_adjusted_mean + (v_val / sqrt_c);
+                        
+                        let updated_message = GaussianMessage::new(new_precision, new_precision_adjusted_mean);
+                        diff_var.messages_from_factors.insert(4, updated_message);
+                    }
+                }
+            }
+            
+            Ok(())
+        }
+    }
+    
+    /// Message passing scheduler for the TrueSkill factor graph
+    pub struct MessagePassingScheduler {
+        variables: HashMap<usize, VariableNode>,
+        factors: Vec<FactorNode>,
+        convergence_threshold: f64,
+        max_iterations: usize,
+    }
+    
+    impl MessagePassingScheduler {
+        pub fn new(convergence_threshold: f64, max_iterations: usize) -> Self {
+            Self {
+                variables: HashMap::new(),
+                factors: Vec::new(),
+                convergence_threshold,
+                max_iterations,
+            }
+        }
+        
+        pub fn add_variable(&mut self, id: usize, prior: GaussianMessage) {
+            self.variables.insert(id, VariableNode::new(prior));
+        }
+        
+        pub fn add_factor(&mut self, factor: FactorNode) {
+            self.factors.push(factor);
+        }
+        
+        pub fn run_message_passing(&mut self) -> Result<()> {
+            let mut prev_marginals = HashMap::new();
+            
+            for iteration in 0..self.max_iterations {
+                // Store previous marginals for convergence check
+                for (id, var) in &self.variables {
+                    prev_marginals.insert(*id, var.marginal.clone());
+                }
+                
+                // Update all factor messages
+                for factor in &self.factors {
+                    factor.update_messages(&mut self.variables)?;
+                }
+                
+                // Update all variable marginals
+                for var in self.variables.values_mut() {
+                    var.update_marginal()?;
+                }
+                
+                // Check convergence
+                let mut converged = true;
+                for (id, var) in &self.variables {
+                    if let Some(prev_marginal) = prev_marginals.get(id) {
+                        let mean_diff = (var.marginal.mean() - prev_marginal.mean()).abs();
+                        let var_diff = (var.marginal.variance() - prev_marginal.variance()).abs();
+                        
+                        if mean_diff > self.convergence_threshold || var_diff > self.convergence_threshold {
+                            converged = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if converged {
+                    break;
+                }
+                
+                if iteration == self.max_iterations - 1 {
+                    return Err(Error::ConvergenceFailure(
+                        format!("Message passing did not converge after {} iterations", self.max_iterations),
+                    ));
+                }
+            }
+            
+            Ok(())
+        }
+        
+        pub fn get_variable_marginal(&self, id: usize) -> Option<&GaussianMessage> {
+            self.variables.get(&id).map(|var| &var.marginal)
+        }
+    }
 }
+
+use factor_graph::*;
 
 impl RatingSystem for TrueSkill {
     type PlayerRating = TrueSkillRating;
@@ -315,11 +656,145 @@ impl RatingSystem for TrueSkill {
     
     fn rate(
         &self,
-        _rating_groups: &[Self::TeamRating],
-        _outcome: &Self::Outcome,
+        rating_groups: &[Self::TeamRating],
+        outcome: &Self::Outcome,
     ) -> Result<Vec<Self::TeamRating>> {
-        // This will be implemented in Phase 3
-        Err(Error::Other("TrueSkill rating update not yet implemented".to_string()))
+        if rating_groups.len() < 2 {
+            return Err(Error::InvalidInput(
+                "At least two teams required for rating update".to_string(),
+            ));
+        }
+        
+        // Build factor graph
+        let mut scheduler = MessagePassingScheduler::new(self.convergence_threshold, self.max_iterations);
+        let mut variable_counter = 0;
+        
+        // Track variable IDs for each player, performance, team performance, and differences
+        let mut player_skill_ids = Vec::new();
+        let mut performance_ids = Vec::new();
+        let mut team_performance_ids = Vec::new();
+        
+        // Add skill variables and performance variables for each player
+        for team in rating_groups {
+            let mut team_skill_ids = Vec::new();
+            let mut team_perf_ids = Vec::new();
+            
+            for rating in team.player_ratings() {
+                // Add skill variable with dynamics variance added
+                let skill_variance = rating.variance + self.gamma_squared;
+                let skill_prior = GaussianMessage::from_mean_and_variance(rating.mean, skill_variance)?;
+                scheduler.add_variable(variable_counter, skill_prior);
+                team_skill_ids.push(variable_counter);
+                variable_counter += 1;
+                
+                // Add performance variable
+                let perf_prior = GaussianMessage::new(0.0, 0.0); // Will be updated by likelihood factor
+                scheduler.add_variable(variable_counter, perf_prior);
+                team_perf_ids.push(variable_counter);
+                variable_counter += 1;
+                
+                // Add likelihood factor connecting skill to performance
+                scheduler.add_factor(FactorNode::Likelihood {
+                    skill_id: team_skill_ids[team_skill_ids.len() - 1],
+                    performance_id: team_perf_ids[team_perf_ids.len() - 1],
+                    beta_squared: self.beta_squared,
+                });
+            }
+            
+            player_skill_ids.push(team_skill_ids);
+            performance_ids.push(team_perf_ids);
+            
+            // Add team performance variable
+            let team_perf_prior = GaussianMessage::new(0.0, 0.0); // Will be updated by sum factor
+            scheduler.add_variable(variable_counter, team_perf_prior);
+            team_performance_ids.push(variable_counter);
+            
+            // Add sum factor for team performance
+            scheduler.add_factor(FactorNode::Sum {
+                performance_ids: team_perf_ids,
+                team_performance_id: variable_counter,
+                coefficients: vec![1.0; team.player_ratings().len()], // Equal contribution
+            });
+            
+            variable_counter += 1;
+        }
+        
+        // Add difference variables and comparison factors based on outcome
+        let ranks = match outcome {
+            GameOutcome::Ranks(ranks) => ranks,
+            _ => return Err(Error::InvalidInput(
+                "TrueSkill requires rank-based outcomes".to_string(),
+            )),
+        };
+        
+        if ranks.len() != rating_groups.len() {
+            return Err(Error::InvalidInput(
+                "Number of ranks must match number of teams".to_string(),
+            ));
+        }
+        
+        // Create pairwise comparisons based on ranks
+        for i in 0..rating_groups.len() {
+            for j in (i + 1)..rating_groups.len() {
+                // Add difference variable
+                let diff_prior = GaussianMessage::new(0.0, 0.0);
+                scheduler.add_variable(variable_counter, diff_prior);
+                let diff_id = variable_counter;
+                variable_counter += 1;
+                
+                // Add difference factor
+                scheduler.add_factor(FactorNode::Difference {
+                    team_a_id: team_performance_ids[i],
+                    team_b_id: team_performance_ids[j],
+                    difference_id: diff_id,
+                });
+                
+                // Determine outcome and add comparison factor
+                let outcome = if ranks[i] < ranks[j] {
+                    ComparisonOutcome::Win // Team i wins (lower rank is better)
+                } else if ranks[i] == ranks[j] {
+                    ComparisonOutcome::Draw
+                } else {
+                    // Team j wins, but we model it as team j - team i > 0
+                    // For simplicity, we'll swap the difference
+                    scheduler.add_factor(FactorNode::Difference {
+                        team_a_id: team_performance_ids[j],
+                        team_b_id: team_performance_ids[i],
+                        difference_id: diff_id,
+                    });
+                    ComparisonOutcome::Win
+                };
+                
+                scheduler.add_factor(FactorNode::Comparison {
+                    difference_id: diff_id,
+                    epsilon: self.draw_margin,
+                    outcome,
+                });
+            }
+        }
+        
+        // Run message passing
+        scheduler.run_message_passing()?;
+        
+        // Extract updated ratings
+        let mut updated_teams = Vec::new();
+        let mut skill_id_counter = 0;
+        
+        for (team_idx, team) in rating_groups.iter().enumerate() {
+            let mut updated_ratings = Vec::new();
+            
+            for _ in team.player_ratings() {
+                if let Some(marginal) = scheduler.get_variable_marginal(skill_id_counter) {
+                    let updated_rating = TrueSkillRating::new(marginal.mean(), marginal.variance())?;
+                    updated_ratings.push(updated_rating);
+                }
+                skill_id_counter += 2; // Skip performance variable
+            }
+            
+            updated_teams.push(TrueSkillTeam::from_player_ratings(updated_ratings));
+        }
+        
+        Ok(updated_teams)
     }
     
     fn calculate_match_quality(&self, _rating_groups: &[Self::TeamRating]) -> Result<f64> {
