@@ -271,7 +271,7 @@ mod factor_graph {
         pub fn divide(&self, other: &Self) -> Result<Self> {
             let new_precision = self.precision - other.precision;
             if new_precision <= 0.0 {
-                return Err(Error::NumericalIssue(
+                return Err(Error::NumericalError(
                     "Division resulted in non-positive precision".to_string(),
                 ));
             }
@@ -504,7 +504,7 @@ mod factor_graph {
                         let c_cavity = cavity.variance();
                         
                         if c_cavity <= 0.0 {
-                            return Err(Error::NumericalIssue(
+                            return Err(Error::NumericalError(
                                 "Non-positive cavity variance in comparison factor".to_string(),
                             ));
                         }
@@ -529,7 +529,7 @@ mod factor_graph {
                                 
                                 let denom = phi_upper - phi_lower;
                                 if denom.abs() < f64::EPSILON {
-                                    return Err(Error::NumericalIssue(
+                                    return Err(Error::NumericalError(
                                         "Near-zero denominator in draw comparison".to_string(),
                                     ));
                                 }
@@ -806,7 +806,7 @@ mod tests {
         let rating = ts.create_rating();
         
         assert_eq!(rating.mean(), 25.0);
-        assert!((rating.variance() - (25.0/3.0).powi(2)).abs() < 1e-10);
+        assert!((rating.variance() - (25.0_f64/3.0).powi(2)).abs() < 1e-10);
     }
 
     #[test]
