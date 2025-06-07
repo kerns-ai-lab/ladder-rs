@@ -13,6 +13,7 @@ categories = ["game-development", "algorithms"]
 thiserror = "1.0"
 rand = "0.8"
 statrs = "0.16"
+rayon = "1.7"
 
 [dev-dependencies]
 criterion = "0.5"
