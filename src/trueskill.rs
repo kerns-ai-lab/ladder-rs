@@ -307,6 +307,18 @@ impl Factor for GaussianComparisonFactor {
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.greater_variable_id, self.lesser_variable_id]
     }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.greater_variable_id {
+            Ok(&self.msg_greater)
+        } else if variable_id == self.lesser_variable_id {
+            Ok(&self.msg_lesser)
+        } else {
+            Err(Error::InvalidInput(
+                "Variable ID not connected to this factor".to_string(),
+            ))
+        }
+    }
 }
 
 /// Factor graph for TrueSkill computation
