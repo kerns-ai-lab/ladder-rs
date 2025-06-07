@@ -207,7 +207,6 @@ impl Glicko {
         }
 
         d_squared_inv *= self.config.q * self.config.q;
-        let d_squared = 1.0 / d_squared_inv;
 
         // Calculate new rating deviation
         let rd_new_inv_squared = 1.0 / (rating.rd * rating.rd) + d_squared_inv;
@@ -530,7 +529,7 @@ impl RatingSystem for Glicko2 {
         let player1 = &team1.player_ratings()[0];
         let player2 = &team2.player_ratings()[0];
 
-        let (mu1, phi1, _) = player1.to_glicko2_scale();
+        let (mu1, _phi1, _) = player1.to_glicko2_scale();
         let (mu2, phi2, _) = player2.to_glicko2_scale();
 
         // Match quality is higher when expected score is closer to 0.5
@@ -541,7 +540,7 @@ impl RatingSystem for Glicko2 {
     }
 }
 
-// Re-export for backward compatibility with Phase 6 specification structure
+// Maintain Phase 6 module structure for backward compatibility
 pub mod glicko {
     pub use super::Glicko;
 }
@@ -549,10 +548,6 @@ pub mod glicko {
 pub mod glicko2 {
     pub use super::Glicko2;
 }
-
-// Direct exports for convenience
-pub use glicko::Glicko;
-pub use glicko2::Glicko2;
 
 #[cfg(test)]
 mod tests {
