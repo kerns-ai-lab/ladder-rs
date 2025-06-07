@@ -1,3 +1,5 @@
+![ladder-rs](img/ladder-rs-logo.png)
+
 # ladder-rs
 
 A high-performance, extensible matchmaking library in Rust.
