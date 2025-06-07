@@ -32,6 +32,15 @@ impl GaussianDistribution {
             precision,
         })
     }
+
+    /// Construct a Gaussian from a mean and variance without validation.
+    pub fn from_mean_and_variance(mean: f64, variance: f64) -> Self {
+        let precision = if variance.is_infinite() { 0.0 } else { 1.0 / variance };
+        Self {
+            precision_mean: precision * mean,
+            precision,
+        }
+    }
     
     pub fn from_precision_mean(precision_mean: f64, precision: f64) -> Self {
         Self { precision_mean, precision }
@@ -115,8 +124,13 @@ impl Variable {
     pub fn update_belief(&mut self, messages: &[&Message]) -> f64 {
         let old_value = self.value.clone();
 
-        let mut new_value = GaussianDistribution::from_precision_mean(0.0, 0.0);
-        for msg in messages {
+        let mut iter = messages.iter();
+        let mut new_value = if let Some(first) = iter.next() {
+            first.value().clone()
+        } else {
+            GaussianDistribution::from_mean_and_variance(0.0, f64::INFINITY)
+        };
+        for msg in iter {
             new_value = new_value.multiply(msg.value());
         }
 
