@@ -36,6 +36,15 @@ impl GaussianDistribution {
     pub fn from_precision_mean(precision_mean: f64, precision: f64) -> Self {
         Self { precision_mean, precision }
     }
+
+    /// Construct a Gaussian from a mean and variance without validation.
+    pub fn from_mean_and_variance(mean: f64, variance: f64) -> Self {
+        let precision = if variance.is_infinite() { 0.0 } else { 1.0 / variance };
+        Self {
+            precision_mean: precision * mean,
+            precision,
+        }
+    }
     
     pub fn mean(&self) -> f64 {
         if self.precision == 0.0 {
@@ -109,6 +118,25 @@ impl Variable {
     pub fn id(&self) -> usize {
         self.id
     }
+
+    /// Update this variable's belief by multiplying incoming factor messages
+    /// and return the absolute difference from the previous value.
+    pub fn update_belief(&mut self, messages: &[&Message]) -> f64 {
+        let old_value = self.value.clone();
+
+        let mut iter = messages.iter();
+        let mut new_value = if let Some(first) = iter.next() {
+            first.value().clone()
+        } else {
+            GaussianDistribution::from_mean_and_variance(0.0, f64::INFINITY)
+        };
+        for msg in iter {
+            new_value = new_value.multiply(msg.value());
+        }
+
+        self.value = new_value.clone();
+        old_value.absolute_difference(&new_value)
+    }
 }
 
 /// Message passed between factors and variables
@@ -135,6 +163,7 @@ impl Message {
 pub trait Factor {
     fn update_message(&mut self, variable_id: usize) -> Result<f64>;
     fn connected_variables(&self) -> Vec<usize>;
+    fn message_to(&self, variable_id: usize) -> Result<&Message>;
 }
 
 /// Prior factor that sets initial skill distribution
@@ -172,6 +201,14 @@ impl Factor for GaussianPriorFactor {
     
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.variable_id]
+    }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.variable_id {
+            Ok(&self.message)
+        } else {
+            Err(Error::InvalidInput("Variable ID mismatch".to_string()))
+        }
     }
 }
 
@@ -220,6 +257,134 @@ impl Factor for GaussianLikelihoodFactor {
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.skill_variable_id, self.performance_variable_id]
     }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.performance_variable_id {
+            Ok(&self.skill_to_perf_message)
+        } else if variable_id == self.skill_variable_id {
+            Ok(&self.perf_to_skill_message)
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
+    }
+}
+
+/// Comparison factor enforcing game outcome between two performance variables
+pub struct GaussianComparisonFactor {
+    greater_variable_id: usize,
+    lesser_variable_id: usize,
+    draw_margin: f64,
+    is_draw: bool,
+    msg_greater: Message,
+    msg_lesser: Message,
+}
+
+impl GaussianComparisonFactor {
+    pub fn new(
+        greater_variable_id: usize,
+        lesser_variable_id: usize,
+        draw_margin: f64,
+        is_draw: bool,
+    ) -> Result<Self> {
+        let zero = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        Ok(Self {
+            greater_variable_id,
+            lesser_variable_id,
+            draw_margin,
+            is_draw,
+            msg_greater: Message::new(zero.clone()),
+            msg_lesser: Message::new(zero),
+        })
+    }
+}
+
+impl Factor for GaussianComparisonFactor {
+    fn update_message(&mut self, variable_id: usize) -> Result<f64> {
+        let eps = self.draw_margin;
+        let normal = Normal::new(0.0, 1.0).unwrap();
+
+        let v_win = || {
+            let denom = normal.cdf(-eps);
+            if denom < 1e-10 { 0.0 } else { normal.pdf(-eps) / denom }
+        };
+
+        let w_win = |v: f64| v * (v + eps);
+
+        let v_draw = || {
+            let phi_upper = normal.cdf(eps);
+            let phi_lower = normal.cdf(-eps);
+            let pdf_upper = normal.pdf(eps);
+            let pdf_lower = normal.pdf(-eps);
+            let denom = phi_upper - phi_lower;
+            if denom.abs() < 1e-10 {
+                0.0
+            } else {
+                (pdf_lower - pdf_upper) / denom
+            }
+        };
+
+        let w_draw = || {
+            let phi_upper = normal.cdf(eps);
+            let phi_lower = normal.cdf(-eps);
+            let denom = phi_upper - phi_lower;
+            if denom.abs() < 1e-10 {
+                0.0
+            } else {
+                let pdf = normal.pdf(eps);
+                2.0 * eps * pdf / denom
+            }
+        };
+
+        if variable_id == self.greater_variable_id {
+            if self.is_draw {
+                let v = v_draw();
+                let w = w_draw();
+                let new_msg = GaussianDistribution::from_precision_mean(v, 1.0 - w);
+                let delta = self.msg_greater.value().absolute_difference(&new_msg);
+                self.msg_greater.set_value(new_msg);
+                Ok(delta)
+            } else {
+                let v = v_win();
+                let w = w_win(v);
+                let new_msg = GaussianDistribution::from_precision_mean(v, w);
+                let delta = self.msg_greater.value().absolute_difference(&new_msg);
+                self.msg_greater.set_value(new_msg);
+                Ok(delta)
+            }
+        } else if variable_id == self.lesser_variable_id {
+            if self.is_draw {
+                let v = v_draw();
+                let w = w_draw();
+                let new_msg = GaussianDistribution::from_precision_mean(v, 1.0 - w);
+                let delta = self.msg_lesser.value().absolute_difference(&new_msg);
+                self.msg_lesser.set_value(new_msg);
+                Ok(delta)
+            } else {
+                let v = -v_win();
+                let w = w_win(v);
+                let new_msg = GaussianDistribution::from_precision_mean(v, w);
+                let delta = self.msg_lesser.value().absolute_difference(&new_msg);
+                self.msg_lesser.set_value(new_msg);
+                Ok(delta)
+            }
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
+    }
+
+    fn connected_variables(&self) -> Vec<usize> {
+        vec![self.greater_variable_id, self.lesser_variable_id]
+    }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.greater_variable_id {
+            Ok(&self.msg_greater)
+        } else if variable_id == self.lesser_variable_id {
+            Ok(&self.msg_lesser)
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
+    }
 }
 
 /// Factor modeling the difference between two performance variables.
@@ -251,6 +416,10 @@ impl Factor for PerformanceDifferenceFactor {
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.perf1_id, self.perf2_id, self.diff_id]
     }
+
+    fn message_to(&self, _variable_id: usize) -> Result<&Message> {
+        Ok(&self.message)
+    }
 }
 
 /// Outcome constraint factor that truncates the performance difference
@@ -280,6 +449,10 @@ impl Factor for TruncationFactor {
 
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.diff_id]
+    }
+
+    fn message_to(&self, _variable_id: usize) -> Result<&Message> {
+        Ok(&self.message)
     }
 }
 
@@ -318,11 +491,11 @@ impl FactorGraph {
     pub fn run_schedule_loop(&mut self, max_delta: f64, max_iterations: usize) -> Result<f64> {
         let mut iteration = 0;
         let mut delta = f64::INFINITY;
-        
+
         while delta > max_delta && iteration < max_iterations {
             delta = 0.0;
             iteration += 1;
-            
+
             // Update all factor messages
             for factor in &mut self.factors {
                 for variable_id in factor.connected_variables() {
@@ -330,8 +503,21 @@ impl FactorGraph {
                     delta = delta.max(factor_delta);
                 }
             }
+
+            // Update all variable beliefs based on incoming messages
+            for variable in self.variables.values_mut() {
+                let var_id = variable.id();
+                let mut messages = Vec::new();
+                for factor in &self.factors {
+                    if factor.connected_variables().iter().any(|&id| id == var_id) {
+                        messages.push(factor.message_to(var_id)?);
+                    }
+                }
+                let var_delta = variable.update_belief(&messages);
+                delta = delta.max(var_delta);
+            }
         }
-        
+
         Ok(delta)
     }
 }
