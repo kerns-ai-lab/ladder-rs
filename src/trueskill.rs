@@ -1,9 +1,8 @@
 use crate::{
-    core::{GameOutcome, Rating, RatingSystem, TeamRating},
+    core::{GameOutcome, Rating, RatingSystem, TeamRating, Outcome},
     error::{Error, Result},
 };
-use statrs::distribution::{Normal, ContinuousCDF};
-use std::f64::consts::PI;
+use statrs::distribution::{Normal, ContinuousCDF, Continuous};
 
 /// Implementation of Microsoft's TrueSkill rating system.
 /// 
@@ -475,7 +474,7 @@ mod factor_graph {
                 self.update_team_performance_marginals()?;
                 
                 // Check convergence
-                let mut max_change = 0.0;
+                let mut max_change: f64 = 0.0;
                 for (old, new) in old_team_performances.iter().zip(self.team_performances.iter()) {
                     let mean_change = (old.mean() - new.mean()).abs();
                     let var_change = (old.variance() - new.variance()).abs();
