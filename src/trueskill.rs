@@ -416,7 +416,6 @@ mod factor_graph {
                 
                 FactorNode::Sum { performance_ids, team_performance_id, coefficients } => {
                     // Sum factor: team_performance = sum(coefficients[i] * performance[i])
-                    let n = performance_ids.len();
                     
                     // Message to team performance
                     let mut sum_precision = 0.0;
@@ -710,7 +709,6 @@ impl RatingSystem for TrueSkill {
             }
             
             player_skill_ids.push(team_skill_ids);
-            performance_ids.push(team_perf_ids);
             
             // Add team performance variable
             let team_perf_prior = GaussianMessage::new(0.0, 0.0); // Will be updated by sum factor
@@ -719,11 +717,12 @@ impl RatingSystem for TrueSkill {
             
             // Add sum factor for team performance
             scheduler.add_factor(FactorNode::Sum {
-                performance_ids: team_perf_ids,
+                performance_ids: team_perf_ids.clone(),
                 team_performance_id: variable_counter,
                 coefficients: vec![1.0; team.player_ratings().len()], // Equal contribution
             });
             
+            performance_ids.push(team_perf_ids);
             variable_counter += 1;
         }
         
@@ -774,7 +773,7 @@ impl RatingSystem for TrueSkill {
         let mut updated_teams = Vec::new();
         let mut skill_id_counter = 0;
         
-        for (team_idx, team) in rating_groups.iter().enumerate() {
+        for (_team_idx, team) in rating_groups.iter().enumerate() {
             let mut updated_ratings = Vec::new();
             
             for _ in team.player_ratings() {
