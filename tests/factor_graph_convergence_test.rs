@@ -116,3 +116,26 @@ fn test_absolute_difference_calculation() {
     let result2 = ts.rate(&[team3, team4], &outcome);
     assert!(result2.is_ok(), "Factor graph should converge for different ratings");
 }
+
+#[test]
+fn test_outcome_affects_ratings() {
+    let ts = TrueSkill::new_factor_graph();
+
+    let player1 = ts.create_rating();
+    let player2 = ts.create_rating();
+
+    let team1 = TrueSkillTeam::from_player_ratings(vec![player1.clone()]);
+    let team2 = TrueSkillTeam::from_player_ratings(vec![player2.clone()]);
+
+    let win_result = ts
+        .rate(&[team1.clone(), team2.clone()], &GameOutcome::win(0, 2))
+        .unwrap();
+    let lose_result = ts
+        .rate(&[team1, team2], &GameOutcome::win(1, 2))
+        .unwrap();
+
+    let win_mu = win_result[0].player_ratings()[0].mean();
+    let lose_mu = lose_result[0].player_ratings()[0].mean();
+
+    assert!( (win_mu - lose_mu).abs() > 1e-6, "Different outcomes should change ratings differently" );
+}

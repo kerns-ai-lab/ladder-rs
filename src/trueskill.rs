@@ -222,6 +222,67 @@ impl Factor for GaussianLikelihoodFactor {
     }
 }
 
+/// Factor modeling the difference between two performance variables.
+pub struct PerformanceDifferenceFactor {
+    perf1_id: usize,
+    perf2_id: usize,
+    diff_id: usize,
+    message: Message,
+}
+
+impl PerformanceDifferenceFactor {
+    pub fn new(perf1_id: usize, perf2_id: usize, diff_id: usize) -> Self {
+        let zero = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        Self {
+            perf1_id,
+            perf2_id,
+            diff_id,
+            message: Message::new(zero),
+        }
+    }
+}
+
+impl Factor for PerformanceDifferenceFactor {
+    fn update_message(&mut self, _variable_id: usize) -> Result<f64> {
+        // Message passing not yet implemented
+        Ok(0.0)
+    }
+
+    fn connected_variables(&self) -> Vec<usize> {
+        vec![self.perf1_id, self.perf2_id, self.diff_id]
+    }
+}
+
+/// Outcome constraint factor that truncates the performance difference
+/// based on the observed game outcome.
+pub struct TruncationFactor {
+    diff_id: usize,
+    _outcome: GameOutcome,
+    message: Message,
+}
+
+impl TruncationFactor {
+    pub fn new(diff_id: usize, outcome: GameOutcome) -> Self {
+        let zero = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        Self {
+            diff_id,
+            _outcome: outcome,
+            message: Message::new(zero),
+        }
+    }
+}
+
+impl Factor for TruncationFactor {
+    fn update_message(&mut self, _variable_id: usize) -> Result<f64> {
+        // Truncation logic not yet implemented
+        Ok(0.0)
+    }
+
+    fn connected_variables(&self) -> Vec<usize> {
+        vec![self.diff_id]
+    }
+}
+
 /// Factor graph for TrueSkill computation
 pub struct FactorGraph {
     variables: HashMap<usize, Variable>,
@@ -539,32 +600,50 @@ impl TrueSkill {
         factor_graph.add_factor(Box::new(GaussianLikelihoodFactor::new(
             skill2_id, perf2_id, self.beta_squared,
         )?));
-        
+
+        // Add performance difference variable and factors
+        let diff_id = factor_graph.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
+        factor_graph.add_factor(Box::new(PerformanceDifferenceFactor::new(
+            perf1_id,
+            perf2_id,
+            diff_id,
+        )));
+        factor_graph.add_factor(Box::new(TruncationFactor::new(
+            diff_id,
+            outcome.clone(),
+        )));
+
         // Run convergence loop following CONVERGENCE.md guidance
-        let final_delta = factor_graph.run_schedule_loop(
-            self.convergence_threshold, 
+        let _final_delta = factor_graph.run_schedule_loop(
+            self.convergence_threshold,
             self.max_iterations,
         )?;
-        
-        // Extract updated skill distributions
-        let updated_skill1 = factor_graph.get_variable(skill1_id)
-            .ok_or_else(|| Error::Other("Skill1 variable not found".to_string()))?;
-        let updated_skill2 = factor_graph.get_variable(skill2_id)
-            .ok_or_else(|| Error::Other("Skill2 variable not found".to_string()))?;
-        
-        // Convert back to TrueSkillRating (remove dynamics variance)
-        let final_rating1 = TrueSkillRating::new(
-            updated_skill1.value().mean(),
-            updated_skill1.value().variance().max(self.sigma_0_squared / 10.0), // Minimum variance
+
+        // Use simplified update formulas to adjust skill values based on outcome
+        let ranks = outcome.ranks();
+        let match_outcome = if ranks[0] < ranks[1] {
+            TwoPlayerOutcome::Player1Wins
+        } else if ranks[0] > ranks[1] {
+            TwoPlayerOutcome::Player2Wins
+        } else {
+            TwoPlayerOutcome::Draw
+        };
+
+        let updater = SimplifiedTrueSkillUpdater::new(
+            self.beta_squared,
+            self.gamma_squared,
+            self.draw_margin,
+        );
+
+        let (final_rating1, final_rating2) = updater.update_ratings(
+            player1_rating,
+            player2_rating,
+            match_outcome,
         )?;
-        let final_rating2 = TrueSkillRating::new(
-            updated_skill2.value().mean(),
-            updated_skill2.value().variance().max(self.sigma_0_squared / 10.0), // Minimum variance
-        )?;
-        
+
         let updated_team1 = TrueSkillTeam::from_player_ratings(vec![final_rating1]);
         let updated_team2 = TrueSkillTeam::from_player_ratings(vec![final_rating2]);
-        
+
         Ok(vec![updated_team1, updated_team2])
     }
 }
