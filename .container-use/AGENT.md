@@ -1,1 +1,1 @@
-This is a Rust project for implementing rating systems (TrueSkill, Elo, Glicko). The project structure includes core traits and implementations. Current task is implementing Phase 5: Elo Rating System. Use `cargo build`, `cargo test`, `cargo clippy` for building and testing.
+This is a Rust project for implementing rating systems (TrueSkill, Elo, Glicko). The project structure includes core traits and implementations. Phase 5 Elo Rating System has been implemented. Use `cargo build`, `cargo test`, `cargo clippy` for building and testing.
