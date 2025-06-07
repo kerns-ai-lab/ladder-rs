@@ -10,7 +10,7 @@ fn test_game_outcome_new() {
 
 #[test]
 fn test_game_outcome_win_and_draw() {
-    let win_outcome = GameOutcome::win(0, 2);
+    let win_outcome = GameOutcome::win(0, 2).unwrap();
     assert_eq!(win_outcome.ranks(), &[1, 2]);
     let draw_outcome = GameOutcome::draw(3);
     assert_eq!(draw_outcome.ranks(), &[1, 1, 1]);
@@ -25,7 +25,7 @@ fn test_game_outcome_zero_teams_invalid() {
 #[test]
 #[should_panic]
 fn test_game_outcome_invalid_winner_index() {
-    GameOutcome::win(1, 1); // index 1 does not exist
+    GameOutcome::win(1, 1).unwrap(); // index 1 does not exist
 }
 
 #[test]

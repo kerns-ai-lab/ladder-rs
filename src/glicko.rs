@@ -577,8 +577,8 @@ mod tests {
         let team1 = GlickoTeamRating::from_player_ratings(vec![player1]);
         let team2 = GlickoTeamRating::from_player_ratings(vec![player2]);
         
-        let outcome = GameOutcome::win(0, 2); // Player 1 wins
-        
+        let outcome = GameOutcome::win(0, 2).unwrap(); // Player 1 wins
+
         let result = glicko.rate(&[team1, team2], &outcome).unwrap();
         
         // Player 1 should have increased rating
@@ -611,8 +611,8 @@ mod tests {
         let team1 = Glicko2TeamRating::from_player_ratings(vec![player1]);
         let team2 = Glicko2TeamRating::from_player_ratings(vec![player2]);
         
-        let outcome = GameOutcome::win(0, 2); // Player 1 wins
-        
+        let outcome = GameOutcome::win(0, 2).unwrap(); // Player 1 wins
+
         let result = glicko2.rate(&[team1, team2], &outcome).unwrap();
         
         // Player 1 should have increased rating
