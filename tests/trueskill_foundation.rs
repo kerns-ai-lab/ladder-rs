@@ -160,3 +160,12 @@ fn test_rating_system_implementation() {
     let quality_result = ts.calculate_match_quality(&teams);
     assert!(quality_result.is_err());
 }
+
+#[test]
+#[should_panic]
+fn test_create_rating_with_invalid_values_panics() {
+    let ts = TrueSkill::new();
+    // Variance must be positive; ensure the helper method checks this and
+    // panics if provided an invalid value.
+    ts.create_rating_with_values(30.0, 0.0);
+}

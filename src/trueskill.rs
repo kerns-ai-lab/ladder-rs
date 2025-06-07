@@ -308,9 +308,15 @@ impl RatingSystem for TrueSkill {
             variance: self.sigma_0_squared,
         }
     }
-    
+
     fn create_rating_with_values(&self, mean: f64, variance: f64) -> Self::PlayerRating {
-        TrueSkillRating { mean, variance }
+        // Validate variance before creating the rating. TrueSkillRating::new
+        // ensures the variance is strictly positive and returns an error
+        // otherwise. Since the trait method does not allow returning a
+        // `Result`, we unwrap here, causing a panic if invalid values are
+        // provided.
+        TrueSkillRating::new(mean, variance)
+            .expect("invalid variance for TrueSkill rating")
     }
     
     fn rate(
