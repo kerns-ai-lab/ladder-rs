@@ -1,0 +1,35 @@
+{
+  "mcpServers": {
+    "container-use": {
+      "command": "container-use",
+      "args": [],
+      "env": {},
+      "capabilities": {
+        "resources": true,
+        "tools": true,
+        "prompts": false,
+        "logging": true
+      },
+      "tools": [
+        "mcp__container-use__environment_checkpoint",
+        "mcp__container-use__environment_file_delete", 
+        "mcp__container-use__environment_file_list",
+        "mcp__container-use__environment_file_read",
+        "mcp__container-use__environment_file_write",
+        "mcp__container-use__environment_open",
+        "mcp__container-use__environment_run_cmd",
+        "mcp__container-use__environment_update"
+      ]
+    }
+  },
+  "allowedEnvironments": [
+    "development",
+    "testing",
+    "production"
+  ],
+  "containerSettings": {
+    "autoCleanup": true,
+    "maxEnvironments": 10,
+    "defaultTimeout": 300000
+  }
+}
