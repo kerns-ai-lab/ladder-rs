@@ -2,7 +2,7 @@ use crate::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating},
     error::{Error, Result},
 };
-use statrs::distribution::{Normal, ContinuousCDF};
+use statrs::distribution::{Normal, ContinuousCDF, Continuous};
 use std::collections::HashMap;
 
 /// Implementation of Microsoft's TrueSkill rating system.
@@ -665,6 +665,14 @@ impl RatingSystem for TrueSkill {
             ));
         }
         
+        let ranks = outcome.ranks();
+        
+        if ranks.len() != rating_groups.len() {
+            return Err(Error::InvalidInput(
+                "Number of ranks must match number of teams".to_string(),
+            ));
+        }
+        
         // Build factor graph
         let mut scheduler = MessagePassingScheduler::new(self.convergence_threshold, self.max_iterations);
         let mut variable_counter = 0;
@@ -717,20 +725,6 @@ impl RatingSystem for TrueSkill {
             });
             
             variable_counter += 1;
-        }
-        
-        // Add difference variables and comparison factors based on outcome
-        let ranks = match outcome {
-            GameOutcome::Ranks(ranks) => ranks,
-            _ => return Err(Error::InvalidInput(
-                "TrueSkill requires rank-based outcomes".to_string(),
-            )),
-        };
-        
-        if ranks.len() != rating_groups.len() {
-            return Err(Error::InvalidInput(
-                "Number of ranks must match number of teams".to_string(),
-            ));
         }
         
         // Create pairwise comparisons based on ranks
