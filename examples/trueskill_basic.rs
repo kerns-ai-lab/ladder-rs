@@ -1,5 +1,5 @@
 use ladder_rs::{
-    trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
+    trueskill::{TrueSkill, TrueSkillTeam},
     core::{RatingSystem, GameOutcome, Rating, TeamRating},
 };
 
@@ -10,9 +10,9 @@ fn main() {
     let trueskill_system = TrueSkill::new_simplified();
     println!("Created TrueSkill system with default parameters:");
     println!("- μ₀ (initial mean): 25.0");
-    println!("- σ₀² (initial variance): {:.2}", (25.0/3.0).powi(2));
-    println!("- β² (performance variance): {:.2}", (25.0/3.0/2.0).powi(2));
-    println!("- γ² (dynamics variance): {:.4}", (25.0/3.0/100.0).powi(2));
+    println!("- σ₀² (initial variance): {:.2}", (25.0_f64/3.0).powi(2));
+    println!("- β² (performance variance): {:.2}", (25.0_f64/3.0/2.0).powi(2));
+    println!("- γ² (dynamics variance): {:.4}", (25.0_f64/3.0/100.0).powi(2));
     println!("- Draw probability: 10%");
     println!("- Implementation: Simplified\n");
 
