@@ -316,7 +316,7 @@ impl Factor for GaussianComparisonFactor {
             }
         };
 
-        let w_win = |v: f64| v * (v - eps);
+        let w_win = |v: f64| v * (v + eps);
 
         let w_draw = || {
             let phi_upper = normal.cdf(eps);
