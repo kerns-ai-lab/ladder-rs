@@ -18,6 +18,10 @@ pub enum Error {
     #[error("Numerical precision error: {0}")]
     NumericalError(String),
 
+    /// Numerical issues during computation.
+    #[error("Numerical issue: {0}")]
+    NumericalIssue(String),
+
     /// Convergence failure in iterative algorithms.
     #[error("Failed to converge: {0}")]
     ConvergenceFailure(String),
