@@ -259,19 +259,20 @@ fn test_elo_error_conditions() {
 }
 
 #[test]
-fn test_elo_win_probability_edge_cases() {
+fn test_elo_win_probability_through_match_quality() {
     let system = EloSystem::new();
     
-    // Test extreme rating differences
-    let win_prob = system.win_probability(2500.0, 500.0);
-    assert!(win_prob > 0.99);
-    
-    let win_prob = system.win_probability(500.0, 2500.0);
-    assert!(win_prob < 0.01);
+    // Test extreme rating differences through match quality
+    let high = EloTeamRating::new(EloRating::new(2500.0));
+    let low = EloTeamRating::new(EloRating::new(500.0));
+    let quality = system.calculate_match_quality(&[high, low]).unwrap();
+    assert!(quality < 0.01); // Very poor match quality indicates very uneven
     
     // Test identical ratings
-    let win_prob = system.win_probability(1500.0, 1500.0);
-    assert!((win_prob - 0.5).abs() < 0.001);
+    let equal1 = EloTeamRating::new(EloRating::new(1500.0));
+    let equal2 = EloTeamRating::new(EloRating::new(1500.0));
+    let quality = system.calculate_match_quality(&[equal1, equal2]).unwrap();
+    assert!((quality - 1.0).abs() < 0.001); // Perfect match quality
 }
 
 #[test]
@@ -341,4 +342,39 @@ fn test_elo_system_consistency() {
     // Results should be identical
     assert_eq!(result1[0].player_ratings()[0].rating(), result2[0].player_ratings()[0].rating());
     assert_eq!(result1[1].player_ratings()[0].rating(), result2[1].player_ratings()[0].rating());
+}
+
+#[test]
+fn test_elo_rating_convergence() {
+    let system = EloSystem::new();
+    
+    // Test that repeated games between players converge to stable ratings
+    let mut strong_player = EloRating::new(1700.0);
+    let mut weak_player = EloRating::new(1300.0);
+    
+    // Strong player wins 80% of games
+    for i in 0..100 {
+        let team1 = EloTeamRating::new(strong_player.clone());
+        let team2 = EloTeamRating::new(weak_player.clone());
+        
+        let outcome = if i % 5 == 0 {
+            GameOutcome::win(1, 2)  // Weak player wins 20%
+        } else {
+            GameOutcome::win(0, 2)  // Strong player wins 80%
+        };
+        
+        let result = system.rate(&[team1, team2], &outcome).unwrap();
+        
+        strong_player = result[0].player_ratings()[0].clone();
+        weak_player = result[1].player_ratings()[0].clone();
+    }
+    
+    // After many games, ratings should reflect the 80/20 win rate
+    assert!(strong_player.rating() > 1700.0);
+    assert!(weak_player.rating() < 1300.0);
+    
+    // The gap should be significant but not extreme
+    let gap = strong_player.rating() - weak_player.rating();
+    assert!(gap > 200.0);
+    assert!(gap < 800.0);
 }
