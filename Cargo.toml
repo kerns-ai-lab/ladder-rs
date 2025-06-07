@@ -22,3 +22,36 @@ proptest = "1.3"
 [[bench]]
 name = "rating_update"
 harness = false
+
+# Examples
+[[example]]
+name = "elo_basic"
+path = "examples/elo_basic.rs"
+
+[[example]]
+name = "elo_tournament"
+path = "examples/elo_tournament.rs"
+
+[[example]]
+name = "glicko_basic"
+path = "examples/glicko_basic.rs"
+
+[[example]]
+name = "glicko2_advanced"
+path = "examples/glicko2_advanced.rs"
+
+[[example]]
+name = "trueskill_basic"
+path = "examples/trueskill_basic.rs"
+
+[[example]]
+name = "trueskill_teams"
+path = "examples/trueskill_teams.rs"
+
+[[example]]
+name = "rating_comparison"
+path = "examples/rating_comparison.rs"
+
+[[example]]
+name = "matchmaking_system"
+path = "examples/matchmaking_system.rs"
