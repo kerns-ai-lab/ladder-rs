@@ -1,6 +1,6 @@
 use ladder_rs::{
-    elo::{EloSystem, EloRating, EloTeamRating},
-    core::{RatingSystem, GameOutcome},
+    elo::{EloSystem, EloTeamRating},
+    core::{RatingSystem, GameOutcome, TeamRating},
 };
 
 fn main() {
