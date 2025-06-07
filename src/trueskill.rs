@@ -71,7 +71,6 @@ impl GaussianDistribution {
     }
     
     /// Calculate absolute difference between two Gaussian distributions
-    /// Following the CONVERGENCE.md guidance
     pub fn absolute_difference(&self, other: &Self) -> f64 {
         let precision_mean_diff = (self.precision_mean - other.precision_mean).abs();
         let precision_diff = (self.precision - other.precision).abs().sqrt();
@@ -677,7 +676,7 @@ impl TrueSkill {
             }
         }
         
-        // Run convergence loop following CONVERGENCE.md guidance
+        // Run convergence loop
         let _final_delta = factor_graph.run_schedule_loop(
             self.convergence_threshold,
             self.max_iterations,
