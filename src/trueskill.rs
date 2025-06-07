@@ -73,7 +73,7 @@ impl GaussianDistribution {
     /// Calculate absolute difference between two Gaussian distributions
     pub fn absolute_difference(&self, other: &Self) -> f64 {
         let precision_mean_diff = (self.precision_mean - other.precision_mean).abs();
-        let precision_diff = (self.precision - other.precision).abs().sqrt();
+        let precision_diff = (self.precision - other.precision).abs();
         precision_mean_diff.max(precision_diff)
     }
     
@@ -305,6 +305,18 @@ impl Factor for GaussianComparisonFactor {
 
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.greater_variable_id, self.lesser_variable_id]
+    }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.greater_variable_id {
+            Ok(&self.msg_greater)
+        } else if variable_id == self.lesser_variable_id {
+            Ok(&self.msg_lesser)
+        } else {
+            Err(Error::InvalidInput(
+                "Variable ID not connected to this factor".to_string(),
+            ))
+        }
     }
 }
 
