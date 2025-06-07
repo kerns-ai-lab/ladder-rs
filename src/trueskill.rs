@@ -299,13 +299,84 @@ impl GaussianComparisonFactor {
 }
 
 impl Factor for GaussianComparisonFactor {
-    fn update_message(&mut self, _variable_id: usize) -> Result<f64> {
-        // Full message passing not yet implemented
-        Ok(0.0)
+    fn update_message(&mut self, variable_id: usize) -> Result<f64> {
+        // Calculate new message based on win/draw assumptions using
+        // the TrueSkill V and W functions with a default cavity of
+        // mean=0 and variance=1.
+        let eps = self.draw_margin;
+        let normal = Normal::new(0.0, 1.0).unwrap();
+
+        // Helper closures for V and W functions with t=0
+        let v_win = || {
+            let denom = normal.cdf(-eps);
+            if denom < 1e-10 {
+                0.0
+            } else {
+                normal.pdf(-eps) / denom
+            }
+        };
+
+        let w_win = |v: f64| v * (v - eps);
+
+        let w_draw = || {
+            let phi_upper = normal.cdf(eps);
+            let phi_lower = normal.cdf(-eps);
+            let denom = phi_upper - phi_lower;
+            if denom.abs() < 1e-10 {
+                0.0
+            } else {
+                let pdf = normal.pdf(eps); // symmetric
+                2.0 * eps * pdf / denom
+            }
+        };
+
+        if variable_id == self.greater_variable_id {
+            // Message to the greater variable (winner)
+            if self.is_draw {
+                let new_msg = GaussianDistribution::from_precision_mean(0.0, w_draw());
+                let delta = self.msg_greater.value().absolute_difference(&new_msg);
+                self.msg_greater.set_value(new_msg);
+                Ok(delta)
+            } else {
+                let v = v_win();
+                let w = w_win(v);
+                let new_msg = GaussianDistribution::from_precision_mean(v, w);
+                let delta = self.msg_greater.value().absolute_difference(&new_msg);
+                self.msg_greater.set_value(new_msg);
+                Ok(delta)
+            }
+        } else if variable_id == self.lesser_variable_id {
+            // Message to the lesser variable (loser)
+            if self.is_draw {
+                let new_msg = GaussianDistribution::from_precision_mean(0.0, w_draw());
+                let delta = self.msg_lesser.value().absolute_difference(&new_msg);
+                self.msg_lesser.set_value(new_msg);
+                Ok(delta)
+            } else {
+                let v = -v_win();
+                let w = w_win(v.abs());
+                let new_msg = GaussianDistribution::from_precision_mean(v, w);
+                let delta = self.msg_lesser.value().absolute_difference(&new_msg);
+                self.msg_lesser.set_value(new_msg);
+                Ok(delta)
+            }
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
     }
 
     fn connected_variables(&self) -> Vec<usize> {
         vec![self.greater_variable_id, self.lesser_variable_id]
+    }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.greater_variable_id {
+            Ok(&self.msg_greater)
+        } else if variable_id == self.lesser_variable_id {
+            Ok(&self.msg_lesser)
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
     }
 }
 
