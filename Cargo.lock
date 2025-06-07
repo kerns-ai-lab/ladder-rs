@@ -312,6 +312,7 @@ dependencies = [
  "criterion",
  "proptest",
  "rand",
+ "rayon",
  "statrs",
  "thiserror",
 ]
