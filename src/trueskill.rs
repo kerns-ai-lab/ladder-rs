@@ -222,6 +222,46 @@ impl Factor for GaussianLikelihoodFactor {
     }
 }
 
+/// Comparison factor enforcing game outcome between two performance variables
+pub struct GaussianComparisonFactor {
+    greater_variable_id: usize,
+    lesser_variable_id: usize,
+    draw_margin: f64,
+    is_draw: bool,
+    msg_greater: Message,
+    msg_lesser: Message,
+}
+
+impl GaussianComparisonFactor {
+    pub fn new(
+        greater_variable_id: usize,
+        lesser_variable_id: usize,
+        draw_margin: f64,
+        is_draw: bool,
+    ) -> Result<Self> {
+        let zero = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        Ok(Self {
+            greater_variable_id,
+            lesser_variable_id,
+            draw_margin,
+            is_draw,
+            msg_greater: Message::new(zero.clone()),
+            msg_lesser: Message::new(zero),
+        })
+    }
+}
+
+impl Factor for GaussianComparisonFactor {
+    fn update_message(&mut self, _variable_id: usize) -> Result<f64> {
+        // Full message passing not yet implemented
+        Ok(0.0)
+    }
+
+    fn connected_variables(&self) -> Vec<usize> {
+        vec![self.greater_variable_id, self.lesser_variable_id]
+    }
+}
+
 /// Factor graph for TrueSkill computation
 pub struct FactorGraph {
     variables: HashMap<usize, Variable>,
@@ -539,32 +579,66 @@ impl TrueSkill {
         factor_graph.add_factor(Box::new(GaussianLikelihoodFactor::new(
             skill2_id, perf2_id, self.beta_squared,
         )?));
+
+        // Determine outcome and add comparison factor
+        let ranks = outcome.ranks();
+        let two_player_outcome = if ranks[0] < ranks[1] {
+            TwoPlayerOutcome::Player1Wins
+        } else if ranks[0] > ranks[1] {
+            TwoPlayerOutcome::Player2Wins
+        } else {
+            TwoPlayerOutcome::Draw
+        };
+
+        match two_player_outcome {
+            TwoPlayerOutcome::Player1Wins => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf1_id,
+                    perf2_id,
+                    self.draw_margin,
+                    false,
+                )?));
+            }
+            TwoPlayerOutcome::Player2Wins => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf2_id,
+                    perf1_id,
+                    self.draw_margin,
+                    false,
+                )?));
+            }
+            TwoPlayerOutcome::Draw => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf1_id,
+                    perf2_id,
+                    self.draw_margin,
+                    true,
+                )?));
+            }
+        }
         
         // Run convergence loop following CONVERGENCE.md guidance
-        let final_delta = factor_graph.run_schedule_loop(
-            self.convergence_threshold, 
+        let _final_delta = factor_graph.run_schedule_loop(
+            self.convergence_threshold,
             self.max_iterations,
         )?;
-        
-        // Extract updated skill distributions
-        let updated_skill1 = factor_graph.get_variable(skill1_id)
-            .ok_or_else(|| Error::Other("Skill1 variable not found".to_string()))?;
-        let updated_skill2 = factor_graph.get_variable(skill2_id)
-            .ok_or_else(|| Error::Other("Skill2 variable not found".to_string()))?;
-        
-        // Convert back to TrueSkillRating (remove dynamics variance)
-        let final_rating1 = TrueSkillRating::new(
-            updated_skill1.value().mean(),
-            updated_skill1.value().variance().max(self.sigma_0_squared / 10.0), // Minimum variance
+
+        // Until full factor graph updates are implemented, use simplified updater
+        let updater = SimplifiedTrueSkillUpdater::new(
+            self.beta_squared,
+            self.gamma_squared,
+            self.draw_margin,
+        );
+
+        let (final_rating1, final_rating2) = updater.update_ratings(
+            player1_rating,
+            player2_rating,
+            two_player_outcome,
         )?;
-        let final_rating2 = TrueSkillRating::new(
-            updated_skill2.value().mean(),
-            updated_skill2.value().variance().max(self.sigma_0_squared / 10.0), // Minimum variance
-        )?;
-        
+
         let updated_team1 = TrueSkillTeam::from_player_ratings(vec![final_rating1]);
         let updated_team2 = TrueSkillTeam::from_player_ratings(vec![final_rating2]);
-        
+
         Ok(vec![updated_team1, updated_team2])
     }
 }
