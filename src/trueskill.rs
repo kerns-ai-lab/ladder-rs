@@ -332,4 +332,33 @@ impl RatingSystem for TrueSkill {
         // This will be implemented in Phase 4
         Err(Error::Other("TrueSkill match quality calculation not yet implemented".to_string()))
     }
+
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::factor_graph::GaussianMessage;
+
+    #[test]
+    fn test_gaussian_message_new() {
+        let msg = GaussianMessage::new(0.5, 1.0);
+        assert_eq!(msg.precision, 0.5);
+        assert_eq!(msg.precision_adjusted_mean, 1.0);
+        assert!((msg.mean() - 2.0).abs() < f64::EPSILON);
+        assert!((msg.variance() - 2.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_gaussian_message_from_mean_variance() {
+        let msg = GaussianMessage::from_mean_and_variance(2.0, 4.0).unwrap();
+        assert!((msg.precision - 0.25).abs() < f64::EPSILON);
+        assert!((msg.precision_adjusted_mean - 0.5).abs() < f64::EPSILON);
+        assert!((msg.mean() - 2.0).abs() < f64::EPSILON);
+        assert!((msg.variance() - 4.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_gaussian_message_invalid_variance() {
+        assert!(GaussianMessage::from_mean_and_variance(0.0, 0.0).is_err());
+    }
 }
