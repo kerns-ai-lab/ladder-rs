@@ -1,6 +1,6 @@
 {
   "workdir": "/workdir",
-  "base_image": "rust:1.75",
+  "base_image": "rust:1.83",
   "setup_commands": [
     "apt-get update \u0026\u0026 apt-get install -y git",
     "rustup component add clippy rustfmt"
