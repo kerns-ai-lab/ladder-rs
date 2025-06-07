@@ -139,3 +139,44 @@ fn test_outcome_affects_ratings() {
 
     assert!( (win_mu - lose_mu).abs() > 1e-6, "Different outcomes should change ratings differently" );
 }
+
+#[test]
+fn test_variable_updates_in_schedule_loop() {
+    use ladder_rs::trueskill::{FactorGraph, GaussianDistribution, GaussianPriorFactor};
+
+    let mut fg = FactorGraph::new();
+    let var_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
+    fg.add_factor(Box::new(GaussianPriorFactor::new(var_id, 5.0, 1.0).unwrap()));
+
+    // Run schedule loop
+    let _ = fg.run_schedule_loop(1e-6, 5).unwrap();
+
+    let var = fg.get_variable(var_id).unwrap();
+    assert!((var.value().mean() - 5.0).abs() < 1e-6);
+}
+
+#[test]
+fn test_schedule_with_comparison_factor() {
+    use ladder_rs::trueskill::{
+        FactorGraph, GaussianDistribution, GaussianPriorFactor, GaussianComparisonFactor,
+    };
+
+    let mut fg = FactorGraph::new();
+    let greater_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
+    let lesser_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
+
+    fg.add_factor(Box::new(GaussianPriorFactor::new(greater_id, 5.0, 1.0).unwrap()));
+    fg.add_factor(Box::new(GaussianPriorFactor::new(lesser_id, 3.0, 1.0).unwrap()));
+    fg.add_factor(Box::new(
+        GaussianComparisonFactor::new(greater_id, lesser_id, 0.0, false).unwrap(),
+    ));
+
+    let _ = fg.run_schedule_loop(1e-6, 5).unwrap();
+
+    let greater_var = fg.get_variable(greater_id).unwrap();
+    let lesser_var = fg.get_variable(lesser_id).unwrap();
+
+    assert!(greater_var.value().mean() > lesser_var.value().mean());
+    assert!(greater_var.value().mean() > 0.0);
+    assert!(lesser_var.value().mean() > 0.0);
+}
