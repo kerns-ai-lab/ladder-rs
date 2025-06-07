@@ -409,7 +409,7 @@ impl SimplifiedTrueSkillUpdater {
         let new_s2_mean = s2_mean + player2_update;
         
         // Update variances (reduce uncertainty)
-        let variance_update_factor = 1.0 - (w / c_squared) * s1_var * s2_var / c_squared;
+        let variance_update_factor = 1.0 - w * (s1_var / c_squared) * (s2_var / c_squared);
         let variance_update_factor = variance_update_factor.max(0.1).min(1.0); // Clamp between 0.1 and 1.0
         
         let new_s1_var = s1_var * variance_update_factor;
