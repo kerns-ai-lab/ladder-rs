@@ -318,6 +318,19 @@ impl Factor for GaussianComparisonFactor {
 
         let w_win = |v: f64| v * (v + eps);
 
+        let v_draw = || {
+            let phi_upper = normal.cdf(eps);
+            let phi_lower = normal.cdf(-eps);
+            let pdf_upper = normal.pdf(eps);
+            let pdf_lower = normal.pdf(-eps);
+            let denom = phi_upper - phi_lower;
+            if denom.abs() < 1e-10 {
+                0.0
+            } else {
+                (pdf_lower - pdf_upper) / denom
+            }
+        };
+
         let w_draw = || {
             let phi_upper = normal.cdf(eps);
             let phi_lower = normal.cdf(-eps);
@@ -333,7 +346,9 @@ impl Factor for GaussianComparisonFactor {
         if variable_id == self.greater_variable_id {
             // Message to the greater variable (winner)
             if self.is_draw {
-                let new_msg = GaussianDistribution::from_precision_mean(0.0, w_draw());
+                let v = v_draw();
+                let w = w_draw();
+                let new_msg = GaussianDistribution::from_precision_mean(v, 1.0 - w);
                 let delta = self.msg_greater.value().absolute_difference(&new_msg);
                 self.msg_greater.set_value(new_msg);
                 Ok(delta)
@@ -348,7 +363,9 @@ impl Factor for GaussianComparisonFactor {
         } else if variable_id == self.lesser_variable_id {
             // Message to the lesser variable (loser)
             if self.is_draw {
-                let new_msg = GaussianDistribution::from_precision_mean(0.0, w_draw());
+                let v = v_draw();
+                let w = w_draw();
+                let new_msg = GaussianDistribution::from_precision_mean(v, 1.0 - w);
                 let delta = self.msg_lesser.value().absolute_difference(&new_msg);
                 self.msg_lesser.set_value(new_msg);
                 Ok(delta)
