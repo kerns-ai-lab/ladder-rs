@@ -2,13 +2,11 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating},
     elo::{EloRating, EloSystem, EloTeamRating},
-    glicko::{Glicko, Glicko2, Glicko2Rating, Glicko2TeamRating, GlickoRating, GlickoTeamRating},
-    trueskill::{TrueSkill, TrueSkillImplementation, TrueSkillRating, TrueSkillTeam},
+    trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
 };
-use std::collections::HashMap;
 
 mod benchmark_utils;
-use benchmark_utils::{BenchmarkScenario, OutcomePattern, SkillDistribution, TestDataGenerator};
+use benchmark_utils::{OutcomePattern, SkillDistribution, TestDataGenerator};
 
 /// Simulate a Swiss tournament system
 pub fn bench_swiss_tournament(c: &mut Criterion) {

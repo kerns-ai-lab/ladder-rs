@@ -3,7 +3,7 @@ use ladder_rs::{
     core::{GameOutcome, RatingSystem, TeamRating},
     elo::{EloRating, EloSystem, EloTeamRating},
     glicko::{Glicko, Glicko2, Glicko2Rating, Glicko2TeamRating, GlickoRating, GlickoTeamRating},
-    trueskill::{TrueSkill, TrueSkillImplementation, TrueSkillRating, TrueSkillTeam},
+    trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
 };
 
 /// Elo-specific component benchmarks

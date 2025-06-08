@@ -1,9 +1,6 @@
-use ladder_rs::{
-    core::{GameOutcome, Rating, RatingSystem},
-    elo::{EloRating, EloSystem, EloTeamRating},
-    glicko::{Glicko, Glicko2, Glicko2Rating, Glicko2TeamRating, GlickoRating, GlickoTeamRating},
-    trueskill::{TrueSkill, TrueSkillImplementation, TrueSkillRating, TrueSkillTeam},
-};
+#![allow(dead_code)] // This is a utility module for benchmarks
+
+use ladder_rs::{core::GameOutcome, elo::EloRating, trueskill::TrueSkillRating};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::time::Duration;
 
@@ -227,7 +224,7 @@ impl TestDataGenerator {
             .collect()
     }
 
-    fn shuffle_vec<T>(&mut self, vec: &mut Vec<T>) {
+    fn shuffle_vec<T>(&mut self, vec: &mut [T]) {
         use rand::seq::SliceRandom;
         vec.shuffle(&mut self.rng);
     }
@@ -293,7 +290,7 @@ impl BenchmarkScenario {
 
 /// Utility functions for benchmark setup and teardown
 pub mod benchmark_helpers {
-    use super::*;
+    use super::TestDataGenerator;
     use criterion::Criterion;
     use std::time::{Duration, Instant};
 
@@ -308,7 +305,7 @@ pub mod benchmark_helpers {
     /// Measure throughput for a batch operation
     pub fn measure_throughput<F>(operation: F, iterations: usize) -> f64
     where
-        F: Fn() -> (),
+        F: Fn(),
     {
         let start = Instant::now();
         for _ in 0..iterations {
@@ -326,6 +323,7 @@ pub mod benchmark_helpers {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]

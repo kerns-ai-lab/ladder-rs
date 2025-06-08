@@ -439,9 +439,9 @@ fn test_trueskill_implementation_enum() {
     assert_eq!(format!("{:?}", simplified), "Simplified");
     assert_eq!(format!("{:?}", factor_graph), "FactorGraph");
 
-    // Test Clone trait
-    let cloned = simplified.clone();
-    assert_eq!(cloned, TrueSkillImplementation::Simplified);
+    // Test Copy trait (TrueSkillImplementation implements Copy)
+    let copied = simplified;
+    assert_eq!(copied, TrueSkillImplementation::Simplified);
 
     // Test PartialEq
     assert_eq!(simplified, TrueSkillImplementation::Simplified);

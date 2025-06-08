@@ -431,7 +431,7 @@ fn test_match_quality() {
     let elo_quality = elo.calculate_match_quality(&elo_teams);
     match elo_quality {
         Ok(quality) => {
-            assert!(quality >= 0.0 && quality <= 1.0);
+            assert!((0.0..=1.0).contains(&quality));
             // Equal teams should have high quality
             assert!(quality > 0.4);
         }
@@ -447,7 +447,7 @@ fn test_match_quality() {
     let glicko_quality = glicko.calculate_match_quality(&glicko_teams);
     match glicko_quality {
         Ok(quality) => {
-            assert!(quality >= 0.0 && quality <= 1.0);
+            assert!((0.0..=1.0).contains(&quality));
             assert!(quality > 0.4);
         }
         Err(_) => {} // Not implemented is OK
@@ -462,7 +462,7 @@ fn test_match_quality() {
     let ts_quality = trueskill.calculate_match_quality(&ts_teams);
     match ts_quality {
         Ok(quality) => {
-            assert!(quality >= 0.0 && quality <= 1.0);
+            assert!((0.0..=1.0).contains(&quality));
             assert!(quality > 0.4);
         }
         Err(_) => {} // Not implemented is OK

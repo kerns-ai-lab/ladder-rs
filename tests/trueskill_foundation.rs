@@ -148,7 +148,7 @@ fn test_mismatched_teams_and_ranks() {
 
 #[test]
 fn test_rating_progression() {
-    use ladder_rs::core::{GameOutcome, TeamRating};
+    use ladder_rs::core::GameOutcome;
 
     let system = TrueSkill::new();
     let mut player1 = system.create_rating();

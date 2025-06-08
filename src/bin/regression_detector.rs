@@ -128,7 +128,7 @@ impl RegressionDetector {
     fn generate_report(&self, regressions: &[RegressionResult]) -> String {
         let mut report = String::new();
 
-        report.push("# Performance Regression Analysis Report\n\n");
+        report.push_str("# Performance Regression Analysis Report\n\n");
 
         let total_benchmarks = regressions.len();
         let regressions_found: Vec<_> = regressions.iter().filter(|r| r.is_regression).collect();
@@ -166,7 +166,7 @@ impl RegressionDetector {
             if minor_count > 0 {
                 report.push_str(&format!("🟠 Minor regressions: {}\n", minor_count));
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Configuration
@@ -183,7 +183,7 @@ impl RegressionDetector {
             "- Critical threshold: {:.1}%\n",
             self.critical_threshold * 100.0
         ));
-        report.push_str("\n");
+        report.push('\n');
 
         // Detailed results
         if !regressions_found.is_empty() {
@@ -213,7 +213,7 @@ impl RegressionDetector {
                     "- Change: {:.1}%\n",
                     regression.percentage_change * 100.0
                 ));
-                report.push_str("\n");
+                report.push('\n');
             }
         }
 
@@ -255,7 +255,7 @@ impl RegressionDetector {
                     result.percentage_change * 100.0
                 ));
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
         report
