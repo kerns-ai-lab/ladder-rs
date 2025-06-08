@@ -63,8 +63,8 @@ fn test_winner_loser_behavior() {
     let elo_p1 = elo.create_rating();
     let elo_p2 = elo.create_rating();
     let elo_teams = vec![
-        EloTeamRating::from_player_ratings(vec![elo_p1]),
-        EloTeamRating::from_player_ratings(vec![elo_p2]),
+        EloTeamRating::from_player_ratings(vec![elo_p1.clone()]),
+        EloTeamRating::from_player_ratings(vec![elo_p2.clone()]),
     ];
     let elo_result = elo.rate(&elo_teams, &GameOutcome::win(0, 2)).unwrap();
     assert!(elo_result[0].player_ratings()[0].mean() > elo_p1.mean());
@@ -273,8 +273,8 @@ fn test_rating_progression() {
     for _ in 0..5 {
         // Elo
         let elo_teams = vec![
-            EloTeamRating::from_player_ratings(vec![elo_p1]),
-            EloTeamRating::from_player_ratings(vec![elo_p2]),
+            EloTeamRating::from_player_ratings(vec![elo_p1.clone()]),
+            EloTeamRating::from_player_ratings(vec![elo_p2.clone()]),
         ];
         let elo_result = elo.rate(&elo_teams, &GameOutcome::win(0, 2)).unwrap();
         elo_p1 = elo_result[0].player_ratings()[0].clone();
