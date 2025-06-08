@@ -289,7 +289,7 @@ fn test_factor_graph_basic_operations() {
 
     // Get variables
     let var1 = fg.get_variable(var1_id);
-    assert!(var1.is_ok());
+    assert!(var1.is_some());
     assert_eq!(var1.unwrap().value().precision(), 0.0);
 
     // Invalid variable ID
