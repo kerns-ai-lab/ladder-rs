@@ -130,8 +130,8 @@ mod tests {
         let result = operation_that_succeeds().map(|x| x * 2);
         assert_eq!(result.unwrap(), 200);
         
-        // Test chaining with and_then
-        let result = operation_that_succeeds().and_then(|x| Ok(x + 50));
+        // Test chaining with map (improved from and_then)
+        let result = operation_that_succeeds().map(|x| x + 50);
         assert_eq!(result.unwrap(), 150);
         
         // Test error propagation
@@ -255,7 +255,7 @@ mod tests {
         
         // Test successful computation chain
         let result = divide(16.0, 4.0)
-            .and_then(|x| square_root(x))
+            .and_then(square_root)
             .map(|x| x * 2.0);
         
         assert!(result.is_ok());
@@ -263,7 +263,7 @@ mod tests {
         
         // Test error propagation in chain
         let result = divide(16.0, 0.0)
-            .and_then(|x| square_root(x))
+            .and_then(square_root)
             .map(|x| x * 2.0);
         
         assert!(result.is_err());
@@ -275,7 +275,7 @@ mod tests {
         
         // Test error in second operation
         let result = divide(16.0, -4.0)
-            .and_then(|x| square_root(x))
+            .and_then(square_root)
             .map(|x| x * 2.0);
         
         assert!(result.is_err());
