@@ -1,17 +1,22 @@
-use ladder_rs_wasm::{PlayerManager, PlayerProfile, MatchRecord, PlayerStats};
+#![cfg(target_arch = "wasm32")]
+
+extern crate wasm_bindgen_test;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
+// Since these are integration tests, we need to use the full path
+extern crate ladder_rs_wasm;
+
 #[wasm_bindgen_test]
 fn test_create_player_manager() {
-    let manager = PlayerManager::new();
+    let manager = ladder_rs_wasm::PlayerManager::new();
     assert_eq!(manager.player_count(), 0);
 }
 
 #[wasm_bindgen_test]
 fn test_register_player() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     let profile = manager.register_player(
         "player1".to_string(),
@@ -26,7 +31,7 @@ fn test_register_player() {
 
 #[wasm_bindgen_test]
 fn test_register_duplicate_player() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     let result = manager.register_player("player1".to_string(), None, None);
@@ -36,7 +41,7 @@ fn test_register_duplicate_player() {
 
 #[wasm_bindgen_test]
 fn test_get_player_profile() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player(
         "player1".to_string(),
@@ -52,7 +57,7 @@ fn test_get_player_profile() {
 
 #[wasm_bindgen_test]
 fn test_update_player_profile() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     
@@ -68,7 +73,7 @@ fn test_update_player_profile() {
 
 #[wasm_bindgen_test]
 fn test_deactivate_player() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     assert!(manager.is_player_active("player1"));
@@ -79,7 +84,7 @@ fn test_deactivate_player() {
 
 #[wasm_bindgen_test]
 fn test_reactivate_player() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     manager.deactivate_player("player1").unwrap();
@@ -90,7 +95,7 @@ fn test_reactivate_player() {
 
 #[wasm_bindgen_test]
 fn test_add_match_record() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     manager.register_player("player2".to_string(), None, None).unwrap();
@@ -107,7 +112,7 @@ fn test_add_match_record() {
 
 #[wasm_bindgen_test]
 fn test_get_player_match_history() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     manager.register_player("player2".to_string(), None, None).unwrap();
@@ -133,7 +138,7 @@ fn test_get_player_match_history() {
 
 #[wasm_bindgen_test]
 fn test_get_player_stats() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     manager.register_player("player2".to_string(), None, None).unwrap();
@@ -171,7 +176,7 @@ fn test_get_player_stats() {
 
 #[wasm_bindgen_test]
 fn test_get_active_players() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     manager.register_player("player2".to_string(), None, None).unwrap();
@@ -188,7 +193,7 @@ fn test_get_active_players() {
 
 #[wasm_bindgen_test]
 fn test_search_players() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player(
         "alice123".to_string(),
@@ -220,7 +225,7 @@ fn test_search_players() {
 
 #[wasm_bindgen_test]
 fn test_bulk_import_players() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     let players_json = r#"[
         {"id": "player1", "name": "Alice", "email": "alice@example.com"},
@@ -235,7 +240,7 @@ fn test_bulk_import_players() {
 
 #[wasm_bindgen_test]
 fn test_export_players() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player(
         "player1".to_string(),
@@ -258,7 +263,7 @@ fn test_export_players() {
 
 #[wasm_bindgen_test]
 fn test_get_player_head_to_head() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     manager.register_player("player2".to_string(), None, None).unwrap();
@@ -295,7 +300,7 @@ fn test_get_player_head_to_head() {
 
 #[wasm_bindgen_test]
 fn test_merge_duplicate_players() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     // Create two players that are actually the same person
     manager.register_player(
@@ -332,7 +337,7 @@ fn test_merge_duplicate_players() {
 
 #[wasm_bindgen_test]
 fn test_player_aliases() {
-    let mut manager = PlayerManager::new();
+    let mut manager = ladder_rs_wasm::PlayerManager::new();
     
     manager.register_player("player1".to_string(), None, None).unwrap();
     
