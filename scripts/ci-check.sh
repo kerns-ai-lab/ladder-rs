@@ -56,6 +56,15 @@ if ! cargo build --all-targets --all-features; then
 fi
 echo "✅ Build check passed!"
 
+# 6. WASM bundle size check
+echo ""
+echo "📦 Verifying WASM bundle size..."
+if ! "$(dirname "$0")/bundle_size_check.sh"; then
+    echo "❌ Bundle size check failed!"
+    exit 1
+fi
+echo "✅ Bundle size within limits!"
+
 echo ""
 echo "================================"
 echo "✅ All CI checks passed! Safe to push."
