@@ -1,6 +1,6 @@
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating},
-    elo::{Elo, EloRating, EloTeam},
+    elo::{EloSystem, EloRating, EloTeamRating},
     glicko::{Glicko, GlickoRating, GlickoTeamRating},
     trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
 };
@@ -9,7 +9,7 @@ use ladder_rs::{
 #[test]
 fn test_rating_system_interfaces() {
     // Create rating systems
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let glicko = Glicko::new();
     let trueskill = TrueSkill::new();
 
@@ -28,9 +28,9 @@ fn test_rating_system_interfaces() {
 #[test]
 fn test_two_player_matches_all_systems() {
     // Elo
-    let elo = Elo::new();
-    let elo_team1 = EloTeam::from_player_ratings(vec![elo.create_rating()]);
-    let elo_team2 = EloTeam::from_player_ratings(vec![elo.create_rating()]);
+    let elo = EloSystem::new();
+    let elo_team1 = EloTeamRating::from_player_ratings(vec![elo.create_rating()]);
+    let elo_team2 = EloTeamRating::from_player_ratings(vec![elo.create_rating()]);
     let elo_result = elo
         .rate(&[elo_team1, elo_team2], &GameOutcome::win(0, 2))
         .unwrap();
@@ -59,12 +59,12 @@ fn test_two_player_matches_all_systems() {
 #[test]
 fn test_winner_loser_behavior() {
     // Elo
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let elo_p1 = elo.create_rating();
     let elo_p2 = elo.create_rating();
     let elo_teams = vec![
-        EloTeam::from_player_ratings(vec![elo_p1]),
-        EloTeam::from_player_ratings(vec![elo_p2]),
+        EloTeamRating::from_player_ratings(vec![elo_p1]),
+        EloTeamRating::from_player_ratings(vec![elo_p2]),
     ];
     let elo_result = elo.rate(&elo_teams, &GameOutcome::win(0, 2)).unwrap();
     assert!(elo_result[0].player_ratings()[0].mean() > elo_p1.mean());
@@ -101,10 +101,10 @@ fn test_draw_handling() {
     let draw_outcome = GameOutcome::draw(2);
 
     // Elo handles draws
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let elo_teams = vec![
-        EloTeam::from_player_ratings(vec![elo.create_rating()]),
-        EloTeam::from_player_ratings(vec![elo.create_rating()]),
+        EloTeamRating::from_player_ratings(vec![elo.create_rating()]),
+        EloTeamRating::from_player_ratings(vec![elo.create_rating()]),
     ];
     let elo_result = elo.rate(&elo_teams, &draw_outcome);
     assert!(elo_result.is_ok());
@@ -152,7 +152,7 @@ fn test_rating_trait_implementation() {
 fn test_team_rating_trait_implementation() {
     // Elo team
     let elo_players = vec![EloRating::new(1500.0), EloRating::new(1600.0)];
-    let elo_team = EloTeam::from_player_ratings(elo_players.clone());
+    let elo_team = EloTeamRating::from_player_ratings(elo_players.clone());
     assert_eq!(elo_team.player_ratings().len(), 2);
     assert_eq!(elo_team.player_ratings()[0].mean(), 1500.0);
 
@@ -181,11 +181,11 @@ fn test_multi_team_matches() {
     let three_team_outcome = GameOutcome::new(vec![1, 2, 3]);
 
     // Elo should handle multi-team
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let elo_teams = vec![
-        EloTeam::from_player_ratings(vec![elo.create_rating()]),
-        EloTeam::from_player_ratings(vec![elo.create_rating()]),
-        EloTeam::from_player_ratings(vec![elo.create_rating()]),
+        EloTeamRating::from_player_ratings(vec![elo.create_rating()]),
+        EloTeamRating::from_player_ratings(vec![elo.create_rating()]),
+        EloTeamRating::from_player_ratings(vec![elo.create_rating()]),
     ];
     let elo_result = elo.rate(&elo_teams, &three_team_outcome);
     // Elo might not support >2 teams
@@ -227,7 +227,7 @@ fn test_error_handling_consistency() {
     // Empty teams
     let empty_outcome = GameOutcome::new(vec![]);
 
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let elo_result = elo.rate(&[], &empty_outcome);
     assert!(elo_result.is_err());
 
@@ -242,7 +242,7 @@ fn test_error_handling_consistency() {
     // Mismatched teams and outcomes
     let one_team_two_ranks = GameOutcome::new(vec![1, 2]);
 
-    let elo_team = EloTeam::from_player_ratings(vec![elo.create_rating()]);
+    let elo_team = EloTeamRating::from_player_ratings(vec![elo.create_rating()]);
     assert!(elo.rate(&[elo_team], &one_team_two_ranks).is_err());
 
     let glicko_team = GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]);
@@ -265,7 +265,7 @@ fn test_rating_progression() {
     let mut ts_p1 = TrueSkillRating::new(25.0, (25.0 / 3.0) * (25.0 / 3.0)).unwrap();
     let mut ts_p2 = TrueSkillRating::new(25.0, (25.0 / 3.0) * (25.0 / 3.0)).unwrap();
 
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let glicko = Glicko::new();
     let trueskill = TrueSkill::new();
 
@@ -273,8 +273,8 @@ fn test_rating_progression() {
     for _ in 0..5 {
         // Elo
         let elo_teams = vec![
-            EloTeam::from_player_ratings(vec![elo_p1]),
-            EloTeam::from_player_ratings(vec![elo_p2]),
+            EloTeamRating::from_player_ratings(vec![elo_p1]),
+            EloTeamRating::from_player_ratings(vec![elo_p2]),
         ];
         let elo_result = elo.rate(&elo_teams, &GameOutcome::win(0, 2)).unwrap();
         elo_p1 = elo_result[0].player_ratings()[0].clone();
@@ -320,7 +320,7 @@ fn test_rating_progression() {
 #[test]
 fn test_custom_configurations() {
     // Elo with custom K-factor
-    let elo_custom = Elo::with_k_factor(16.0);
+    let elo_custom = EloSystem::with_k_factor(16.0);
     let elo_rating = elo_custom.create_rating();
     assert_eq!(elo_rating.mean(), 1500.0);
 
@@ -347,14 +347,14 @@ fn test_custom_configurations() {
 #[test]
 fn test_rating_sanity_checks() {
     // Strong vs weak player
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let strong_elo = EloRating::new(2000.0);
     let weak_elo = EloRating::new(1000.0);
 
     // Strong player wins - should gain less
     let elo_teams = vec![
-        EloTeam::from_player_ratings(vec![strong_elo]),
-        EloTeam::from_player_ratings(vec![weak_elo]),
+        EloTeamRating::from_player_ratings(vec![strong_elo]),
+        EloTeamRating::from_player_ratings(vec![weak_elo]),
     ];
     let result = elo.rate(&elo_teams, &GameOutcome::win(0, 2)).unwrap();
     let strong_gain = result[0].player_ratings()[0].mean() - 2000.0;
@@ -382,7 +382,7 @@ fn test_rating_sanity_checks() {
 /// Test that all systems have reasonable default values
 #[test]
 fn test_default_values() {
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let elo_rating = elo.create_rating();
     assert_eq!(elo_rating.mean(), 1500.0);
 
@@ -413,10 +413,10 @@ fn test_default_values() {
 #[test]
 fn test_match_quality() {
     // Elo match quality
-    let elo = Elo::new();
+    let elo = EloSystem::new();
     let elo_teams = vec![
-        EloTeam::from_player_ratings(vec![elo.create_rating()]),
-        EloTeam::from_player_ratings(vec![elo.create_rating()]),
+        EloTeamRating::from_player_ratings(vec![elo.create_rating()]),
+        EloTeamRating::from_player_ratings(vec![elo.create_rating()]),
     ];
     let elo_quality = elo.calculate_match_quality(&elo_teams);
     match elo_quality {
