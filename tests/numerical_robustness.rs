@@ -135,9 +135,9 @@ fn test_multiple_games_sequence() {
     println!(
         "After 10 games: Player 1: {:.2} ± {:.2}, Player 2: {:.2} ± {:.2}",
         final_rating1.mean(),
-        final_rating1.standard_deviation(),
+        final_rating1.std_dev(),
         final_rating2.mean(),
-        final_rating2.standard_deviation()
+        final_rating2.std_dev()
     );
 }
 
@@ -197,9 +197,9 @@ fn test_alternating_wins() {
     println!(
         "After alternating games: Player 1: {:.2} ± {:.2}, Player 2: {:.2} ± {:.2}",
         final_rating1.mean(),
-        final_rating1.standard_deviation(),
+        final_rating1.std_dev(),
         final_rating2.mean(),
-        final_rating2.standard_deviation()
+        final_rating2.std_dev()
     );
 }
 
@@ -248,8 +248,8 @@ fn test_draw_sequence() {
     println!(
         "After draw sequence: Player 1: {:.2} ± {:.2}, Player 2: {:.2} ± {:.2}",
         final_rating1.mean(),
-        final_rating1.standard_deviation(),
+        final_rating1.std_dev(),
         final_rating2.mean(),
-        final_rating2.standard_deviation()
+        final_rating2.std_dev()
     );
 }
