@@ -8,7 +8,7 @@
 //! - Player search and filtering
 //! - Import/export functionality
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -170,8 +170,11 @@ impl PlayerManager {
     /// Gets a player's profile
     pub fn get_player_profile(&self, id_or_alias: &str) -> Result<PlayerProfile, JsValue> {
         // Check if it's an alias
-        let player_id = self.alias_map.get(id_or_alias)
-            .unwrap_or(&id_or_alias.to_string());
+        let player_id = if let Some(id) = self.alias_map.get(id_or_alias) {
+            id
+        } else {
+            id_or_alias
+        };
         
         self.players
             .get(player_id)
