@@ -301,9 +301,9 @@ fn test_factor_graph_basic_operations() {
 fn test_prior_factor() {
     let var_id = 0;
     let prior = PriorFactor::new(var_id, GaussianDistribution::new(25.0, 64.0).unwrap());
-    assert!(prior.is_ok());
+    // PriorFactor::new does not return Result
 
-    let mut factor = prior.unwrap();
+    let mut factor = prior;
     assert_eq!(factor.connected_variables(), vec![var_id]);
 
     // Test message operations
