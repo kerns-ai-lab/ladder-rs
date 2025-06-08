@@ -1,6 +1,6 @@
 use ladder_rs::{
-    trueskill::{TrueSkill, TrueSkillTeam, TrueSkillImplementation},
     core::{RatingSystem, TeamRating},
+    trueskill::{TrueSkill, TrueSkillImplementation, TrueSkillTeam},
 };
 
 #[test]
@@ -15,7 +15,7 @@ fn debug_trueskill_parameters() {
         TrueSkillImplementation::Simplified,
     );
     println!("Negative mean result: {:?}", result.is_err());
-    
+
     // Test zero draw probability - should this really fail?
     let result = TrueSkill::with_parameters(
         25.0,
@@ -26,7 +26,7 @@ fn debug_trueskill_parameters() {
         TrueSkillImplementation::Simplified,
     );
     println!("Zero draw probability result: {:?}", result.is_err());
-    
+
     // Test draw probability 1.0 - should this really fail?
     let result = TrueSkill::with_parameters(
         25.0,
@@ -42,10 +42,10 @@ fn debug_trueskill_parameters() {
 #[test]
 fn debug_match_quality() {
     let ts = TrueSkill::new_simplified();
-    
+
     let team1 = TrueSkillTeam::from_player_ratings(vec![ts.create_rating()]);
     let team2 = TrueSkillTeam::from_player_ratings(vec![ts.create_rating()]);
-    
+
     let result = ts.calculate_match_quality(&[team1, team2]);
     println!("Match quality result: {:?}", result.is_err());
     match result {
