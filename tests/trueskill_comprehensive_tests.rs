@@ -12,10 +12,9 @@ fn test_trueskill_rating_properties() {
 
     assert_eq!(rating.mean(), 25.0);
     assert_eq!(rating.variance(), 64.0);
-    assert_eq!(rating.standard_deviation(), 8.0);
+    assert_eq!(rating.std_dev(), 8.0);
     assert_eq!(rating.conservative_rating(), 25.0 - 3.0 * 8.0);
-    assert_eq!(rating.precision(), 1.0 / 64.0);
-    assert_eq!(rating.precision_adjusted_mean(), 25.0 / 64.0);
+    // precision() and precision_adjusted_mean() are not available on TrueSkillRating
 }
 
 #[test]
