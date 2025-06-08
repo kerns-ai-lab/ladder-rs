@@ -55,7 +55,9 @@ pub mod utils;
 
 // Re-export commonly used types
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
-pub use player_management::{PlayerManager, PlayerProfile, MatchRecord, PlayerStats, HeadToHeadRecord};
+pub use player_management::{
+    HeadToHeadRecord, MatchRecord, PlayerManager, PlayerProfile, PlayerStats,
+};
 pub use types::{
     JsGameOutcome, JsRating, JsTeam, RatingSystemConfig, RatingSystemType, RatingUpdate,
 };
