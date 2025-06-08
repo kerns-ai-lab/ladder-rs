@@ -1,7 +1,6 @@
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating},
     elo::{EloSystem, EloRating, EloTeamRating},
-    error::Error,
 };
 
 #[test]
