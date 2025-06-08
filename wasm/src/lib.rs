@@ -28,9 +28,9 @@ fn set_panic_hook() {
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-// Initialize the WASM module
+// Initialize the WASM module - renamed to avoid conflict with test main
 #[wasm_bindgen(start)]
-pub fn main() {
+pub fn wasm_main() {
     #[cfg(feature = "console_error_panic_hook")]
     set_panic_hook();
 
