@@ -75,8 +75,8 @@ fn test_winner_loser_behavior() {
     let glicko_p1 = glicko.create_rating();
     let glicko_p2 = glicko.create_rating();
     let glicko_teams = vec![
-        GlickoTeamRating::from_player_ratings(vec![glicko_p1]),
-        GlickoTeamRating::from_player_ratings(vec![glicko_p2]),
+        GlickoTeamRating::from_player_ratings(vec![glicko_p1.clone()]),
+        GlickoTeamRating::from_player_ratings(vec![glicko_p2.clone()]),
     ];
     let glicko_result = glicko.rate(&glicko_teams, &GameOutcome::win(0, 2)).unwrap();
     assert!(glicko_result[0].player_ratings()[0].mean() > glicko_p1.mean());
@@ -282,8 +282,8 @@ fn test_rating_progression() {
 
         // Glicko
         let glicko_teams = vec![
-            GlickoTeamRating::from_player_ratings(vec![glicko_p1]),
-            GlickoTeamRating::from_player_ratings(vec![glicko_p2]),
+            GlickoTeamRating::from_player_ratings(vec![glicko_p1.clone()]),
+            GlickoTeamRating::from_player_ratings(vec![glicko_p2.clone()]),
         ];
         let glicko_result = glicko.rate(&glicko_teams, &GameOutcome::win(0, 2)).unwrap();
         glicko_p1 = glicko_result[0].player_ratings()[0].clone();
