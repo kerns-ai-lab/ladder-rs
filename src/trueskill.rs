@@ -424,6 +424,12 @@ pub struct FactorGraph {
     next_variable_id: usize,
 }
 
+impl Default for FactorGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FactorGraph {
     pub fn new() -> Self {
         Self {
@@ -546,16 +552,18 @@ impl TrueSkill {
 
     /// Creates a new TrueSkill instance using simplified implementation.
     pub fn new_simplified() -> Self {
-        let mut ts = Self::default();
-        ts.implementation = TrueSkillImplementation::Simplified;
-        ts
+        Self {
+            implementation: TrueSkillImplementation::Simplified,
+            ..Default::default()
+        }
     }
 
     /// Creates a new TrueSkill instance using factor graph implementation.
     pub fn new_factor_graph() -> Self {
-        let mut ts = Self::default();
-        ts.implementation = TrueSkillImplementation::FactorGraph;
-        ts
+        Self {
+            implementation: TrueSkillImplementation::FactorGraph,
+            ..Default::default()
+        }
     }
 
     /// Creates a new TrueSkill instance with custom parameters.
@@ -661,12 +669,10 @@ impl TrueSkill {
         let player2_rating = &rating_groups[1].player_ratings()[0];
 
         // Determine outcome
-        let two_player_outcome = if ranks[0] < ranks[1] {
-            TwoPlayerOutcome::Player1Wins
-        } else if ranks[0] > ranks[1] {
-            TwoPlayerOutcome::Player2Wins
-        } else {
-            TwoPlayerOutcome::Draw
+        let two_player_outcome = match ranks[0].cmp(&ranks[1]) {
+            std::cmp::Ordering::Less => TwoPlayerOutcome::Player1Wins,
+            std::cmp::Ordering::Greater => TwoPlayerOutcome::Player2Wins,
+            std::cmp::Ordering::Equal => TwoPlayerOutcome::Draw,
         };
 
         // Use simplified updater
@@ -758,12 +764,10 @@ impl TrueSkill {
 
         // Determine outcome and add comparison factor
         let ranks = outcome.ranks();
-        let two_player_outcome = if ranks[0] < ranks[1] {
-            TwoPlayerOutcome::Player1Wins
-        } else if ranks[0] > ranks[1] {
-            TwoPlayerOutcome::Player2Wins
-        } else {
-            TwoPlayerOutcome::Draw
+        let two_player_outcome = match ranks[0].cmp(&ranks[1]) {
+            std::cmp::Ordering::Less => TwoPlayerOutcome::Player1Wins,
+            std::cmp::Ordering::Greater => TwoPlayerOutcome::Player2Wins,
+            std::cmp::Ordering::Equal => TwoPlayerOutcome::Draw,
         };
 
         match two_player_outcome {
@@ -995,7 +999,7 @@ impl SimplifiedTrueSkillUpdater {
 
         // Update variances (reduce uncertainty)
         let variance_update_factor = 1.0 - w * (s1_var / c_squared) * (s2_var / c_squared);
-        let variance_update_factor = variance_update_factor.max(0.1).min(1.0); // Clamp between 0.1 and 1.0
+        let variance_update_factor = variance_update_factor.clamp(0.1, 1.0); // Clamp between 0.1 and 1.0
 
         let new_s1_var = s1_var * variance_update_factor;
         let new_s2_var = s2_var * variance_update_factor;

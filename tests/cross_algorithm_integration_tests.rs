@@ -407,7 +407,7 @@ fn test_scaling_differences() {
     // Test custom scaling for TrueSkill to match others
     let ts_scaled = TrueSkill::with_parameters(
         1500.0, // Use same scale as others
-        (350.0 * 350.0),
+        350.0 * 350.0,
         (350.0 / 2.0) * (350.0 / 2.0),
         (350.0 / 100.0) * (350.0 / 100.0),
         0.1,

@@ -14,6 +14,12 @@ pub struct GlickoRating {
     pub rd: f64,
 }
 
+impl Default for GlickoRating {
+    fn default() -> Self {
+        Self::new(1500.0, 350.0)
+    }
+}
+
 impl GlickoRating {
     /// Creates a new Glicko rating with specified values.
     pub fn new(mu: f64, rd: f64) -> Self {
@@ -21,9 +27,6 @@ impl GlickoRating {
     }
 
     /// Creates a default Glicko rating (μ=1500, RD=350).
-    pub fn default() -> Self {
-        Self::new(1500.0, 350.0)
-    }
 
     /// Converts rating to Glicko-2 scale (divide by 173.7178).
     pub fn to_glicko2_scale(&self) -> (f64, f64) {
@@ -65,6 +68,12 @@ pub struct Glicko2Rating {
     pub volatility: f64,
 }
 
+impl Default for Glicko2Rating {
+    fn default() -> Self {
+        Self::new(1500.0, 350.0, 0.06)
+    }
+}
+
 impl Glicko2Rating {
     /// Creates a new Glicko-2 rating with specified values.
     pub fn new(mu: f64, rd: f64, volatility: f64) -> Self {
@@ -72,9 +81,6 @@ impl Glicko2Rating {
     }
 
     /// Creates a default Glicko-2 rating (μ=1500, RD=350, σ_volatility=0.06).
-    pub fn default() -> Self {
-        Self::new(1500.0, 350.0, 0.06)
-    }
 
     /// Converts rating to Glicko-2 scale.
     pub fn to_glicko2_scale(&self) -> (f64, f64, f64) {
@@ -571,9 +577,6 @@ impl RatingSystem for Glicko2 {
 }
 
 // Maintain Phase 6 module structure for backward compatibility
-pub mod glicko {
-    pub use super::Glicko;
-}
 
 pub mod glicko2 {
     pub use super::Glicko2;

@@ -1,5 +1,5 @@
 use ladder_rs::{
-    core::{GameOutcome, Rating, RatingSystem, TeamRating},
+    core::{GameOutcome, RatingSystem, TeamRating},
     glicko::{Glicko2, Glicko2Rating, Glicko2TeamRating},
 };
 

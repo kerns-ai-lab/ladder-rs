@@ -1,8 +1,8 @@
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating},
-    elo::{EloRating, EloSystem, EloTeamRating},
-    glicko::{Glicko, GlickoRating, GlickoTeamRating},
-    trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
+    elo::{EloSystem, EloTeamRating},
+    glicko::{Glicko, GlickoTeamRating},
+    trueskill::{TrueSkill, TrueSkillTeam},
 };
 
 fn main() {
