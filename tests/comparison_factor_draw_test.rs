@@ -1,5 +1,5 @@
-use ladder_rs::trueskill::{GaussianComparisonFactor, Factor};
-use statrs::distribution::{Normal, ContinuousCDF, Continuous};
+use ladder_rs::trueskill::{Factor, GaussianComparisonFactor};
+use statrs::distribution::{Continuous, ContinuousCDF, Normal};
 
 #[test]
 fn test_draw_message_construction() {
@@ -7,7 +7,8 @@ fn test_draw_message_construction() {
     let lesser_id = 1;
     let draw_margin = 0.5;
 
-    let mut factor = GaussianComparisonFactor::new(greater_id, lesser_id, draw_margin, true).unwrap();
+    let mut factor =
+        GaussianComparisonFactor::new(greater_id, lesser_id, draw_margin, true).unwrap();
     let _ = factor.update_message(greater_id).unwrap();
 
     let msg = factor.message_to(greater_id).unwrap().value();

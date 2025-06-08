@@ -1,6 +1,6 @@
 use ladder_rs::{
+    core::{GameOutcome, RatingSystem, TeamRating},
     elo::{EloSystem, EloTeamRating},
-    core::{RatingSystem, GameOutcome, TeamRating},
 };
 
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
     // Create two players with default ratings
     let alice_rating = elo_system.create_rating();
     let bob_rating = elo_system.create_rating();
-    
+
     println!("Initial ratings:");
     println!("Alice: {:.1}", alice_rating.rating());
     println!("Bob: {:.1}\n", bob_rating.rating());
@@ -35,43 +35,53 @@ fn main() {
     // Simulate a match where Alice wins
     println!("=== Match 1: Alice vs Bob (Alice wins) ===");
     let outcome = GameOutcome::win(0, 2); // Team 0 (Alice) wins
-    let updated_ratings = elo_system
-        .rate(&[alice_team, bob_team], &outcome)
-        .unwrap();
+    let updated_ratings = elo_system.rate(&[alice_team, bob_team], &outcome).unwrap();
 
     println!("Updated ratings:");
-    println!("Alice: {:.1} (gained: {:.1})", 
-             updated_ratings[0].player_ratings()[0].rating(),
-             updated_ratings[0].player_ratings()[0].rating() - 1500.0);
-    println!("Bob: {:.1} (lost: {:.1})\n", 
-             updated_ratings[1].player_ratings()[0].rating(),
-             1500.0 - updated_ratings[1].player_ratings()[0].rating());
+    println!(
+        "Alice: {:.1} (gained: {:.1})",
+        updated_ratings[0].player_ratings()[0].rating(),
+        updated_ratings[0].player_ratings()[0].rating() - 1500.0
+    );
+    println!(
+        "Bob: {:.1} (lost: {:.1})\n",
+        updated_ratings[1].player_ratings()[0].rating(),
+        1500.0 - updated_ratings[1].player_ratings()[0].rating()
+    );
 
     // Simulate another match where Bob wins
     println!("=== Match 2: Alice vs Bob (Bob wins) ===");
     let alice_team = updated_ratings[0].clone();
     let bob_team = updated_ratings[1].clone();
     let outcome = GameOutcome::win(1, 2); // Team 1 (Bob) wins
-    let updated_ratings = elo_system
-        .rate(&[alice_team, bob_team], &outcome)
-        .unwrap();
+    let updated_ratings = elo_system.rate(&[alice_team, bob_team], &outcome).unwrap();
 
     println!("Updated ratings:");
-    println!("Alice: {:.1}", updated_ratings[0].player_ratings()[0].rating());
-    println!("Bob: {:.1}\n", updated_ratings[1].player_ratings()[0].rating());
+    println!(
+        "Alice: {:.1}",
+        updated_ratings[0].player_ratings()[0].rating()
+    );
+    println!(
+        "Bob: {:.1}\n",
+        updated_ratings[1].player_ratings()[0].rating()
+    );
 
     // Simulate a draw
     println!("=== Match 3: Alice vs Bob (Draw) ===");
     let alice_team = updated_ratings[0].clone();
     let bob_team = updated_ratings[1].clone();
     let outcome = GameOutcome::draw(2); // Draw between both teams
-    let updated_ratings = elo_system
-        .rate(&[alice_team, bob_team], &outcome)
-        .unwrap();
+    let updated_ratings = elo_system.rate(&[alice_team, bob_team], &outcome).unwrap();
 
     println!("Updated ratings:");
-    println!("Alice: {:.1}", updated_ratings[0].player_ratings()[0].rating());
-    println!("Bob: {:.1}\n", updated_ratings[1].player_ratings()[0].rating());
+    println!(
+        "Alice: {:.1}",
+        updated_ratings[0].player_ratings()[0].rating()
+    );
+    println!(
+        "Bob: {:.1}\n",
+        updated_ratings[1].player_ratings()[0].rating()
+    );
 
     // Final match quality
     let final_quality = elo_system

@@ -1,8 +1,7 @@
 /// Comprehensive tests for Phase 1 core abstractions
 /// Tests the fundamental traits and data structures that form the foundation of the library
-
 use ladder_rs::{
-    core::{GameOutcome, Rating, RatingSystem, TeamRating, Outcome},
+    core::{GameOutcome, Outcome, Rating, RatingSystem, TeamRating},
     error::Result,
 };
 
@@ -112,7 +111,7 @@ mod tests {
     #[test]
     fn test_rating_trait_basic_functionality() {
         let rating = MockRating::new(100.0, 25.0);
-        
+
         assert_eq!(rating.mean(), 100.0);
         assert_eq!(rating.variance(), 25.0);
         assert_eq!(rating.standard_deviation(), 5.0);
@@ -144,15 +143,15 @@ mod tests {
         let player1 = MockRating::new(100.0, 25.0);
         let player2 = MockRating::new(120.0, 36.0);
         let player3 = MockRating::new(80.0, 16.0);
-        
+
         let players = vec![player1.clone(), player2.clone(), player3.clone()];
         let team = MockTeamRating::from_player_ratings(players.clone());
-        
+
         assert_eq!(team.player_ratings().len(), 3);
         assert_eq!(team.player_ratings()[0], player1);
         assert_eq!(team.player_ratings()[1], player2);
         assert_eq!(team.player_ratings()[2], player3);
-        
+
         // Test accessing individual player ratings
         let ratings = team.player_ratings();
         assert_eq!(ratings[0].mean(), 100.0);
@@ -170,7 +169,7 @@ mod tests {
     fn test_team_rating_single_player() {
         let player = MockRating::new(150.0, 49.0);
         let team = MockTeamRating::from_player_ratings(vec![player.clone()]);
-        
+
         assert_eq!(team.player_ratings().len(), 1);
         assert_eq!(team.player_ratings()[0], player);
     }
@@ -178,21 +177,21 @@ mod tests {
     #[test]
     fn test_rating_system_trait_functionality() {
         let system = MockRatingSystem::new(25.0, 64.0);
-        
+
         // Test create_rating
         let default_rating = system.create_rating();
         assert_eq!(default_rating.mean(), 25.0);
         assert_eq!(default_rating.variance(), 64.0);
-        
+
         // Test create_rating_with_values
         let custom_rating = system.create_rating_with_values(100.0, 225.0);
         assert_eq!(custom_rating.mean(), 100.0);
         assert_eq!(custom_rating.variance(), 225.0);
-        
+
         // Test match quality calculation
         let team1 = MockTeamRating::from_player_ratings(vec![default_rating.clone()]);
         let team2 = MockTeamRating::from_player_ratings(vec![custom_rating]);
-        
+
         let quality = system.calculate_match_quality(&[team1, team2]).unwrap();
         assert_eq!(quality, 0.5);
     }
@@ -202,13 +201,15 @@ mod tests {
         let system = MockRatingSystem::new(25.0, 64.0);
         let rating1 = system.create_rating();
         let rating2 = system.create_rating_with_values(30.0, 49.0);
-        
+
         let team1 = MockTeamRating::from_player_ratings(vec![rating1.clone()]);
         let team2 = MockTeamRating::from_player_ratings(vec![rating2.clone()]);
-        
+
         let outcome = GameOutcome::win(0, 2);
-        let updated_teams = system.rate(&[team1.clone(), team2.clone()], &outcome).unwrap();
-        
+        let updated_teams = system
+            .rate(&[team1.clone(), team2.clone()], &outcome)
+            .unwrap();
+
         // Mock implementation returns unchanged ratings
         assert_eq!(updated_teams.len(), 2);
         assert_eq!(updated_teams[0].player_ratings()[0], rating1);
@@ -223,16 +224,16 @@ mod tests {
         assert!(outcome.is_valid_for_team_count(3));
         assert!(!outcome.is_valid_for_team_count(2));
         assert!(!outcome.is_valid_for_team_count(4));
-        
+
         // Test win scenario
         let win_outcome = GameOutcome::win(0, 3);
         assert_eq!(win_outcome.ranks(), &[1, 2, 2]);
         assert!(win_outcome.is_valid_for_team_count(3));
-        
+
         // Test different winner indices
         let win_outcome_2 = GameOutcome::win(1, 3);
         assert_eq!(win_outcome_2.ranks(), &[2, 1, 2]);
-        
+
         let win_outcome_3 = GameOutcome::win(2, 3);
         assert_eq!(win_outcome_3.ranks(), &[2, 2, 1]);
     }
@@ -243,12 +244,12 @@ mod tests {
         let draw_outcome = GameOutcome::draw(4);
         assert_eq!(draw_outcome.ranks(), &[1, 1, 1, 1]);
         assert!(draw_outcome.is_valid_for_team_count(4));
-        
+
         // Test single team "draw"
         let single_draw = GameOutcome::draw(1);
         assert_eq!(single_draw.ranks(), &[1]);
         assert!(single_draw.is_valid_for_team_count(1));
-        
+
         // Test two team draw
         let two_team_draw = GameOutcome::draw(2);
         assert_eq!(two_team_draw.ranks(), &[1, 1]);
@@ -262,7 +263,7 @@ mod tests {
         assert_eq!(empty_outcome.ranks().len(), 0);
         assert!(!empty_outcome.is_valid_for_team_count(0));
         assert!(!empty_outcome.is_valid_for_team_count(1));
-        
+
         // Test complex ranking scenarios
         let complex_outcome = GameOutcome::new(vec![1, 1, 3, 3, 5]);
         assert_eq!(complex_outcome.ranks(), &[1, 1, 3, 3, 5]);
@@ -273,7 +274,7 @@ mod tests {
     #[test]
     fn test_outcome_trait_implementation() {
         let outcome = GameOutcome::new(vec![1, 2]);
-        
+
         // Test that GameOutcome properly implements Outcome trait
         assert!(outcome.is_valid_for_team_count(2));
         assert!(!outcome.is_valid_for_team_count(3));
@@ -286,15 +287,15 @@ mod tests {
         let rating = MockRating::new(100.0, 25.0);
         let cloned_rating = rating.clone();
         assert_eq!(rating, cloned_rating);
-        
+
         let team = MockTeamRating::from_player_ratings(vec![rating.clone()]);
         let cloned_team = team.clone();
         assert_eq!(team, cloned_team);
-        
+
         let outcome = GameOutcome::new(vec![1, 2]);
         let cloned_outcome = outcome.clone();
         assert_eq!(outcome, cloned_outcome);
-        
+
         // Test debug formatting (just ensure it doesn't panic)
         let _debug_rating = format!("{:?}", rating);
         let _debug_team = format!("{:?}", team);
@@ -307,16 +308,16 @@ mod tests {
         let players: Vec<MockRating> = (0..100)
             .map(|i| MockRating::new(1000.0 + i as f64, 100.0))
             .collect();
-        
+
         let large_team = MockTeamRating::from_player_ratings(players.clone());
         assert_eq!(large_team.player_ratings().len(), 100);
-        
+
         // Verify player ratings are preserved correctly
         for (i, player) in large_team.player_ratings().iter().enumerate() {
             assert_eq!(player.mean(), 1000.0 + i as f64);
             assert_eq!(player.variance(), 100.0);
         }
-        
+
         // Test match with many teams
         let many_teams: Vec<MockTeamRating> = (0..50)
             .map(|i| {
@@ -324,11 +325,11 @@ mod tests {
                 MockTeamRating::from_player_ratings(vec![player])
             })
             .collect();
-        
+
         let system = MockRatingSystem::new(25.0, 64.0);
         let quality = system.calculate_match_quality(&many_teams).unwrap();
         assert_eq!(quality, 0.5); // Mock implementation returns 0.5
-        
+
         // Test complex outcome with many teams
         let ranks: Vec<usize> = (1..=50).collect();
         let complex_outcome = GameOutcome::new(ranks);

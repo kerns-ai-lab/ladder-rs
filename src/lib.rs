@@ -1,8 +1,8 @@
 pub mod core;
-pub mod error;
-pub mod trueskill;
 pub mod elo;
+pub mod error;
 pub mod glicko;
+pub mod trueskill;
 
-pub use crate::core::{Rating, RatingSystem, TeamRating, Outcome};
+pub use crate::core::{Outcome, Rating, RatingSystem, TeamRating};
 pub use crate::error::Error;

@@ -1,4 +1,4 @@
-use crate::core::{Rating, RatingSystem, TeamRating, Outcome, GameOutcome};
+use crate::core::{GameOutcome, Outcome, Rating, RatingSystem, TeamRating};
 use crate::error::{Error, Result};
 use std::f64::consts::PI;
 
@@ -150,11 +150,15 @@ impl RatingSystem for EloSystem {
         }
 
         if !outcome.is_valid_for_team_count(2) {
-            return Err(Error::InvalidInput("Invalid outcome for 2 teams".to_string()));
+            return Err(Error::InvalidInput(
+                "Invalid outcome for 2 teams".to_string(),
+            ));
         }
 
         // Each team should have exactly one player for Elo
-        if rating_groups[0].player_ratings().len() != 1 || rating_groups[1].player_ratings().len() != 1 {
+        if rating_groups[0].player_ratings().len() != 1
+            || rating_groups[1].player_ratings().len() != 1
+        {
             return Err(Error::InvalidInput(
                 "Each team must have exactly one player for Elo".to_string(),
             ));
@@ -164,19 +168,19 @@ impl RatingSystem for EloSystem {
         let player2_rating = rating_groups[1].player_ratings()[0].rating();
 
         let ranks = outcome.ranks();
-        
+
         // Determine the outcome: y = +1 if player 1 wins, y = -1 if player 2 wins, y = 0 for draw
         let y = if ranks[0] < ranks[1] {
-            1.0  // Player 1 wins
+            1.0 // Player 1 wins
         } else if ranks[0] > ranks[1] {
-            -1.0  // Player 2 wins
+            -1.0 // Player 2 wins
         } else {
-            0.0  // Draw
+            0.0 // Draw
         };
 
         // Calculate rating updates
         let delta = self.calculate_delta(player1_rating, player2_rating, y);
-        
+
         let new_player1_rating = player1_rating + y * delta;
         let new_player2_rating = player2_rating - y * delta;
 
@@ -193,7 +197,9 @@ impl RatingSystem for EloSystem {
             ));
         }
 
-        if rating_groups[0].player_ratings().len() != 1 || rating_groups[1].player_ratings().len() != 1 {
+        if rating_groups[0].player_ratings().len() != 1
+            || rating_groups[1].player_ratings().len() != 1
+        {
             return Err(Error::InvalidInput(
                 "Each team must have exactly one player".to_string(),
             ));
@@ -203,11 +209,11 @@ impl RatingSystem for EloSystem {
         let s2 = rating_groups[1].player_ratings()[0].rating();
 
         let win_prob = self.win_probability(s1, s2);
-        
+
         // Match quality is higher when win probability is closer to 0.5 (more balanced)
         // We use 1 - 2 * |0.5 - win_prob| to get a value between 0 and 1
         let quality = 1.0 - 2.0 * (0.5 - win_prob).abs();
-        
+
         Ok(quality)
     }
 }
@@ -264,7 +270,7 @@ mod tests {
         let outcome = GameOutcome::win(0, 2); // Team 1 wins
 
         let result = system.rate(&[team1, team2], &outcome).unwrap();
-        
+
         // Winner should gain rating, loser should lose rating
         assert!(result[0].player_ratings()[0].rating() > 1500.0);
         assert!(result[1].player_ratings()[0].rating() < 1500.0);
@@ -278,7 +284,7 @@ mod tests {
         let outcome = GameOutcome::draw(2); // Draw
 
         let result = system.rate(&[team1, team2], &outcome).unwrap();
-        
+
         // In a draw between equal players, ratings should remain the same
         assert!((result[0].player_ratings()[0].rating() - 1500.0).abs() < 0.001);
         assert!((result[1].player_ratings()[0].rating() - 1500.0).abs() < 0.001);
@@ -291,7 +297,7 @@ mod tests {
         let team2 = EloTeamRating::new(EloRating::new(1500.0));
 
         let quality = system.calculate_match_quality(&[team1, team2]).unwrap();
-        
+
         // Equal players should have high match quality (close to 1.0)
         assert!(quality > 0.9);
         assert!(quality <= 1.0);
@@ -300,15 +306,15 @@ mod tests {
     #[test]
     fn test_win_probability() {
         let system = EloSystem::new();
-        
+
         // Equal players should have ~0.5 win probability
         let prob = system.win_probability(1500.0, 1500.0);
         assert!((prob - 0.5).abs() < 0.01);
-        
+
         // Higher rated player should have > 0.5 win probability
         let prob = system.win_probability(1600.0, 1500.0);
         assert!(prob > 0.5);
-        
+
         // Lower rated player should have < 0.5 win probability
         let prob = system.win_probability(1400.0, 1500.0);
         assert!(prob < 0.5);
