@@ -50,6 +50,7 @@ pub use ladder_rs::error::Error as LadderError;
 // Module declarations
 pub mod api;
 pub mod player_management;
+pub mod test_utils;
 pub mod types;
 pub mod utils;
 
@@ -57,6 +58,10 @@ pub mod utils;
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
 pub use player_management::{
     HeadToHeadRecord, MatchRecord, PlayerManager, PlayerProfile, PlayerStats,
+};
+pub use test_utils::{
+    AssertionHelper, BrowserEnvironment, MockDataGenerator, PerformanceTimer, TestFixture,
+    TestLogger, TestSnapshot,
 };
 pub use types::{
     JsGameOutcome, JsRating, JsTeam, RatingSystemConfig, RatingSystemType, RatingUpdate,
