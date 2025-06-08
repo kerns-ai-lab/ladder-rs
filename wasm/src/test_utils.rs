@@ -194,8 +194,14 @@ impl MockDataGenerator {
 
     /// Generate a random email
     pub fn generate_email(&mut self) -> String {
-        let name = self.generate_player_name().to_lowercase().replace(' ', ".");
-        format!("{}@example.com", name)
+        let name = self.generate_player_name();
+        self.player_name_to_email(&name)
+    }
+    
+    /// Convert a player name to email format
+    fn player_name_to_email(&self, name: &str) -> String {
+        let email_name = name.to_lowercase().replace(' ', ".");
+        format!("{}@example.com", email_name)
     }
 
     /// Generate a random match outcome (0=draw, 1=team1 wins, 2=team2 wins)
