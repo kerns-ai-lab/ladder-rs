@@ -26,8 +26,6 @@ impl GlickoRating {
         Self { mu, rd }
     }
 
-    /// Creates a default Glicko rating (μ=1500, RD=350).
-
     /// Converts rating to Glicko-2 scale (divide by 173.7178).
     pub fn to_glicko2_scale(&self) -> (f64, f64) {
         (self.mu / GLICKO_SCALE, self.rd / GLICKO_SCALE)
@@ -79,8 +77,6 @@ impl Glicko2Rating {
     pub fn new(mu: f64, rd: f64, volatility: f64) -> Self {
         Self { mu, rd, volatility }
     }
-
-    /// Creates a default Glicko-2 rating (μ=1500, RD=350, σ_volatility=0.06).
 
     /// Converts rating to Glicko-2 scale.
     pub fn to_glicko2_scale(&self) -> (f64, f64, f64) {
