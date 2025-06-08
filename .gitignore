@@ -5,4 +5,4 @@ wasm/target/
 
 # Coverage reports
 coverage.json
-coverage.lcov
+coverage.lcovwasm/target/
