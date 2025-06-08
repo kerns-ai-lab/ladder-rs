@@ -34,7 +34,7 @@ Tasks are organized hierarchically with the following status indicators:
 
 ## Getting Started
 
-1. Review the overall implementation plan in the root `wasm-ui-implementation-plan.md`
+1. Review the overall implementation plan in `../wasm-ui-implementation-plan.md`
 2. Start with Phase 1: WASM Foundation
 3. Follow the task dependencies outlined in each phase
 4. Update task status as work progresses
