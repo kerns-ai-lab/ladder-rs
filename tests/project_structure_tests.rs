@@ -1,6 +1,7 @@
 /// Tests for Phase 1 project structure and module organization
 /// Validates that the library is properly organized and exports are correct
 
+use std::f64::consts::{PI, TAU};
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating, Outcome},
     error::{Error, Result},
@@ -190,9 +191,9 @@ mod tests {
         assert_eq!(custom_outcome.ranks().len(), 4);
         
         // Error handling should be idiomatic
-        let result: Result<f64> = Ok(3.14);
+        let result: Result<f64> = Ok(PI);
         let processed = result.map(|x| x * 2.0).unwrap();
-        assert_eq!(processed, 6.28);
+        assert_eq!(processed, TAU);
         
         let error_result: Result<f64> = Err(Error::InvalidInput("bad input".to_string()));
         assert!(error_result.is_err());
