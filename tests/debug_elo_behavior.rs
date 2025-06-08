@@ -1,5 +1,5 @@
 use ladder_rs::{
-    core::{GameOutcome, RatingSystem},
+    core::{GameOutcome, RatingSystem, TeamRating},
     elo::{EloSystem, EloRating, EloTeamRating},
 };
 
