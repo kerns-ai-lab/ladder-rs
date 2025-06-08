@@ -49,11 +49,13 @@ pub use ladder_rs::error::Error as LadderError;
 
 // Module declarations
 pub mod api;
+pub mod player_management;
 pub mod types;
 pub mod utils;
 
 // Re-export commonly used types
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
+pub use player_management::{PlayerManager, PlayerProfile, MatchRecord, PlayerStats, HeadToHeadRecord};
 pub use types::{
     JsGameOutcome, JsRating, JsTeam, RatingSystemConfig, RatingSystemType, RatingUpdate,
 };
