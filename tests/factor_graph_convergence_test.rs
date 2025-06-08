@@ -115,7 +115,6 @@ fn test_absolute_difference_calculation() {
 }
 
 #[test]
-<<<<<<< HEAD
 fn test_outcome_affects_ratings() {
     let ts = TrueSkill::new_factor_graph();
 
@@ -139,8 +138,6 @@ fn test_outcome_affects_ratings() {
 }
 
 #[test]
-=======
->>>>>>> main
 fn test_variable_updates_in_schedule_loop() {
     use ladder_rs::trueskill::{FactorGraph, GaussianDistribution, GaussianPriorFactor};
 
@@ -176,13 +173,6 @@ fn test_schedule_with_comparison_factor() {
     let greater_var = fg.get_variable(greater_id).unwrap();
     let lesser_var = fg.get_variable(lesser_id).unwrap();
 
-<<<<<<< HEAD
-    assert!(greater_var.value().mean() > lesser_var.value().mean());
-    assert!(greater_var.value().mean() > 0.0);
-    assert!(lesser_var.value().mean() > 0.0);
-}
-=======
     assert!((greater_var.value().mean() - 5.0).abs() < 1e-6);
     assert!((lesser_var.value().mean() - 3.0).abs() < 1e-6);
 }
->>>>>>> main
