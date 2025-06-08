@@ -3,6 +3,7 @@ use crate::{
     error::{Error, Result},
 };
 use statrs::distribution::{Normal, ContinuousCDF, Continuous};
+use std::collections::HashMap;
 
 /// Implementation choice for TrueSkill algorithm
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -11,6 +12,454 @@ pub enum TrueSkillImplementation {
     Simplified,
     /// Full factor graph implementation with message passing
     FactorGraph,
+}
+
+/// Gaussian distribution used in factor graph message passing
+#[derive(Debug, Clone, PartialEq)]
+pub struct GaussianDistribution {
+    precision_mean: f64,
+    precision: f64,
+}
+
+impl GaussianDistribution {
+    pub fn new(mean: f64, variance: f64) -> Result<Self> {
+        if variance <= 0.0 {
+            return Err(Error::InvalidInput("Variance must be positive".to_string()));
+        }
+        let precision = 1.0 / variance;
+        Ok(Self {
+            precision_mean: precision * mean,
+            precision,
+        })
+    }
+
+    /// Construct a Gaussian from a mean and variance without validation.
+    pub fn from_mean_and_variance(mean: f64, variance: f64) -> Self {
+        let precision = if variance.is_infinite() { 0.0 } else { 1.0 / variance };
+        Self {
+            precision_mean: precision * mean,
+            precision,
+        }
+    }
+    
+    pub fn from_precision_mean(precision_mean: f64, precision: f64) -> Self {
+        Self { precision_mean, precision }
+    }
+    
+    pub fn mean(&self) -> f64 {
+        if self.precision == 0.0 {
+            0.0
+        } else {
+            self.precision_mean / self.precision
+        }
+    }
+    
+    pub fn variance(&self) -> f64 {
+        if self.precision == 0.0 {
+            f64::INFINITY
+        } else {
+            1.0 / self.precision
+        }
+    }
+    
+    pub fn precision(&self) -> f64 {
+        self.precision
+    }
+    
+    pub fn precision_mean(&self) -> f64 {
+        self.precision_mean
+    }
+    
+    /// Calculate absolute difference between two Gaussian distributions
+    pub fn absolute_difference(&self, other: &Self) -> f64 {
+        let precision_mean_diff = (self.precision_mean - other.precision_mean).abs();
+        let precision_diff = (self.precision - other.precision).abs();
+        precision_mean_diff.max(precision_diff)
+    }
+    
+    /// Multiply two Gaussian distributions (product in precision form)
+    pub fn multiply(&self, other: &Self) -> Self {
+        Self {
+            precision_mean: self.precision_mean + other.precision_mean,
+            precision: self.precision + other.precision,
+        }
+    }
+    
+    /// Divide by another Gaussian distribution
+    pub fn divide(&self, other: &Self) -> Self {
+        Self {
+            precision_mean: self.precision_mean - other.precision_mean,
+            precision: self.precision - other.precision,
+        }
+    }
+}
+
+/// Variable in the factor graph that holds a Gaussian distribution
+#[derive(Debug, Clone)]
+pub struct Variable {
+    id: usize,
+    value: GaussianDistribution,
+}
+
+impl Variable {
+    pub fn new(id: usize, value: GaussianDistribution) -> Self {
+        Self { id, value }
+    }
+    
+    pub fn value(&self) -> &GaussianDistribution {
+        &self.value
+    }
+    
+    pub fn set_value(&mut self, value: GaussianDistribution) {
+        self.value = value;
+    }
+    
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    /// Update this variable's belief by multiplying incoming factor messages
+    /// and return the absolute difference from the previous value.
+    pub fn update_belief(&mut self, messages: &[&Message]) -> f64 {
+        let old_value = self.value.clone();
+
+        let mut iter = messages.iter();
+        let mut new_value = if let Some(first) = iter.next() {
+            first.value().clone()
+        } else {
+            GaussianDistribution::from_mean_and_variance(0.0, f64::INFINITY)
+        };
+        for msg in iter {
+            new_value = new_value.multiply(msg.value());
+        }
+
+        self.value = new_value.clone();
+        old_value.absolute_difference(&new_value)
+    }
+}
+
+/// Message passed between factors and variables
+#[derive(Debug, Clone)]
+pub struct Message {
+    value: GaussianDistribution,
+}
+
+impl Message {
+    pub fn new(value: GaussianDistribution) -> Self {
+        Self { value }
+    }
+    
+    pub fn value(&self) -> &GaussianDistribution {
+        &self.value
+    }
+    
+    pub fn set_value(&mut self, value: GaussianDistribution) {
+        self.value = value;
+    }
+}
+
+/// Trait for factors in the factor graph
+pub trait Factor {
+    fn update_message(&mut self, variable_id: usize) -> Result<f64>;
+    fn connected_variables(&self) -> Vec<usize>;
+    fn message_to(&self, variable_id: usize) -> Result<&Message>;
+}
+
+/// Prior factor that sets initial skill distribution
+pub struct GaussianPriorFactor {
+    variable_id: usize,
+    mean: f64,
+    variance: f64,
+    message: Message,
+}
+
+impl GaussianPriorFactor {
+    pub fn new(variable_id: usize, mean: f64, variance: f64) -> Result<Self> {
+        let prior = GaussianDistribution::new(mean, variance)?;
+        Ok(Self {
+            variable_id,
+            mean,
+            variance,
+            message: Message::new(prior),
+        })
+    }
+}
+
+impl Factor for GaussianPriorFactor {
+    fn update_message(&mut self, variable_id: usize) -> Result<f64> {
+        if variable_id != self.variable_id {
+            return Err(Error::InvalidInput("Variable ID mismatch".to_string()));
+        }
+        
+        let old_message = self.message.value().clone();
+        let new_message = GaussianDistribution::new(self.mean, self.variance)?;
+        
+        self.message.set_value(new_message.clone());
+        Ok(old_message.absolute_difference(&new_message))
+    }
+    
+    fn connected_variables(&self) -> Vec<usize> {
+        vec![self.variable_id]
+    }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.variable_id {
+            Ok(&self.message)
+        } else {
+            Err(Error::InvalidInput("Variable ID mismatch".to_string()))
+        }
+    }
+}
+
+/// Likelihood factor connecting skill to performance
+pub struct GaussianLikelihoodFactor {
+    skill_variable_id: usize,
+    performance_variable_id: usize,
+    beta_squared: f64,
+    skill_to_perf_message: Message,
+    perf_to_skill_message: Message,
+}
+
+impl GaussianLikelihoodFactor {
+    pub fn new(skill_variable_id: usize, performance_variable_id: usize, beta_squared: f64) -> Result<Self> {
+        let zero_message = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        Ok(Self {
+            skill_variable_id,
+            performance_variable_id,
+            beta_squared,
+            skill_to_perf_message: Message::new(zero_message.clone()),
+            perf_to_skill_message: Message::new(zero_message),
+        })
+    }
+}
+
+impl Factor for GaussianLikelihoodFactor {
+    fn update_message(&mut self, variable_id: usize) -> Result<f64> {
+        if variable_id == self.performance_variable_id {
+            // Update skill -> performance message
+            let old_message = self.skill_to_perf_message.value().clone();
+            // For likelihood factor, performance = skill + noise(β²)
+            let new_message = GaussianDistribution::from_precision_mean(0.0, 1.0 / self.beta_squared);
+            self.skill_to_perf_message.set_value(new_message.clone());
+            Ok(old_message.absolute_difference(&new_message))
+        } else if variable_id == self.skill_variable_id {
+            // Update performance -> skill message  
+            let old_message = self.perf_to_skill_message.value().clone();
+            let new_message = GaussianDistribution::from_precision_mean(0.0, 1.0 / self.beta_squared);
+            self.perf_to_skill_message.set_value(new_message.clone());
+            Ok(old_message.absolute_difference(&new_message))
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
+    }
+    
+    fn connected_variables(&self) -> Vec<usize> {
+        vec![self.skill_variable_id, self.performance_variable_id]
+    }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.performance_variable_id {
+            Ok(&self.skill_to_perf_message)
+        } else if variable_id == self.skill_variable_id {
+            Ok(&self.perf_to_skill_message)
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
+    }
+}
+
+/// Comparison factor enforcing game outcome between two performance variables
+pub struct GaussianComparisonFactor {
+    greater_variable_id: usize,
+    lesser_variable_id: usize,
+    draw_margin: f64,
+    is_draw: bool,
+    msg_greater: Message,
+    msg_lesser: Message,
+}
+
+impl GaussianComparisonFactor {
+    pub fn new(
+        greater_variable_id: usize,
+        lesser_variable_id: usize,
+        draw_margin: f64,
+        is_draw: bool,
+    ) -> Result<Self> {
+        let zero = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        Ok(Self {
+            greater_variable_id,
+            lesser_variable_id,
+            draw_margin,
+            is_draw,
+            msg_greater: Message::new(zero.clone()),
+            msg_lesser: Message::new(zero),
+        })
+    }
+}
+
+impl Factor for GaussianComparisonFactor {
+    fn update_message(&mut self, variable_id: usize) -> Result<f64> {
+        // Calculate new message based on win/draw assumptions using
+        // the TrueSkill V and W functions with a default cavity of
+        // mean=0 and variance=1.
+        let eps = self.draw_margin;
+        let normal = Normal::new(0.0, 1.0).unwrap();
+
+        // Helper closures for V and W functions with t=0
+        let v_win = || {
+            let denom = normal.cdf(-eps);
+            if denom < 1e-10 {
+                0.0
+            } else {
+                normal.pdf(-eps) / denom
+            }
+        };
+
+        let w_win = |v: f64| v * (v + eps);
+
+        let v_draw = || {
+            let phi_upper = normal.cdf(eps);
+            let phi_lower = normal.cdf(-eps);
+            let pdf_upper = normal.pdf(eps);
+            let pdf_lower = normal.pdf(-eps);
+            let denom = phi_upper - phi_lower;
+            if denom.abs() < 1e-10 {
+                0.0
+            } else {
+                (pdf_lower - pdf_upper) / denom
+            }
+        };
+
+        let w_draw = || {
+            let phi_upper = normal.cdf(eps);
+            let phi_lower = normal.cdf(-eps);
+            let denom = phi_upper - phi_lower;
+            if denom.abs() < 1e-10 {
+                0.0
+            } else {
+                let pdf = normal.pdf(eps); // symmetric
+                2.0 * eps * pdf / denom
+            }
+        };
+
+        if variable_id == self.greater_variable_id {
+            // Message to the greater variable (winner)
+            if self.is_draw {
+                let v = v_draw();
+                let w = w_draw();
+                let new_msg = GaussianDistribution::from_precision_mean(v, 1.0 - w);
+                let delta = self.msg_greater.value().absolute_difference(&new_msg);
+                self.msg_greater.set_value(new_msg);
+                Ok(delta)
+            } else {
+                let v = v_win();
+                let w = w_win(v);
+                let new_msg = GaussianDistribution::from_precision_mean(v, w);
+                let delta = self.msg_greater.value().absolute_difference(&new_msg);
+                self.msg_greater.set_value(new_msg);
+                Ok(delta)
+            }
+        } else if variable_id == self.lesser_variable_id {
+            // Message to the lesser variable (loser)
+            if self.is_draw {
+                let v = v_draw();
+                let w = w_draw();
+                let new_msg = GaussianDistribution::from_precision_mean(v, 1.0 - w);
+                let delta = self.msg_lesser.value().absolute_difference(&new_msg);
+                self.msg_lesser.set_value(new_msg);
+                Ok(delta)
+            } else {
+                let v = -v_win();
+                let w = w_win(v);
+                let new_msg = GaussianDistribution::from_precision_mean(v, w);
+                let delta = self.msg_lesser.value().absolute_difference(&new_msg);
+                self.msg_lesser.set_value(new_msg);
+                Ok(delta)
+            }
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
+    }
+
+    fn connected_variables(&self) -> Vec<usize> {
+        vec![self.greater_variable_id, self.lesser_variable_id]
+    }
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.greater_variable_id {
+            Ok(&self.msg_greater)
+        } else if variable_id == self.lesser_variable_id {
+            Ok(&self.msg_lesser)
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
+    }
+}
+
+/// Factor graph for TrueSkill computation
+pub struct FactorGraph {
+    variables: HashMap<usize, Variable>,
+    factors: Vec<Box<dyn Factor>>,
+    next_variable_id: usize,
+}
+
+impl FactorGraph {
+    pub fn new() -> Self {
+        Self {
+            variables: HashMap::new(),
+            factors: Vec::new(),
+            next_variable_id: 0,
+        }
+    }
+    
+    pub fn add_variable(&mut self, value: GaussianDistribution) -> usize {
+        let id = self.next_variable_id;
+        self.next_variable_id += 1;
+        self.variables.insert(id, Variable::new(id, value));
+        id
+    }
+    
+    pub fn add_factor(&mut self, factor: Box<dyn Factor>) {
+        self.factors.push(factor);
+    }
+    
+    pub fn get_variable(&self, id: usize) -> Option<&Variable> {
+        self.variables.get(&id)
+    }
+    
+    /// Run message passing until convergence
+    pub fn run_schedule_loop(&mut self, max_delta: f64, max_iterations: usize) -> Result<f64> {
+        let mut iteration = 0;
+        let mut delta = f64::INFINITY;
+        
+        while delta > max_delta && iteration < max_iterations {
+            delta = 0.0;
+            iteration += 1;
+
+            // Update all factor messages
+            for factor in &mut self.factors {
+                for variable_id in factor.connected_variables() {
+                    let factor_delta = factor.update_message(variable_id)?;
+                    delta = delta.max(factor_delta);
+                }
+            }
+
+            // Update all variable beliefs
+            for variable in self.variables.values_mut() {
+                let var_id = variable.id();
+                let mut messages = Vec::new();
+                for factor in &self.factors {
+                    if factor.connected_variables().iter().any(|&id| id == var_id) {
+                        messages.push(factor.message_to(var_id)?);
+                    }
+                }
+                let var_delta = variable.update_belief(&messages);
+                delta = delta.max(var_delta);
+            }
+        }
+        
+        Ok(delta)
+    }
 }
 
 /// Implementation of Microsoft's TrueSkill rating system.
@@ -214,15 +663,130 @@ impl TrueSkill {
         Ok(vec![updated_team1, updated_team2])
     }
     
-    /// Rate using factor graph implementation (simplified fallback for now)
+    /// Rate using factor graph implementation with proper convergence
     fn rate_factor_graph(
         &self,
         rating_groups: &[TrueSkillTeam],
         outcome: &GameOutcome,
     ) -> Result<Vec<TrueSkillTeam>> {
-        // For now, fall back to simplified implementation to avoid convergence issues
-        // In a full implementation, this would use complete message passing
-        self.rate_simplified(rating_groups, outcome)
+        if rating_groups.len() != 2 {
+            return Err(Error::InvalidInput(
+                "Factor graph implementation currently only supports two-player games".to_string(),
+            ));
+        }
+        
+        // Only handle single-player teams for now
+        if rating_groups[0].player_ratings().len() != 1 || rating_groups[1].player_ratings().len() != 1 {
+            return Err(Error::InvalidInput(
+                "Factor graph implementation currently only supports single-player teams".to_string(),
+            ));
+        }
+        
+        let mut factor_graph = FactorGraph::new();
+        
+        // Add skill variables with dynamics variance added
+        let player1_rating = &rating_groups[0].player_ratings()[0];
+        let player2_rating = &rating_groups[1].player_ratings()[0];
+        
+        let skill1_dist = GaussianDistribution::new(
+            player1_rating.mean(),
+            player1_rating.variance() + self.gamma_squared,
+        )?;
+        let skill2_dist = GaussianDistribution::new(
+            player2_rating.mean(),
+            player2_rating.variance() + self.gamma_squared,
+        )?;
+        
+        let skill1_id = factor_graph.add_variable(skill1_dist.clone());
+        let skill2_id = factor_graph.add_variable(skill2_dist.clone());
+        
+        // Add performance variables
+        let perf1_dist = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        let perf2_dist = GaussianDistribution::from_precision_mean(0.0, 0.0);
+        
+        let perf1_id = factor_graph.add_variable(perf1_dist);
+        let perf2_id = factor_graph.add_variable(perf2_dist);
+        
+        // Add prior factors (skill constraints)
+        factor_graph.add_factor(Box::new(GaussianPriorFactor::new(
+            skill1_id, 
+            player1_rating.mean(),
+            player1_rating.variance() + self.gamma_squared,
+        )?));
+        factor_graph.add_factor(Box::new(GaussianPriorFactor::new(
+            skill2_id,
+            player2_rating.mean(), 
+            player2_rating.variance() + self.gamma_squared,
+        )?));
+        
+        // Add likelihood factors (skill -> performance)
+        factor_graph.add_factor(Box::new(GaussianLikelihoodFactor::new(
+            skill1_id, perf1_id, self.beta_squared,
+        )?));
+        factor_graph.add_factor(Box::new(GaussianLikelihoodFactor::new(
+            skill2_id, perf2_id, self.beta_squared,
+        )?));
+
+        // Determine outcome and add comparison factor
+        let ranks = outcome.ranks();
+        let two_player_outcome = if ranks[0] < ranks[1] {
+            TwoPlayerOutcome::Player1Wins
+        } else if ranks[0] > ranks[1] {
+            TwoPlayerOutcome::Player2Wins
+        } else {
+            TwoPlayerOutcome::Draw
+        };
+
+        match two_player_outcome {
+            TwoPlayerOutcome::Player1Wins => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf1_id,
+                    perf2_id,
+                    self.draw_margin,
+                    false,
+                )?));
+            }
+            TwoPlayerOutcome::Player2Wins => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf2_id,
+                    perf1_id,
+                    self.draw_margin,
+                    false,
+                )?));
+            }
+            TwoPlayerOutcome::Draw => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf1_id,
+                    perf2_id,
+                    self.draw_margin,
+                    true,
+                )?));
+            }
+        }
+        
+        // Run convergence loop
+        let _final_delta = factor_graph.run_schedule_loop(
+            self.convergence_threshold,
+            self.max_iterations,
+        )?;
+
+        // Until full factor graph updates are implemented, use simplified updater
+        let updater = SimplifiedTrueSkillUpdater::new(
+            self.beta_squared,
+            self.gamma_squared,
+            self.draw_margin,
+        );
+
+        let (final_rating1, final_rating2) = updater.update_ratings(
+            player1_rating,
+            player2_rating,
+            two_player_outcome,
+        )?;
+
+        let updated_team1 = TrueSkillTeam::from_player_ratings(vec![final_rating1]);
+        let updated_team2 = TrueSkillTeam::from_player_ratings(vec![final_rating2]);
+
+        Ok(vec![updated_team1, updated_team2])
     }
 }
 
