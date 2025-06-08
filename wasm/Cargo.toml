@@ -19,19 +19,7 @@ name = "ladder_rs_wasm"
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { 
-    version = "0.3", 
-    features = [
-        "Window", 
-        "Performance", 
-        "console", 
-        "Document", 
-        "Element", 
-        "HtmlElement", 
-        "Storage", 
-        "Navigator"
-    ] 
-}
+web-sys = { version = "0.3", features = ["Window", "Performance", "console", "Document", "Element", "HtmlElement", "Storage", "Navigator"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -132,11 +120,3 @@ debug-assertions = false
 # Documentation build settings for docs.rs
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
-
-[package.metadata.wasm-pack]
-# Global wasm-pack settings
-[package.metadata.wasm-pack.profile.dev]
-wasm-opt = false
-
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-Oz"]
