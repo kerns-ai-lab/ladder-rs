@@ -46,6 +46,15 @@ log_verbose() {
     fi
 }
 
+# Copy custom TypeScript definitions into the output directory
+copy_ts_defs() {
+    local out_dir="$1"
+    if [ -f "types/ladder_rs_wasm.d.ts" ]; then
+        cp "types/ladder_rs_wasm.d.ts" "$out_dir/ladder_rs_wasm.d.ts"
+        log_verbose "Copied TypeScript definitions to $out_dir"
+    fi
+}
+
 # Function to check bundle size
 check_bundle_size() {
     local output_dir="$1"
@@ -121,6 +130,9 @@ build_target() {
         if [ "$SIZE_CHECK" = true ]; then
             check_bundle_size "$target_output_dir" "$target"
         fi
+
+        # Copy TypeScript definitions
+        copy_ts_defs "$target_output_dir"
         
         # Generate file listing
         log_verbose "Generated files in $target_output_dir:"
