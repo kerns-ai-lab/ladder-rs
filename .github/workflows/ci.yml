@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, dev ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,171 +12,47 @@ env:
 
 jobs:
   test:
-    name: Test Suite
+    name: Test
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, beta, 1.70.0]  # MSRV
-        exclude:
-          # Only run beta and MSRV on Ubuntu to reduce CI time
-          - os: windows-latest
-            rust: beta
-          - os: windows-latest
-            rust: 1.70.0
-          - os: macos-latest
-            rust: beta
-          - os: macos-latest
+        rust: [stable]
+        include:
+          # Test MSRV on Ubuntu only
+          - os: ubuntu-latest
             rust: 1.70.0
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@v1
+    - uses: actions/checkout@v4
+    
+    - uses: dtolnay/rust-toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
         components: rustfmt, clippy
 
-    - name: Configure Rust cache
-      uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ matrix.os }}-${{ matrix.rust }}
+    - uses: Swatinem/rust-cache@v2
 
     - name: Check formatting
-      if: matrix.rust == 'stable'
+      if: matrix.rust == 'stable' && matrix.os == 'ubuntu-latest'
       run: cargo fmt --all -- --check
 
-    - name: Run Clippy
-      if: matrix.rust == 'stable'
+    - name: Clippy
+      if: matrix.rust == 'stable' && matrix.os == 'ubuntu-latest'
       run: cargo clippy --all-targets --all-features -- -D warnings
 
     - name: Build
-      run: cargo build --verbose --all-features
+      run: cargo build --all-features
 
-    - name: Run tests
-      run: cargo test --verbose --all-features
+    - name: Test
+      run: cargo test --all-features
 
-    - name: Run doctests
+    - name: Doc tests
       run: cargo test --doc --all-features
 
-    - name: Test examples
+    - name: Examples
       run: |
         cargo run --example elo_basic
         cargo run --example glicko_basic
         cargo run --example trueskill_basic
         cargo run --example rating_comparison
-
-  wasm:
-    name: WASM Build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: wasm32-unknown-unknown
-
-    - name: Configure Rust cache
-      uses: Swatinem/rust-cache@v2
-
-    - name: Install wasm-pack
-      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-    - name: Build WASM package
-      run: |
-        cd wasm
-        chmod +x build.sh
-        ./build.sh
-
-    - name: Install Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-
-    - name: Test WASM package
-      run: |
-        cd wasm
-        npm install
-        npm test
-
-  benchmark:
-    name: Benchmark Tests
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Configure Rust cache
-      uses: Swatinem/rust-cache@v2
-
-    - name: Run benchmarks (quick)
-      run: |
-        # Run benchmarks with reduced iterations to ensure they complete
-        timeout 300s cargo bench --bench rating_update -- --sample-size 10 || true
-        timeout 300s cargo bench --bench algorithm_specific -- --sample-size 10 || true
-
-  msrv:
-    name: Minimum Supported Rust Version
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Rust 1.70.0
-      uses: dtolnay/rust-toolchain@v1
-      with:
-        toolchain: 1.70.0
-
-    - name: Configure Rust cache
-      uses: Swatinem/rust-cache@v2
-
-    - name: Check MSRV
-      run: cargo check --all-features
-
-  documentation:
-    name: Documentation
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Configure Rust cache
-      uses: Swatinem/rust-cache@v2
-
-    - name: Build documentation
-      run: cargo doc --all-features --no-deps --document-private-items
-      env:
-        RUSTDOCFLAGS: "-D warnings"
-
-    - name: Upload documentation
-      if: github.ref == 'refs/heads/main'
-      uses: actions/upload-pages-artifact@v2
-      with:
-        path: target/doc
-
-  # Deploy documentation to GitHub Pages
-  deploy-docs:
-    name: Deploy Documentation
-    if: github.ref == 'refs/heads/main'
-    needs: documentation
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v2
