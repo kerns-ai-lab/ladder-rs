@@ -304,11 +304,31 @@ fn test_convergence_across_systems() {
     }
 
     // After 10 games (7-3 record), player 1 should be rated higher in all systems
-    
-    assert!(elo_p1.mean() > elo_p2.mean(), "Elo: P1={} should be > P2={}", elo_p1.mean(), elo_p2.mean());
-    assert!(glicko_p1.mean() > glicko_p2.mean(), "Glicko: P1={} should be > P2={}", glicko_p1.mean(), glicko_p2.mean());
-    assert!(glicko2_p1.mean() > glicko2_p2.mean(), "Glicko2: P1={} should be > P2={}", glicko2_p1.mean(), glicko2_p2.mean());
-    assert!(ts_p1.mean() > ts_p2.mean(), "TrueSkill: P1={} should be > P2={}", ts_p1.mean(), ts_p2.mean());
+
+    assert!(
+        elo_p1.mean() > elo_p2.mean(),
+        "Elo: P1={} should be > P2={}",
+        elo_p1.mean(),
+        elo_p2.mean()
+    );
+    assert!(
+        glicko_p1.mean() > glicko_p2.mean(),
+        "Glicko: P1={} should be > P2={}",
+        glicko_p1.mean(),
+        glicko_p2.mean()
+    );
+    assert!(
+        glicko2_p1.mean() > glicko2_p2.mean(),
+        "Glicko2: P1={} should be > P2={}",
+        glicko2_p1.mean(),
+        glicko2_p2.mean()
+    );
+    assert!(
+        ts_p1.mean() > ts_p2.mean(),
+        "TrueSkill: P1={} should be > P2={}",
+        ts_p1.mean(),
+        ts_p2.mean()
+    );
 
     println!("Final ratings after 7-3 record:");
     println!("Elo: P1={:.3}, P2={:.3}", elo_p1.mean(), elo_p2.mean());
