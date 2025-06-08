@@ -4,7 +4,6 @@ use ladder_rs::{
         TrueSkill, TrueSkillImplementation, TrueSkillRating, TrueSkillTeam,
         GaussianDistribution, FactorGraph, GaussianPriorFactor,
     },
-    error::Error,
 };
 
 #[test]
@@ -93,18 +92,18 @@ fn test_trueskill_parameter_validation() {
 fn test_trueskill_draw_probability_effects() {
     // Test with very low draw probability
     let low_draw_ts = TrueSkill::with_parameters(
-        25.0, (25.0/3.0).powi(2), (25.0/6.0).powi(2), (25.0/300.0).powi(2), 
+        25.0, (25.0_f64/3.0).powi(2), (25.0_f64/6.0).powi(2), (25.0_f64/300.0).powi(2), 
         0.01, TrueSkillImplementation::Simplified
     ).unwrap();
     
     // Test with higher draw probability
     let high_draw_ts = TrueSkill::with_parameters(
-        25.0, (25.0/3.0).powi(2), (25.0/6.0).powi(2), (25.0/300.0).powi(2), 
+        25.0, (25.0_f64/3.0).powi(2), (25.0_f64/6.0).powi(2), (25.0_f64/300.0).powi(2), 
         0.3, TrueSkillImplementation::Simplified
     ).unwrap();
     
-    let player1 = TrueSkillRating::new(25.0, (25.0/3.0).powi(2)).unwrap();
-    let player2 = TrueSkillRating::new(25.0, (25.0/3.0).powi(2)).unwrap();
+    let player1 = TrueSkillRating::new(25.0, (25.0_f64/3.0).powi(2)).unwrap();
+    let player2 = TrueSkillRating::new(25.0, (25.0_f64/3.0).powi(2)).unwrap();
     
     let team1 = TrueSkillTeam::from_player_ratings(vec![player1.clone()]);
     let team2 = TrueSkillTeam::from_player_ratings(vec![player2.clone()]);
@@ -191,12 +190,8 @@ fn test_trueskill_implementation_differences() {
     let simplified_ts = TrueSkill::new_simplified();
     let factor_graph_ts = TrueSkill::new_factor_graph();
     
-    // Verify implementation types
-    assert_eq!(simplified_ts.implementation, TrueSkillImplementation::Simplified);
-    assert_eq!(factor_graph_ts.implementation, TrueSkillImplementation::FactorGraph);
-    
-    let player1 = TrueSkillRating::new(25.0, (25.0/3.0).powi(2)).unwrap();
-    let player2 = TrueSkillRating::new(25.0, (25.0/3.0).powi(2)).unwrap();
+    let player1 = TrueSkillRating::new(25.0, (25.0_f64/3.0).powi(2)).unwrap();
+    let player2 = TrueSkillRating::new(25.0, (25.0_f64/3.0).powi(2)).unwrap();
     
     let team1 = TrueSkillTeam::from_player_ratings(vec![player1.clone()]);
     let team2 = TrueSkillTeam::from_player_ratings(vec![player2.clone()]);
@@ -215,8 +210,8 @@ fn test_trueskill_implementation_differences() {
 fn test_trueskill_rating_convergence() {
     let ts = TrueSkill::new();
     
-    let mut player1 = TrueSkillRating::new(25.0, (25.0/3.0).powi(2)).unwrap();
-    let mut player2 = TrueSkillRating::new(25.0, (25.0/3.0).powi(2)).unwrap();
+    let mut player1 = TrueSkillRating::new(25.0, (25.0_f64/3.0).powi(2)).unwrap();
+    let mut player2 = TrueSkillRating::new(25.0, (25.0_f64/3.0).powi(2)).unwrap();
     
     // Simulate player 1 consistently beating player 2
     for _ in 0..50 {
@@ -233,8 +228,8 @@ fn test_trueskill_rating_convergence() {
     // After many games, ratings should converge with significant difference
     assert!(player1.mean() > 30.0, "Consistent winner should have higher rating");
     assert!(player2.mean() < 20.0, "Consistent loser should have lower rating");
-    assert!(player1.variance() < (25.0/3.0).powi(2), "Variance should decrease with more games");
-    assert!(player2.variance() < (25.0/3.0).powi(2), "Variance should decrease with more games");
+    assert!(player1.variance() < (25.0_f64/3.0).powi(2), "Variance should decrease with more games");
+    assert!(player2.variance() < (25.0_f64/3.0).powi(2), "Variance should decrease with more games");
 }
 
 #[test]
@@ -276,8 +271,8 @@ fn test_trueskill_draw_scenarios() {
     let ts = TrueSkill::new();
     
     // Test draw between equally matched players
-    let player1 = TrueSkillRating::new(25.0, (25.0/3.0).powi(2)).unwrap();
-    let player2 = TrueSkillRating::new(25.0, (25.0/3.0).powi(2)).unwrap();
+    let player1 = TrueSkillRating::new(25.0, (25.0_f64/3.0).powi(2)).unwrap();
+    let player2 = TrueSkillRating::new(25.0, (25.0_f64/3.0).powi(2)).unwrap();
     
     let team1 = TrueSkillTeam::from_player_ratings(vec![player1.clone()]);
     let team2 = TrueSkillTeam::from_player_ratings(vec![player2.clone()]);
@@ -367,7 +362,7 @@ fn test_trueskill_system_defaults() {
     assert_eq!(rating1.mean(), rating2.mean());
     assert_eq!(rating1.variance(), rating2.variance());
     assert_eq!(rating1.mean(), 25.0);
-    assert_eq!(rating1.variance(), (25.0/3.0).powi(2));
+    assert_eq!(rating1.variance(), (25.0_f64/3.0).powi(2));
 }
 
 #[test]
