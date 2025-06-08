@@ -606,8 +606,8 @@ impl TrueSkill {
             gamma_squared,
             draw_probability,
             draw_margin: 0.0, // Will be calculated below
-            convergence_threshold: 0.0001,
-            max_iterations: 20,
+            convergence_threshold: 0.001, // More lenient threshold
+            max_iterations: 50, // Increased iterations
             implementation,
         }.calculate_draw_margin())
     }
