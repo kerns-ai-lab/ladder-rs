@@ -1,0 +1,407 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+      publish_crates_io:
+        description: 'Publish to crates.io'
+        required: true
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  validate-release:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+        
+        echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+        echo "tag=$VERSION" >> $GITHUB_OUTPUT
+        
+        echo "Release version: ${VERSION#v}"
+        echo "Release tag: $VERSION"
+
+    - name: Validate version format
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\-]+)?$ ]]; then
+          echo "❌ Invalid version format: $VERSION"
+          echo "Expected format: X.Y.Z or X.Y.Z-suffix"
+          exit 1
+        fi
+        echo "✅ Version format is valid: $VERSION"
+
+    - name: Check if tag exists
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        TAG="${{ steps.version.outputs.tag }}"
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "❌ Tag $TAG already exists"
+          exit 1
+        fi
+        echo "✅ Tag $TAG is available"
+
+  test-release:
+    name: Test Release Build
+    runs-on: ${{ matrix.os }}
+    needs: validate-release
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Configure Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run full test suite
+      run: |
+        cargo test --all-features --verbose
+        cargo test --doc --all-features
+
+    - name: Build release
+      run: cargo build --release --all-features
+
+    - name: Test examples
+      run: |
+        cargo run --release --example elo_basic
+        cargo run --release --example glicko_basic
+        cargo run --release --example trueskill_basic
+        cargo run --release --example rating_comparison
+
+  build-artifacts:
+    name: Build Release Artifacts
+    runs-on: ${{ matrix.os }}
+    needs: [validate-release, test-release]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Configure Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ matrix.target }}
+
+    - name: Build for target
+      run: cargo build --release --target ${{ matrix.target }} --all-features
+
+    - name: Package artifacts
+      shell: bash
+      run: |
+        VERSION="${{ needs.validate-release.outputs.version }}"
+        TARGET="${{ matrix.target }}"
+        
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          ARCHIVE_NAME="ladder-rs-${VERSION}-${TARGET}.zip"
+          # Note: No CLI binaries to package yet, this is just the library
+          echo "Windows artifact would be: $ARCHIVE_NAME"
+        else
+          ARCHIVE_NAME="ladder-rs-${VERSION}-${TARGET}.tar.gz"
+          echo "Unix artifact would be: $ARCHIVE_NAME"
+        fi
+        
+        echo "archive_name=$ARCHIVE_NAME" >> $GITHUB_ENV
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-artifacts
+        path: target/${{ matrix.target }}/release/
+        retention-days: 1
+
+  build-wasm:
+    name: Build WASM Package
+    runs-on: ubuntu-latest
+    needs: [validate-release, test-release]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+
+    - name: Configure Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+    - name: Build WASM package
+      run: |
+        cd wasm
+        chmod +x build.sh
+        ./build.sh
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Update package version
+      run: |
+        cd wasm
+        VERSION="${{ needs.validate-release.outputs.version }}"
+        npm version $VERSION --no-git-tag-version
+
+    - name: Test WASM package
+      run: |
+        cd wasm
+        npm install
+        npm test
+
+    - name: Package WASM
+      run: |
+        cd wasm
+        npm pack
+
+    - name: Upload WASM artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: wasm-package
+        path: wasm/*.tgz
+        retention-days: 1
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-release, test-release, build-artifacts, build-wasm]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Generate changelog
+      run: |
+        VERSION="${{ needs.validate-release.outputs.version }}"
+        TAG="${{ needs.validate-release.outputs.tag }}"
+        
+        echo "# Release Notes for $TAG" > RELEASE_NOTES.md
+        echo "" >> RELEASE_NOTES.md
+        
+        # Get commits since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$LAST_TAG" ]; then
+          echo "## Changes since $LAST_TAG" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          git log --pretty=format:"- %s (%h)" $LAST_TAG..HEAD >> RELEASE_NOTES.md
+        else
+          echo "## Initial Release" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "This is the first release of ladder-rs." >> RELEASE_NOTES.md
+        fi
+        
+        echo "" >> RELEASE_NOTES.md
+        echo "## What's Included" >> RELEASE_NOTES.md
+        echo "" >> RELEASE_NOTES.md
+        echo "- 🦀 **Rust Library**: Core ladder-rs library with Elo, Glicko, Glicko-2, and TrueSkill implementations" >> RELEASE_NOTES.md
+        echo "- 🌐 **WASM Package**: WebAssembly bindings for use in JavaScript/TypeScript projects" >> RELEASE_NOTES.md
+        echo "- 📚 **Documentation**: Complete API documentation and examples" >> RELEASE_NOTES.md
+        echo "- 🧪 **Examples**: Working examples for all rating systems" >> RELEASE_NOTES.md
+
+    - name: Create tag
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        TAG="${{ needs.validate-release.outputs.tag }}"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag -a $TAG -m "Release $TAG"
+        git push origin $TAG
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.validate-release.outputs.tag }}
+        name: Release ${{ needs.validate-release.outputs.tag }}
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: ${{ contains(needs.validate-release.outputs.version, '-') }}
+        files: |
+          wasm-package/*.tgz
+        generate_release_notes: true
+
+  publish-crates-io:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release]
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_crates_io == 'true')
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Configure Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Verify crates.io token
+      run: |
+        if [ -z "${{ secrets.CARGO_REGISTRY_TOKEN }}" ]; then
+          echo "❌ CARGO_REGISTRY_TOKEN secret not found"
+          echo "Please add your crates.io API token as a repository secret"
+          exit 1
+        fi
+        echo "✅ crates.io token found"
+
+    - name: Login to crates.io
+      run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+    - name: Publish to crates.io
+      run: |
+        echo "📦 Publishing to crates.io..."
+        cargo publish --allow-dirty
+
+    - name: Verify publication
+      run: |
+        VERSION="${{ needs.validate-release.outputs.version }}"
+        echo "✅ Successfully published ladder-rs v$VERSION to crates.io"
+        echo "📦 Package available at: https://crates.io/crates/ladder-rs"
+
+  publish-npm:
+    name: Publish WASM to npm
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release, build-wasm]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Download WASM artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: wasm-package
+        path: wasm/
+
+    - name: Verify npm token
+      run: |
+        if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+          echo "❌ NPM_TOKEN secret not found"
+          echo "Please add your npm token as a repository secret"
+          exit 1
+        fi
+        echo "✅ npm token found"
+
+    - name: Publish to npm
+      run: |
+        cd wasm
+        echo "📦 Publishing WASM package to npm..."
+        npm publish *.tgz --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    - name: Verify publication
+      run: |
+        VERSION="${{ needs.validate-release.outputs.version }}"
+        echo "✅ Successfully published ladder-rs-wasm v$VERSION to npm"
+        echo "📦 Package available at: https://www.npmjs.com/package/ladder-rs-wasm"
+
+  post-release:
+    name: Post-Release Tasks
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release]
+    if: always() && needs.create-release.result == 'success'
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Create release summary
+      run: |
+        VERSION="${{ needs.validate-release.outputs.version }}"
+        TAG="${{ needs.validate-release.outputs.tag }}"
+        
+        echo "## 🎉 Release Summary" > release-summary.md
+        echo "" >> release-summary.md
+        echo "**Version**: $VERSION" >> release-summary.md
+        echo "**Tag**: $TAG" >> release-summary.md
+        echo "**Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> release-summary.md
+        echo "" >> release-summary.md
+        echo "### ✅ Completed Tasks:" >> release-summary.md
+        echo "- GitHub release created" >> release-summary.md
+        echo "- Cross-platform builds completed" >> release-summary.md
+        echo "- WASM package built" >> release-summary.md
+        
+        if [ "${{ needs.publish-crates-io.result }}" = "success" ]; then
+          echo "- Published to crates.io" >> release-summary.md
+        fi
+        
+        if [ "${{ needs.publish-npm.result }}" = "success" ]; then
+          echo "- Published to npm" >> release-summary.md
+        fi
+        
+        echo "" >> release-summary.md
+        echo "### 🔗 Links:" >> release-summary.md
+        echo "- [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/$TAG)" >> release-summary.md
+        echo "- [Documentation](https://${{ github.repository_owner }}.github.io/ladder-rs/)" >> release-summary.md
+        
+        cat release-summary.md
+
+    - name: Upload release summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-summary
+        path: release-summary.md
+        retention-days: 90

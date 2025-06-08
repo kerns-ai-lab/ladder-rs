@@ -1,0 +1,192 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: llvm-tools-preview
+
+    - name: Configure Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov
+
+    - name: Generate coverage report
+      run: |
+        cargo llvm-cov clean --workspace
+        cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+        cargo llvm-cov --all-features --workspace --json --output-path coverage.json
+        cargo llvm-cov --all-features --workspace --html --output-dir coverage-html
+
+    - name: Parse coverage percentage
+      id: coverage
+      run: |
+        # Extract coverage percentage from JSON report
+        COVERAGE=$(jq -r '.data[0].totals.lines.percent' coverage.json)
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+        echo "Coverage: $COVERAGE%"
+        
+        # Check if coverage meets minimum threshold
+        MIN_COVERAGE=80.0
+        if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+          echo "❌ Coverage $COVERAGE% is below minimum threshold of $MIN_COVERAGE%"
+          echo "coverage_pass=false" >> $GITHUB_OUTPUT
+        else
+          echo "✅ Coverage $COVERAGE% meets minimum threshold of $MIN_COVERAGE%"
+          echo "coverage_pass=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Upload coverage reports as artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-reports
+        path: |
+          lcov.info
+          coverage.json
+          coverage-html/
+        retention-days: 30
+
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const coverage = '${{ steps.coverage.outputs.coverage }}';
+          const coveragePass = '${{ steps.coverage.outputs.coverage_pass }}' === 'true';
+          
+          const emoji = coveragePass ? '✅' : '❌';
+          const status = coveragePass ? 'PASS' : 'FAIL';
+          
+          const comment = `## ${emoji} Code Coverage Report
+          
+          **Coverage: ${coverage}%** (${status})
+          
+          ${coveragePass ? 
+            '✅ Coverage meets the minimum threshold of 80%' : 
+            '❌ Coverage is below the minimum threshold of 80%'}
+          
+          <details>
+          <summary>📊 Coverage Details</summary>
+          
+          The coverage report has been generated and uploaded as an artifact.
+          You can download the detailed HTML report from the workflow artifacts.
+          
+          **Minimum Coverage Threshold:** 80%
+          **Current Coverage:** ${coverage}%
+          
+          </details>`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: Fail if coverage is below threshold
+      if: steps.coverage.outputs.coverage_pass == 'false'
+      run: |
+        echo "❌ Code coverage ${{ steps.coverage.outputs.coverage }}% is below the minimum threshold of 80%"
+        echo "Please add more tests to improve coverage before merging."
+        exit 1
+
+  differential-coverage:
+    name: Differential Coverage
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: Checkout PR
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: llvm-tools-preview
+
+    - name: Configure Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov
+
+    - name: Generate PR coverage
+      run: |
+        cargo llvm-cov clean --workspace
+        cargo llvm-cov --all-features --workspace --json --output-path pr-coverage.json
+
+    - name: Checkout base branch
+      run: |
+        git checkout ${{ github.base_ref }}
+
+    - name: Generate base coverage
+      run: |
+        cargo llvm-cov clean --workspace
+        cargo llvm-cov --all-features --workspace --json --output-path base-coverage.json
+
+    - name: Compare coverage
+      run: |
+        PR_COVERAGE=$(jq -r '.data[0].totals.lines.percent' pr-coverage.json)
+        BASE_COVERAGE=$(jq -r '.data[0].totals.lines.percent' base-coverage.json)
+        
+        DIFF=$(echo "$PR_COVERAGE - $BASE_COVERAGE" | bc -l)
+        
+        echo "Base coverage: $BASE_COVERAGE%"
+        echo "PR coverage: $PR_COVERAGE%"
+        echo "Coverage diff: $DIFF%"
+        
+        # Fail if coverage decreased by more than 1%
+        if (( $(echo "$DIFF < -1.0" | bc -l) )); then
+          echo "❌ Coverage decreased by more than 1%"
+          exit 1
+        else
+          echo "✅ Coverage change is acceptable"
+        fi
+
+  coverage-enforcement:
+    name: Coverage Enforcement
+    runs-on: ubuntu-latest
+    needs: coverage
+    if: always()
+    steps:
+    - name: Check coverage status
+      run: |
+        if [ "${{ needs.coverage.result }}" != "success" ]; then
+          echo "❌ Coverage check failed"
+          echo "Code coverage requirements not met. Please review the coverage report and add appropriate tests."
+          exit 1
+        else
+          echo "✅ All coverage checks passed"
+        fi
