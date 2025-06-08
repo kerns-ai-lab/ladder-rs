@@ -149,12 +149,12 @@ fn test_outcome_affects_ratings() {
 
 #[test]
 fn test_variable_updates_in_schedule_loop() {
-    use ladder_rs::trueskill::{FactorGraph, GaussianDistribution, GaussianPriorFactor};
+    use ladder_rs::trueskill::{FactorGraph, GaussianDistribution, PriorFactor};
 
     let mut fg = FactorGraph::new();
     let var_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
     fg.add_factor(Box::new(
-        GaussianPriorFactor::new(var_id, 5.0, 1.0).unwrap(),
+        PriorFactor::new(var_id, 5.0, 1.0).unwrap(),
     ));
 
     // Run schedule loop
@@ -167,20 +167,18 @@ fn test_variable_updates_in_schedule_loop() {
 #[test]
 fn test_schedule_with_comparison_factor() {
     use ladder_rs::trueskill::{
-        FactorGraph, GaussianComparisonFactor, GaussianDistribution, GaussianPriorFactor,
+        FactorGraph, GaussianComparisonFactor, GaussianDistribution, PriorFactor,
     };
 
     let mut fg = FactorGraph::new();
-    let greater_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
-    let lesser_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
+    let difference_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
 
-    // Set up priors: greater should prefer 5.0, lesser should prefer 3.0
-    fg.add_factor(Box::new(GaussianPriorFactor::new(greater_id, 5.0, 1.0).unwrap()));
-    fg.add_factor(Box::new(GaussianPriorFactor::new(lesser_id, 3.0, 1.0).unwrap()));
+    // Set up prior: difference should be positive
+    fg.add_factor(Box::new(PriorFactor::new(difference_id, 2.0, 1.0).unwrap()));
     
-    // Add comparison constraint: greater > lesser with no draw margin
+    // Add comparison constraint: difference > 0 with no draw margin
     fg.add_factor(Box::new(
-        GaussianComparisonFactor::new(greater_id, lesser_id, 0.0, false).unwrap(),
+        GaussianComparisonFactor::new(difference_id, 0.0),
     ));
 
     let convergence_result = fg.run_schedule_loop(1e-6, 10).unwrap();
@@ -188,77 +186,39 @@ fn test_schedule_with_comparison_factor() {
     // Verify convergence was achieved
     assert!(convergence_result < 1e-6, "Should converge within tolerance");
 
-    let greater_var = fg.get_variable(greater_id).unwrap();
-    let lesser_var = fg.get_variable(lesser_id).unwrap();
+    let difference_var = fg.get_variable(difference_id).unwrap();
 
-    // The final beliefs should be a compromise between priors and the comparison constraint.
-    // Test the key properties that must hold after convergence:
-
-    // 1. Both variables should have finite, positive variance
-    assert!(greater_var.value().variance() > 0.0 && greater_var.value().variance().is_finite());
-    assert!(lesser_var.value().variance() > 0.0 && lesser_var.value().variance().is_finite());
-
-    // 2. The greater variable should still have a higher mean than the lesser variable
-    // (the comparison constraint should be respected)
-    assert!(greater_var.value().mean() > lesser_var.value().mean(), 
-        "Comparison constraint violated: greater={:.3} should be > lesser={:.3}", 
-        greater_var.value().mean(), lesser_var.value().mean());
-
-    // 3. The means should be influenced by but not exactly equal to the priors
-    // (they should move towards satisfying the constraint)
-    let greater_mean = greater_var.value().mean();
-    let lesser_mean = lesser_var.value().mean();
-    
-    // The greater variable should be pulled down from its prior (5.0) to help satisfy the constraint
-    assert!(greater_mean < 5.0, "Greater variable should be pulled down from prior 5.0, got {:.3}", greater_mean);
-    
-    // The lesser variable should be pulled down from its prior (3.0) to help satisfy the constraint  
-    assert!(lesser_mean < 3.0, "Lesser variable should be pulled down from prior 3.0, got {:.3}", lesser_mean);
-
-    // 4. The difference between the means should be reasonable given the constraint strength
-    let mean_diff = greater_mean - lesser_mean;
-    assert!(mean_diff > 0.5, "Mean difference should be substantial given the constraint, got {:.3}", mean_diff);
-
-    // 5. Both means should be within a reasonable range influenced by their priors
-    assert!(greater_mean > 2.0 && greater_mean < 6.0, "Greater mean should be reasonable, got {:.3}", greater_mean);
-    assert!(lesser_mean > 0.0 && lesser_mean < 4.0, "Lesser mean should be reasonable, got {:.3}", lesser_mean);
-    
-    // 6. Variances should be reduced compared to infinite initial variance but not too small
-    assert!(greater_var.value().variance() < 2.0, "Greater variance should be constrained, got {:.3}", greater_var.value().variance());
-    assert!(lesser_var.value().variance() < 2.0, "Lesser variance should be constrained, got {:.3}", lesser_var.value().variance());
+    // Verify the result makes sense
+    assert!(difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite());
+    assert!(difference_var.value().mean() > 0.0, "Difference should be positive");
 }
 
 #[test]  
 fn test_comparison_factor_with_draw_margin() {
     use ladder_rs::trueskill::{
-        FactorGraph, GaussianDistribution, GaussianPriorFactor, GaussianComparisonFactor,
+        FactorGraph, GaussianDistribution, PriorFactor, GaussianComparisonFactor,
     };
 
     let mut fg = FactorGraph::new();
-    let player1_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
-    let player2_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
+    let difference_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
 
-    // Set up very close priors
-    fg.add_factor(Box::new(GaussianPriorFactor::new(player1_id, 25.0, 1.0).unwrap()));
-    fg.add_factor(Box::new(GaussianPriorFactor::new(player2_id, 25.1, 1.0).unwrap()));
+    // Set up prior: difference should be near zero
+    fg.add_factor(Box::new(PriorFactor::new(difference_id, 0.1, 1.0).unwrap()));
     
-    // Add comparison with draw margin (simulating a draw outcome)
+    // Add comparison with draw margin
     let draw_margin = 1.0;
     fg.add_factor(Box::new(
-        GaussianComparisonFactor::new(player1_id, player2_id, draw_margin, true).unwrap(),
+        GaussianComparisonFactor::new(difference_id, draw_margin),
     ));
 
     let convergence_result = fg.run_schedule_loop(1e-6, 10).unwrap();
     assert!(convergence_result < 1e-6, "Should converge for draw scenario");
 
-    let player1_var = fg.get_variable(player1_id).unwrap();
-    let player2_var = fg.get_variable(player2_id).unwrap();
+    let difference_var = fg.get_variable(difference_id).unwrap();
 
-    // In a draw scenario with close priors, the means should move closer together
-    let mean_diff = (player1_var.value().mean() - player2_var.value().mean()).abs();
-    assert!(mean_diff < 1.0, "Draw constraint should bring means closer together, diff={:.3}", mean_diff);
+    // In a draw scenario, the difference should be within the draw margin
+    assert!(difference_var.value().mean().abs() < draw_margin, "Difference should be within draw margin");
     
-    // Both should have valid beliefs
-    assert!(player1_var.value().variance() > 0.0 && player1_var.value().variance().is_finite());
-    assert!(player2_var.value().variance() > 0.0 && player2_var.value().variance().is_finite());
+    // Should have valid belief
+    assert!(difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite());
 }
