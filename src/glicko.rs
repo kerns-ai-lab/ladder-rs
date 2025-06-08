@@ -1,4 +1,4 @@
-use crate::core::{Rating, RatingSystem, TeamRating, Outcome, GameOutcome};
+use crate::core::{GameOutcome, Outcome, Rating, RatingSystem, TeamRating};
 use crate::error::Result;
 use rayon::prelude::*;
 use std::f64::consts::PI;
@@ -78,12 +78,20 @@ impl Glicko2Rating {
 
     /// Converts rating to Glicko-2 scale.
     pub fn to_glicko2_scale(&self) -> (f64, f64, f64) {
-        (self.mu / GLICKO_SCALE, self.rd / GLICKO_SCALE, self.volatility)
+        (
+            self.mu / GLICKO_SCALE,
+            self.rd / GLICKO_SCALE,
+            self.volatility,
+        )
     }
 
     /// Creates rating from Glicko-2 scale.
     pub fn from_glicko2_scale(mu_scaled: f64, rd_scaled: f64, volatility: f64) -> Self {
-        Self::new(mu_scaled * GLICKO_SCALE, rd_scaled * GLICKO_SCALE, volatility)
+        Self::new(
+            mu_scaled * GLICKO_SCALE,
+            rd_scaled * GLICKO_SCALE,
+            volatility,
+        )
     }
 }
 
@@ -119,7 +127,9 @@ impl TeamRating for GlickoTeamRating {
     }
 
     fn from_player_ratings(ratings: Vec<Self::PlayerRating>) -> Self {
-        Self { player_ratings: ratings }
+        Self {
+            player_ratings: ratings,
+        }
     }
 }
 
@@ -137,7 +147,9 @@ impl TeamRating for Glicko2TeamRating {
     }
 
     fn from_player_ratings(ratings: Vec<Self::PlayerRating>) -> Self {
-        Self { player_ratings: ratings }
+        Self {
+            player_ratings: ratings,
+        }
     }
 }
 
@@ -153,7 +165,7 @@ pub struct GlickoConfig {
 impl Default for GlickoConfig {
     fn default() -> Self {
         Self {
-            c: 15.8,  // Typical value for rating period variance increase
+            c: 15.8, // Typical value for rating period variance increase
             q: (10.0_f64).ln() / 400.0,
         }
     }
@@ -189,7 +201,11 @@ impl Glicko {
     }
 
     /// Updates a single player's rating based on match results.
-    fn update_rating(&self, rating: &GlickoRating, opponents: &[(GlickoRating, f64)]) -> GlickoRating {
+    fn update_rating(
+        &self,
+        rating: &GlickoRating,
+        opponents: &[(GlickoRating, f64)],
+    ) -> GlickoRating {
         if opponents.is_empty() {
             // No games played, just increase RD due to time passage
             let new_rd = (rating.rd * rating.rd + self.config.c * self.config.c).sqrt();
@@ -248,13 +264,13 @@ impl RatingSystem for Glicko {
     ) -> Result<Vec<Self::TeamRating>> {
         if rating_groups.len() != 2 {
             return Err(crate::error::Error::InvalidInput(
-                "Glicko only supports 1v1 matches".to_string()
+                "Glicko only supports 1v1 matches".to_string(),
             ));
         }
 
         if !outcome.is_valid_for_team_count(rating_groups.len()) {
             return Err(crate::error::Error::InvalidInput(
-                "Invalid outcome for team count".to_string()
+                "Invalid outcome for team count".to_string(),
             ));
         }
 
@@ -263,7 +279,7 @@ impl RatingSystem for Glicko {
 
         if team1.player_ratings().len() != 1 || team2.player_ratings().len() != 1 {
             return Err(crate::error::Error::InvalidInput(
-                "Glicko only supports 1v1 matches".to_string()
+                "Glicko only supports 1v1 matches".to_string(),
             ));
         }
 
@@ -275,9 +291,11 @@ impl RatingSystem for Glicko {
             [1, 2] => (1.0, 0.0), // Player 1 wins
             [2, 1] => (0.0, 1.0), // Player 2 wins
             [1, 1] => (0.5, 0.5), // Draw
-            _ => return Err(crate::error::Error::InvalidInput(
-                "Invalid outcome ranks".to_string()
-            )),
+            _ => {
+                return Err(crate::error::Error::InvalidInput(
+                    "Invalid outcome ranks".to_string(),
+                ))
+            }
         };
 
         // Update ratings
@@ -293,7 +311,7 @@ impl RatingSystem for Glicko {
     fn calculate_match_quality(&self, rating_groups: &[Self::TeamRating]) -> Result<f64> {
         if rating_groups.len() != 2 {
             return Err(crate::error::Error::InvalidInput(
-                "Glicko match quality only supports 2 teams".to_string()
+                "Glicko match quality only supports 2 teams".to_string(),
             ));
         }
 
@@ -302,7 +320,7 @@ impl RatingSystem for Glicko {
 
         if team1.player_ratings().len() != 1 || team2.player_ratings().len() != 1 {
             return Err(crate::error::Error::InvalidInput(
-                "Glicko match quality only supports 1v1 matches".to_string()
+                "Glicko match quality only supports 1v1 matches".to_string(),
             ));
         }
 
@@ -329,7 +347,7 @@ pub struct Glicko2Config {
 impl Default for Glicko2Config {
     fn default() -> Self {
         Self {
-            tau: 0.5,    // Typical value for tau
+            tau: 0.5, // Typical value for tau
             epsilon: 0.000001,
         }
     }
@@ -365,7 +383,11 @@ impl Glicko2 {
     }
 
     /// Updates a single player's rating based on match results.
-    fn update_rating(&self, rating: &Glicko2Rating, opponents: &[(Glicko2Rating, f64)]) -> Glicko2Rating {
+    fn update_rating(
+        &self,
+        rating: &Glicko2Rating,
+        opponents: &[(Glicko2Rating, f64)],
+    ) -> Glicko2Rating {
         let (mu, phi, sigma) = rating.to_glicko2_scale();
 
         if opponents.is_empty() {
@@ -408,13 +430,14 @@ impl Glicko2 {
     fn calculate_new_volatility(&self, sigma: f64, delta: f64, phi: f64, nu: f64) -> f64 {
         let a = (sigma * sigma).ln();
         let tau = self.config.tau;
-        
+
         let f = |x: f64| -> f64 {
             let ex = x.exp();
             let phi2 = phi * phi;
             let delta2 = delta * delta;
-            
-            (ex * (delta2 - phi2 - nu - ex)) / (2.0 * (phi2 + nu + ex).powi(2)) - (x - a) / (tau * tau)
+
+            (ex * (delta2 - phi2 - nu - ex)) / (2.0 * (phi2 + nu + ex).powi(2))
+                - (x - a) / (tau * tau)
         };
 
         // Find bounds
@@ -473,13 +496,13 @@ impl RatingSystem for Glicko2 {
     ) -> Result<Vec<Self::TeamRating>> {
         if rating_groups.len() != 2 {
             return Err(crate::error::Error::InvalidInput(
-                "Glicko-2 only supports 1v1 matches".to_string()
+                "Glicko-2 only supports 1v1 matches".to_string(),
             ));
         }
 
         if !outcome.is_valid_for_team_count(rating_groups.len()) {
             return Err(crate::error::Error::InvalidInput(
-                "Invalid outcome for team count".to_string()
+                "Invalid outcome for team count".to_string(),
             ));
         }
 
@@ -488,7 +511,7 @@ impl RatingSystem for Glicko2 {
 
         if team1.player_ratings().len() != 1 || team2.player_ratings().len() != 1 {
             return Err(crate::error::Error::InvalidInput(
-                "Glicko-2 only supports 1v1 matches".to_string()
+                "Glicko-2 only supports 1v1 matches".to_string(),
             ));
         }
 
@@ -500,9 +523,11 @@ impl RatingSystem for Glicko2 {
             [1, 2] => (1.0, 0.0), // Player 1 wins
             [2, 1] => (0.0, 1.0), // Player 2 wins
             [1, 1] => (0.5, 0.5), // Draw
-            _ => return Err(crate::error::Error::InvalidInput(
-                "Invalid outcome ranks".to_string()
-            )),
+            _ => {
+                return Err(crate::error::Error::InvalidInput(
+                    "Invalid outcome ranks".to_string(),
+                ))
+            }
         };
 
         // Update ratings
@@ -518,7 +543,7 @@ impl RatingSystem for Glicko2 {
     fn calculate_match_quality(&self, rating_groups: &[Self::TeamRating]) -> Result<f64> {
         if rating_groups.len() != 2 {
             return Err(crate::error::Error::InvalidInput(
-                "Glicko-2 match quality only supports 2 teams".to_string()
+                "Glicko-2 match quality only supports 2 teams".to_string(),
             ));
         }
 
@@ -527,7 +552,7 @@ impl RatingSystem for Glicko2 {
 
         if team1.player_ratings().len() != 1 || team2.player_ratings().len() != 1 {
             return Err(crate::error::Error::InvalidInput(
-                "Glicko-2 match quality only supports 1v1 matches".to_string()
+                "Glicko-2 match quality only supports 1v1 matches".to_string(),
             ));
         }
 
@@ -578,17 +603,17 @@ mod tests {
         let glicko = Glicko::new();
         let player1 = GlickoRating::new(1500.0, 200.0);
         let player2 = GlickoRating::new(1400.0, 30.0);
-        
+
         let team1 = GlickoTeamRating::from_player_ratings(vec![player1]);
         let team2 = GlickoTeamRating::from_player_ratings(vec![player2]);
-        
+
         let outcome = GameOutcome::win(0, 2); // Player 1 wins
-        
+
         let result = glicko.rate(&[team1, team2], &outcome).unwrap();
-        
+
         // Player 1 should have increased rating
         assert!(result[0].player_ratings()[0].mean() > 1500.0);
-        // Player 2 should have decreased rating  
+        // Player 2 should have decreased rating
         assert!(result[1].player_ratings()[0].mean() < 1400.0);
     }
 
@@ -597,12 +622,12 @@ mod tests {
         let glicko = Glicko::new();
         let player1 = GlickoRating::new(1500.0, 200.0);
         let player2 = GlickoRating::new(1500.0, 200.0);
-        
+
         let team1 = GlickoTeamRating::from_player_ratings(vec![player1]);
         let team2 = GlickoTeamRating::from_player_ratings(vec![player2]);
-        
+
         let quality = glicko.calculate_match_quality(&[team1, team2]).unwrap();
-        
+
         // Equal players should have high match quality
         assert!(quality > 0.8);
     }
@@ -612,17 +637,17 @@ mod tests {
         let glicko2 = Glicko2::new();
         let player1 = Glicko2Rating::new(1500.0, 200.0, 0.06);
         let player2 = Glicko2Rating::new(1400.0, 30.0, 0.06);
-        
+
         let team1 = Glicko2TeamRating::from_player_ratings(vec![player1]);
         let team2 = Glicko2TeamRating::from_player_ratings(vec![player2]);
-        
+
         let outcome = GameOutcome::win(0, 2); // Player 1 wins
-        
+
         let result = glicko2.rate(&[team1, team2], &outcome).unwrap();
-        
+
         // Player 1 should have increased rating
         assert!(result[0].player_ratings()[0].mean() > 1500.0);
-        // Player 2 should have decreased rating  
+        // Player 2 should have decreased rating
         assert!(result[1].player_ratings()[0].mean() < 1400.0);
     }
 
