@@ -1,7 +1,7 @@
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating},
     elo::{Elo, EloRating, EloTeam},
-    glicko::{Glicko, GlickoRating, GlickoTeam},
+    glicko::{Glicko, GlickoRating, GlickoTeamRating},
     trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
 };
 
@@ -38,8 +38,8 @@ fn test_two_player_matches_all_systems() {
 
     // Glicko
     let glicko = Glicko::new();
-    let glicko_team1 = GlickoTeam::from_player_ratings(vec![glicko.create_rating()]);
-    let glicko_team2 = GlickoTeam::from_player_ratings(vec![glicko.create_rating()]);
+    let glicko_team1 = GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]);
+    let glicko_team2 = GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]);
     let glicko_result = glicko
         .rate(&[glicko_team1, glicko_team2], &GameOutcome::win(0, 2))
         .unwrap();
@@ -75,8 +75,8 @@ fn test_winner_loser_behavior() {
     let glicko_p1 = glicko.create_rating();
     let glicko_p2 = glicko.create_rating();
     let glicko_teams = vec![
-        GlickoTeam::from_player_ratings(vec![glicko_p1]),
-        GlickoTeam::from_player_ratings(vec![glicko_p2]),
+        GlickoTeamRating::from_player_ratings(vec![glicko_p1]),
+        GlickoTeamRating::from_player_ratings(vec![glicko_p2]),
     ];
     let glicko_result = glicko.rate(&glicko_teams, &GameOutcome::win(0, 2)).unwrap();
     assert!(glicko_result[0].player_ratings()[0].mean() > glicko_p1.mean());
@@ -112,8 +112,8 @@ fn test_draw_handling() {
     // Glicko handles draws
     let glicko = Glicko::new();
     let glicko_teams = vec![
-        GlickoTeam::from_player_ratings(vec![glicko.create_rating()]),
-        GlickoTeam::from_player_ratings(vec![glicko.create_rating()]),
+        GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
+        GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
     ];
     let glicko_result = glicko.rate(&glicko_teams, &draw_outcome);
     assert!(glicko_result.is_ok());
@@ -161,7 +161,7 @@ fn test_team_rating_trait_implementation() {
         GlickoRating::new(1500.0, 200.0 * 200.0),
         GlickoRating::new(1600.0, 150.0 * 150.0),
     ];
-    let glicko_team = GlickoTeam::from_player_ratings(glicko_players.clone());
+    let glicko_team = GlickoTeamRating::from_player_ratings(glicko_players.clone());
     assert_eq!(glicko_team.player_ratings().len(), 2);
     assert_eq!(glicko_team.player_ratings()[0].mean(), 1500.0);
 
@@ -197,9 +197,9 @@ fn test_multi_team_matches() {
     // Glicko typically doesn't support >2 teams
     let glicko = Glicko::new();
     let glicko_teams = vec![
-        GlickoTeam::from_player_ratings(vec![glicko.create_rating()]),
-        GlickoTeam::from_player_ratings(vec![glicko.create_rating()]),
-        GlickoTeam::from_player_ratings(vec![glicko.create_rating()]),
+        GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
+        GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
+        GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
     ];
     let glicko_result = glicko.rate(&glicko_teams, &three_team_outcome);
     match glicko_result {
@@ -245,7 +245,7 @@ fn test_error_handling_consistency() {
     let elo_team = EloTeam::from_player_ratings(vec![elo.create_rating()]);
     assert!(elo.rate(&[elo_team], &one_team_two_ranks).is_err());
 
-    let glicko_team = GlickoTeam::from_player_ratings(vec![glicko.create_rating()]);
+    let glicko_team = GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]);
     assert!(glicko.rate(&[glicko_team], &one_team_two_ranks).is_err());
 
     let ts_team = TrueSkillTeam::from_player_ratings(vec![trueskill.create_rating()]);
@@ -282,8 +282,8 @@ fn test_rating_progression() {
 
         // Glicko
         let glicko_teams = vec![
-            GlickoTeam::from_player_ratings(vec![glicko_p1]),
-            GlickoTeam::from_player_ratings(vec![glicko_p2]),
+            GlickoTeamRating::from_player_ratings(vec![glicko_p1]),
+            GlickoTeamRating::from_player_ratings(vec![glicko_p2]),
         ];
         let glicko_result = glicko.rate(&glicko_teams, &GameOutcome::win(0, 2)).unwrap();
         glicko_p1 = glicko_result[0].player_ratings()[0].clone();
@@ -371,8 +371,8 @@ fn test_rating_sanity_checks() {
     let weak_glicko = GlickoRating::new(1000.0, 50.0 * 50.0);
 
     let glicko_teams = vec![
-        GlickoTeam::from_player_ratings(vec![strong_glicko]),
-        GlickoTeam::from_player_ratings(vec![weak_glicko]),
+        GlickoTeamRating::from_player_ratings(vec![strong_glicko]),
+        GlickoTeamRating::from_player_ratings(vec![weak_glicko]),
     ];
     let glicko_result = glicko.rate(&glicko_teams, &GameOutcome::win(0, 2)).unwrap();
     let glicko_strong_gain = glicko_result[0].player_ratings()[0].mean() - 2000.0;
@@ -431,8 +431,8 @@ fn test_match_quality() {
     // Glicko match quality
     let glicko = Glicko::new();
     let glicko_teams = vec![
-        GlickoTeam::from_player_ratings(vec![glicko.create_rating()]),
-        GlickoTeam::from_player_ratings(vec![glicko.create_rating()]),
+        GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
+        GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
     ];
     let glicko_quality = glicko.calculate_match_quality(&glicko_teams);
     match glicko_quality {
