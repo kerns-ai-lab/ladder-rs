@@ -259,7 +259,7 @@ impl BaselineEstablisher {
         &self,
         baseline: &BaselineData,
     ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-        let timestamp_str = chrono::DateTime::from_timestamp(baseline.timestamp as i64, 0)
+        let timestamp_str = chrono::DateTime::<chrono::Utc>::from_timestamp(baseline.timestamp as i64, 0)
             .unwrap_or_else(chrono::Utc::now)
             .format("%Y%m%d_%H%M%S")
             .to_string();
@@ -289,7 +289,7 @@ impl BaselineEstablisher {
         report.push_str("# Performance Baseline Report\n");
         report.push_str(&format!(
             "Generated: {}\n",
-            chrono::DateTime::from_timestamp(baseline.timestamp as i64, 0)
+            chrono::DateTime::<chrono::Utc>::from_timestamp(baseline.timestamp as i64, 0)
                 .unwrap_or_else(chrono::Utc::now)
                 .format("%Y-%m-%d %H:%M:%S UTC")
         ));
