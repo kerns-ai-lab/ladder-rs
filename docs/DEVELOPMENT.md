@@ -39,6 +39,11 @@ A pre-push hook is installed that will:
 2. Run clippy on all targets
 3. Run tests
 
+Install the hook by running:
+```bash
+./scripts/install-hooks.sh
+```
+
 If any of these fail, the push will be blocked.
 
 ## VS Code Setup
