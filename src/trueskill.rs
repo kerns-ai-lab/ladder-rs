@@ -106,16 +106,11 @@ impl GaussianDistribution {
 pub struct Variable {
     id: usize,
     value: GaussianDistribution,
-    messages: HashMap<usize, GaussianDistribution>, // Messages from factors (factor_id -> message)
 }
 
 impl Variable {
     pub fn new(id: usize, value: GaussianDistribution) -> Self {
-        Self {
-            id,
-            value,
-            messages: HashMap::new(),
-        }
+        Self { id, value }
     }
 
     pub fn id(&self) -> usize {
@@ -124,14 +119,6 @@ impl Variable {
 
     pub fn value(&self) -> &GaussianDistribution {
         &self.value
-    }
-
-    pub fn set_message(&mut self, factor_id: usize, message: GaussianDistribution) {
-        self.messages.insert(factor_id, message);
-    }
-
-    pub fn message_from(&self, factor_id: usize) -> Option<&GaussianDistribution> {
-        self.messages.get(&factor_id)
     }
 
     /// Update the belief by multiplying all incoming messages

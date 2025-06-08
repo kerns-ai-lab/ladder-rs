@@ -100,6 +100,12 @@ impl GameOutcome {
 
     /// Creates an outcome where the team at index `winner_idx` wins.
     pub fn win(winner_idx: usize, team_count: usize) -> Self {
+        assert!(
+            winner_idx < team_count,
+            "winner_idx ({}) must be less than team_count ({})",
+            winner_idx,
+            team_count
+        );
         let mut ranks = vec![2; team_count];
         ranks[winner_idx] = 1;
         Self { ranks }
