@@ -1,6 +1,7 @@
 /target/
 /.container-use/
 /instruction/
+wasm/target/
 
 # Coverage reports
 coverage.json
