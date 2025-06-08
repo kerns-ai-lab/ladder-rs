@@ -320,7 +320,7 @@ fn test_factor_graph_with_prior() {
     let mut fg = FactorGraph::new();
     let var_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
 
-    let prior = PriorFactor::new(var_id, GaussianDistribution::new(25.0, 64.0).unwrap()).unwrap();
+    let prior = PriorFactor::new(var_id, GaussianDistribution::new(25.0, 64.0).unwrap());
     fg.add_factor(Box::new(prior));
 
     // Run schedule loop
@@ -329,8 +329,8 @@ fn test_factor_graph_with_prior() {
 
     // Check that variable has been updated
     let var = fg.get_variable(var_id).unwrap();
-    assert!((var.value().mean() - 25.0).abs() < 1e-6);
-    assert!((var.value().variance() - 64.0).abs() < 1e-6);
+    assert!((var.mean() - 25.0).abs() < 1e-6);
+    assert!((var.variance() - 64.0).abs() < 1e-6);
 }
 
 #[test]
