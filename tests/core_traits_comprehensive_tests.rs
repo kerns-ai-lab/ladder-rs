@@ -3,7 +3,7 @@
 
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating, Outcome},
-    error::{Error, Result},
+    error::Result,
 };
 
 /// Mock rating implementation for testing core traits
