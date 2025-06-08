@@ -36,6 +36,7 @@ features = ["js"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 
 [features]
 default = ["console_error_panic_hook"]
