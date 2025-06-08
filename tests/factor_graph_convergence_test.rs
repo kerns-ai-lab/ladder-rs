@@ -153,7 +153,7 @@ fn test_variable_updates_in_schedule_loop() {
 
     let mut fg = FactorGraph::new();
     let var_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
-    
+
     // Create a GaussianDistribution for the prior
     let prior_dist = GaussianDistribution::new(5.0, 1.0).unwrap();
     fg.add_factor(Box::new(PriorFactor::new(var_id, prior_dist)));
@@ -177,28 +177,36 @@ fn test_schedule_with_comparison_factor() {
     // Set up prior: difference should be positive
     let prior_dist = GaussianDistribution::new(2.0, 1.0).unwrap();
     fg.add_factor(Box::new(PriorFactor::new(difference_id, prior_dist)));
-    
+
     // Add comparison constraint: difference > 0 with no draw margin
-    fg.add_factor(Box::new(
-        GaussianComparisonFactor::new(difference_id, 0.0),
-    ));
+    fg.add_factor(Box::new(GaussianComparisonFactor::new(difference_id, 0.0)));
 
     let convergence_result = fg.run_schedule_loop(1e-6, 10).unwrap();
-    
-    // Verify convergence was achieved
-    assert!(convergence_result < 1e-6, "Should converge within tolerance");
 
-    let difference_var = fg.get_variable(difference_id).expect("Variable should exist");
+    // Verify convergence was achieved
+    assert!(
+        convergence_result < 1e-6,
+        "Should converge within tolerance"
+    );
+
+    let difference_var = fg
+        .get_variable(difference_id)
+        .expect("Variable should exist");
 
     // Verify the result makes sense
-    assert!(difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite());
-    assert!(difference_var.value().mean() > 0.0, "Difference should be positive");
+    assert!(
+        difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite()
+    );
+    assert!(
+        difference_var.value().mean() > 0.0,
+        "Difference should be positive"
+    );
 }
 
-#[test]  
+#[test]
 fn test_comparison_factor_with_draw_margin() {
     use ladder_rs::trueskill::{
-        FactorGraph, GaussianDistribution, PriorFactor, GaussianComparisonFactor,
+        FactorGraph, GaussianComparisonFactor, GaussianDistribution, PriorFactor,
     };
 
     let mut fg = FactorGraph::new();
@@ -207,21 +215,32 @@ fn test_comparison_factor_with_draw_margin() {
     // Set up prior: difference should be near zero
     let prior_dist = GaussianDistribution::new(0.1, 1.0).unwrap();
     fg.add_factor(Box::new(PriorFactor::new(difference_id, prior_dist)));
-    
+
     // Add comparison with draw margin
     let draw_margin = 1.0;
-    fg.add_factor(Box::new(
-        GaussianComparisonFactor::new(difference_id, draw_margin),
-    ));
+    fg.add_factor(Box::new(GaussianComparisonFactor::new(
+        difference_id,
+        draw_margin,
+    )));
 
     let convergence_result = fg.run_schedule_loop(1e-6, 10).unwrap();
-    assert!(convergence_result < 1e-6, "Should converge for draw scenario");
+    assert!(
+        convergence_result < 1e-6,
+        "Should converge for draw scenario"
+    );
 
-    let difference_var = fg.get_variable(difference_id).expect("Variable should exist");
+    let difference_var = fg
+        .get_variable(difference_id)
+        .expect("Variable should exist");
 
     // In a draw scenario, the difference should be within the draw margin
-    assert!(difference_var.value().mean().abs() < draw_margin, "Difference should be within draw margin");
-    
+    assert!(
+        difference_var.value().mean().abs() < draw_margin,
+        "Difference should be within draw margin"
+    );
+
     // Should have valid belief
-    assert!(difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite());
+    assert!(
+        difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite()
+    );
 }

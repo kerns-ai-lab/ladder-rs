@@ -42,11 +42,11 @@ fn test_trueskill_system_factor_graph_creation() {
 #[test]
 fn test_trueskill_custom_parameters() {
     let result = TrueSkill::with_parameters(
-        1500.0,  // mu_0
-        200.0,   // sigma_0_squared
-        100.0,   // beta_squared
-        10.0,    // gamma_squared
-        0.05,    // draw_probability
+        1500.0, // mu_0
+        200.0,  // sigma_0_squared
+        100.0,  // beta_squared
+        10.0,   // gamma_squared
+        0.05,   // draw_probability
         TrueSkillImplementation::Simplified,
     );
 

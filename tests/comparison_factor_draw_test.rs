@@ -26,11 +26,11 @@ fn test_draw_message_construction() {
     // The current implementation uses simplified values and doesn't implement
     // the exact draw calculations from the TrueSkill paper.
     // Instead, we test that the message has valid values.
-    
+
     // Precision should be positive and finite
     assert!(msg.precision() > 0.0);
     assert!(msg.precision().is_finite());
-    
+
     // For a draw scenario with mean=0, precision_mean should be close to 0
     assert!(msg.precision_mean().abs() < 1.0);
 }

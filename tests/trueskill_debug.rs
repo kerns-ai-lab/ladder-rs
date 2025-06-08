@@ -1,5 +1,5 @@
 use ladder_rs::{
-    core::{RatingSystem},
+    core::RatingSystem,
     trueskill::{TrueSkill, TrueSkillImplementation, TrueSkillTeam},
 };
 

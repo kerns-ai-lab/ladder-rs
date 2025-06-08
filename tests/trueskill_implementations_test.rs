@@ -6,8 +6,14 @@ use ladder_rs::{
 #[test]
 fn test_simplified_implementation() {
     let trueskill = TrueSkill::new_simplified();
-    let team1 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
-    let team2 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
+    let team1 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
+    let team2 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
 
     let outcome = GameOutcome::win(0, 2);
     let result = trueskill.rate(&[team1, team2], &outcome);
@@ -39,8 +45,14 @@ fn test_simplified_implementation() {
 fn test_factor_graph_implementation_fallback() {
     // Currently falls back to simplified implementation
     let trueskill = TrueSkill::new_factor_graph();
-    let team1 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
-    let team2 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
+    let team1 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
+    let team2 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
 
     let outcome = GameOutcome::win(0, 2);
     let result = trueskill.rate(&[team1, team2], &outcome);
@@ -74,8 +86,14 @@ fn test_factor_graph_implementation_fallback() {
 #[test]
 fn test_both_implementations_similar_results() {
     // Test that both implementations produce similar results for a simple case
-    let team1 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
-    let team2 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
+    let team1 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
+    let team2 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
 
     let trueskill_simple = TrueSkill::new_simplified();
     let outcome = GameOutcome::win(0, 2);
@@ -120,8 +138,10 @@ fn test_with_parameters_both_implementations() {
     )
     .unwrap();
 
-    let team1 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 69.44).unwrap()]);
-    let team2 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 69.44).unwrap()]);
+    let team1 =
+        TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 69.44).unwrap()]);
+    let team2 =
+        TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 69.44).unwrap()]);
     let outcome = GameOutcome::win(0, 2);
 
     let simple_result = simplified.rate(&[team1.clone(), team2.clone()], &outcome);

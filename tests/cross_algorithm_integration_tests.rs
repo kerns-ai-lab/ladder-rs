@@ -1,6 +1,6 @@
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating},
-    elo::{EloSystem, EloRating, EloTeamRating},
+    elo::{EloRating, EloSystem, EloTeamRating},
     glicko::{Glicko, GlickoRating, GlickoTeamRating},
     trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
 };
@@ -364,10 +364,16 @@ fn test_rating_sanity_checks() {
     let upset_result = elo.rate(&elo_teams, &GameOutcome::win(1, 2)).unwrap();
     let weak_new_rating = upset_result[1].player_ratings()[0].mean();
     let weak_gain = weak_new_rating - 1000.0;
-    
+
     // The weak player should gain rating and strong player should lose
-    assert!(weak_gain > 0.0, "Weak player should gain rating when winning");
-    assert!(upset_result[0].player_ratings()[0].mean() < 2000.0, "Strong player should lose rating when losing");
+    assert!(
+        weak_gain > 0.0,
+        "Weak player should gain rating when winning"
+    );
+    assert!(
+        upset_result[0].player_ratings()[0].mean() < 2000.0,
+        "Strong player should lose rating when losing"
+    );
 
     // Similar test for Glicko
     let glicko = Glicko::new();
