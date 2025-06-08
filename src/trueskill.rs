@@ -451,9 +451,15 @@ impl Factor for TruncationFactor {
         vec![self.diff_id]
     }
 
-    fn message_to(&self, _variable_id: usize) -> Result<&Message> {
-        Ok(&self.message)
+
+    fn message_to(&self, variable_id: usize) -> Result<&Message> {
+        if variable_id == self.diff_id {
+            Ok(&self.message)
+        } else {
+            Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
+        }
     }
+
 }
 
 /// Factor graph for TrueSkill computation
