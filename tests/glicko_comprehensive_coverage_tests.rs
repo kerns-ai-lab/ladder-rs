@@ -4,7 +4,6 @@ use ladder_rs::{
         Glicko, Glicko2, GlickoConfig, Glicko2Config, 
         GlickoRating, Glicko2Rating, GlickoTeamRating, Glicko2TeamRating
     },
-    error::Error,
 };
 
 #[test]
@@ -18,7 +17,7 @@ fn test_glicko_rating_period_updates() {
     // Simulate rating period with no games (pass empty opponents)
     // This tests the time-based variance increase
     let config = GlickoConfig::default();
-    let expected_new_rd = (inactive_player.rd * inactive_player.rd + config.c * config.c).sqrt();
+    let _expected_new_rd = (inactive_player.rd * inactive_player.rd + config.c * config.c).sqrt();
     
     // Since we can't directly test no-games scenario, test that RD decreases after games
     let opponent = GlickoRating::new(1400.0, 80.0);
@@ -69,7 +68,7 @@ fn test_glicko2_volatility_updates() {
     let stable_player = Glicko2Rating::new(1500.0, 200.0, 0.06);
     let consistent_opponent = Glicko2Rating::new(1400.0, 100.0, 0.06);
     
-    let mut current_rating = stable_player;
+    let mut current_rating = stable_player.clone();
     
     // Multiple games with expected results
     for _ in 0..5 {
