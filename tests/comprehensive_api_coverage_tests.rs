@@ -2,8 +2,7 @@ use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating, Outcome},
     elo::{EloSystem, EloRating, EloTeamRating},
     glicko::{Glicko, Glicko2, GlickoRating, Glicko2Rating, GlickoTeamRating, Glicko2TeamRating},
-    trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam, TrueSkillImplementation},
-    error::Error,
+    trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
 };
 
 #[test]
@@ -120,7 +119,7 @@ fn test_all_systems_basic_functionality() {
     // Test that all systems can perform basic rating updates
     let elo_system = EloSystem::new();
     let glicko_system = Glicko::new();
-    let glicko2_system = Glicko2::new();
+    let _glicko2_system = Glicko2::new();
     let trueskill_system = TrueSkill::new();
     
     // Create teams for each system
@@ -145,6 +144,7 @@ fn test_all_systems_basic_functionality() {
     let glicko_result = glicko_system.rate(&[glicko_team1, glicko_team2], &outcome);
     assert!(glicko_result.is_ok(), "Glicko system should handle basic rating update");
     
+    let glicko2_system = Glicko2::new();
     let glicko2_result = glicko2_system.rate(&[glicko2_team1, glicko2_team2], &outcome);
     assert!(glicko2_result.is_ok(), "Glicko2 system should handle basic rating update");
     
@@ -216,13 +216,7 @@ fn test_match_quality_implementations() {
 #[test]
 fn test_outcome_validation_across_systems() {
     // Test that all systems properly validate outcomes
-    let systems: Vec<Box<dyn RatingSystem<
-        PlayerRating = EloRating, 
-        TeamRating = EloTeamRating, 
-        Outcome = GameOutcome
-    >>> = vec![
-        Box::new(EloSystem::new()),
-    ];
+    let elo_system = EloSystem::new();
     
     let team1 = EloTeamRating::new(EloRating::new(1500.0));
     let team2 = EloTeamRating::new(EloRating::new(1500.0));
@@ -240,10 +234,8 @@ fn test_outcome_validation_across_systems() {
     for outcome in valid_outcomes {
         assert!(outcome.is_valid_for_team_count(2), "Outcome should be valid for 2 teams");
         
-        for system in &systems {
-            let result = system.rate(&[team1.clone(), team2.clone()], &outcome);
-            assert!(result.is_ok(), "Valid outcome should work with all systems");
-        }
+        let result = elo_system.rate(&[team1.clone(), team2.clone()], &outcome);
+        assert!(result.is_ok(), "Valid outcome should work with Elo system");
     }
     
     // Test invalid outcomes
@@ -313,6 +305,14 @@ fn test_comprehensive_draw_handling() {
     
     assert!(glicko_result[0].player_ratings()[0].mu < 1600.0);
     assert!(glicko_result[1].player_ratings()[0].mu > 1400.0);
+    
+    // Glicko2 test
+    let glicko2_team1 = Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::new(1600.0, 100.0, 0.06)]);
+    let glicko2_team2 = Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::new(1400.0, 100.0, 0.06)]);
+    let glicko2_result = glicko2_system.rate(&[glicko2_team1, glicko2_team2], &outcome).unwrap();
+    
+    assert!(glicko2_result[0].player_ratings()[0].mu < 1600.0);
+    assert!(glicko2_result[1].player_ratings()[0].mu > 1400.0);
     
     // TrueSkill test
     let trueskill_team1 = TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(30.0, 64.0).unwrap()]);
