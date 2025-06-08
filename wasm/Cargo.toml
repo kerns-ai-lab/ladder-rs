@@ -63,6 +63,13 @@ glicko-only = []
 trueskill-only = []
 all-algorithms = []
 
+# Global wasm-pack settings for consistent builds
+[package.metadata.wasm-pack]
+target = "web"
+out-dir = "pkg"
+out-name = "ladder_rs_wasm"
+scope = "@ladder-rs"
+
 # Performance profiles optimized for different use cases
 [package.metadata.wasm-pack.profile.dev]
 # Development profile - faster builds, easier debugging

@@ -2,5 +2,6 @@
   "out-dir": "pkg",
   "target": "web",
   "mode": "normal",
-  "scope": "@ladder-rs"
+  "scope": "@ladder-rs",
+  "out-name": "ladder_rs_wasm"
 }
