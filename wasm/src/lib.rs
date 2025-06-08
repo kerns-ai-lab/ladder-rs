@@ -47,7 +47,13 @@ pub fn greet(name: &str) {
 pub use ladder_rs::core::{Rating, RatingSystem, TeamRating, Outcome};
 pub use ladder_rs::error::Error as LadderError;
 
-// Module declarations for API components (will be implemented in subsequent tasks)
+// Module declarations
 pub mod api;
 pub mod types;
 pub mod utils;
+
+// Re-export commonly used types
+pub use types::{
+    JsRating, JsTeam, JsGameOutcome, RatingSystemType, 
+    RatingSystemConfig, RatingUpdate
+};

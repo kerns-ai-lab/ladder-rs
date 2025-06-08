@@ -17,8 +17,9 @@ name = "ladder_rs_wasm"
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Performance", "console"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 serde-wasm-bindgen = "0.6"
 console_error_panic_hook = { version = "0.1", optional = true }
 wee_alloc = { version = "0.4", optional = true }
@@ -36,9 +37,7 @@ default = ["console_error_panic_hook"]
 console_error_panic_hook = ["dep:console_error_panic_hook"]
 wee_alloc = ["dep:wee_alloc"]
 
-[package.metadata.wasm-pack]
-# Use web target by default for browser compatibility
-target = "web"
+# Default target is configured via command line flags in build scripts
 
 [package.metadata.wasm-pack.profile.dev]
 # Development profile - faster builds, easier debugging
