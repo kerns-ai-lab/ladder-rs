@@ -153,15 +153,16 @@ fn test_variable_updates_in_schedule_loop() {
 
     let mut fg = FactorGraph::new();
     let var_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
-    fg.add_factor(Box::new(
-        PriorFactor::new(var_id, 5.0, 1.0).unwrap(),
-    ));
+    
+    // Create a GaussianDistribution for the prior
+    let prior_dist = GaussianDistribution::new(5.0, 1.0).unwrap();
+    fg.add_factor(Box::new(PriorFactor::new(var_id, prior_dist)));
 
     // Run schedule loop
     let _ = fg.run_schedule_loop(1e-6, 5).unwrap();
 
     let var = fg.get_variable(var_id).unwrap();
-    assert!((var.value().mean() - 5.0).abs() < 1e-6);
+    assert!((var.mean() - 5.0).abs() < 1e-6);
 }
 
 #[test]
@@ -174,7 +175,8 @@ fn test_schedule_with_comparison_factor() {
     let difference_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
 
     // Set up prior: difference should be positive
-    fg.add_factor(Box::new(PriorFactor::new(difference_id, 2.0, 1.0).unwrap()));
+    let prior_dist = GaussianDistribution::new(2.0, 1.0).unwrap();
+    fg.add_factor(Box::new(PriorFactor::new(difference_id, prior_dist)));
     
     // Add comparison constraint: difference > 0 with no draw margin
     fg.add_factor(Box::new(
@@ -189,8 +191,8 @@ fn test_schedule_with_comparison_factor() {
     let difference_var = fg.get_variable(difference_id).unwrap();
 
     // Verify the result makes sense
-    assert!(difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite());
-    assert!(difference_var.value().mean() > 0.0, "Difference should be positive");
+    assert!(difference_var.variance() > 0.0 && difference_var.variance().is_finite());
+    assert!(difference_var.mean() > 0.0, "Difference should be positive");
 }
 
 #[test]  
@@ -203,7 +205,8 @@ fn test_comparison_factor_with_draw_margin() {
     let difference_id = fg.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
 
     // Set up prior: difference should be near zero
-    fg.add_factor(Box::new(PriorFactor::new(difference_id, 0.1, 1.0).unwrap()));
+    let prior_dist = GaussianDistribution::new(0.1, 1.0).unwrap();
+    fg.add_factor(Box::new(PriorFactor::new(difference_id, prior_dist)));
     
     // Add comparison with draw margin
     let draw_margin = 1.0;
@@ -217,8 +220,8 @@ fn test_comparison_factor_with_draw_margin() {
     let difference_var = fg.get_variable(difference_id).unwrap();
 
     // In a draw scenario, the difference should be within the draw margin
-    assert!(difference_var.value().mean().abs() < draw_margin, "Difference should be within draw margin");
+    assert!(difference_var.mean().abs() < draw_margin, "Difference should be within draw margin");
     
     // Should have valid belief
-    assert!(difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite());
+    assert!(difference_var.variance() > 0.0 && difference_var.variance().is_finite());
 }
