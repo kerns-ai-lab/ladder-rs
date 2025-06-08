@@ -265,13 +265,10 @@ fn test_convergence_across_systems() {
     let mut ts_p1 = trueskill.create_rating();
     let mut ts_p2 = trueskill.create_rating();
 
-    // Player 1 wins 7 out of 10 games
-    for i in 0..10 {
-        let outcome = if i < 7 {
-            GameOutcome::win(0, 2) // Player 1 wins
-        } else {
-            GameOutcome::win(1, 2) // Player 2 wins
-        };
+    // Player 1 wins 7 out of 10 games, but in a mixed pattern to avoid recency bias
+    let game_outcomes = [0, 0, 1, 0, 0, 1, 0, 0, 1, 0]; // P1 wins 7, P2 wins 3
+    for &winner in game_outcomes.iter() {
+        let outcome = GameOutcome::win(winner, 2);
 
         // Elo
         let elo_team1 = EloTeamRating::new(elo_p1);
@@ -307,10 +304,11 @@ fn test_convergence_across_systems() {
     }
 
     // After 10 games (7-3 record), player 1 should be rated higher in all systems
-    assert!(elo_p1.mean() > elo_p2.mean());
-    assert!(glicko_p1.mean() > glicko_p2.mean());
-    assert!(glicko2_p1.mean() > glicko2_p2.mean());
-    assert!(ts_p1.mean() > ts_p2.mean());
+    
+    assert!(elo_p1.mean() > elo_p2.mean(), "Elo: P1={} should be > P2={}", elo_p1.mean(), elo_p2.mean());
+    assert!(glicko_p1.mean() > glicko_p2.mean(), "Glicko: P1={} should be > P2={}", glicko_p1.mean(), glicko_p2.mean());
+    assert!(glicko2_p1.mean() > glicko2_p2.mean(), "Glicko2: P1={} should be > P2={}", glicko2_p1.mean(), glicko2_p2.mean());
+    assert!(ts_p1.mean() > ts_p2.mean(), "TrueSkill: P1={} should be > P2={}", ts_p1.mean(), ts_p2.mean());
 
     println!("Final ratings after 7-3 record:");
     println!("Elo: P1={:.3}, P2={:.3}", elo_p1.mean(), elo_p2.mean());
