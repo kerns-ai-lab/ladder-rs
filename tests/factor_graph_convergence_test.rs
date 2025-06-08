@@ -115,6 +115,29 @@ fn test_absolute_difference_calculation() {
 }
 
 #[test]
+fn test_outcome_affects_ratings() {
+    let ts = TrueSkill::new_factor_graph();
+
+    let player1 = ts.create_rating();
+    let player2 = ts.create_rating();
+
+    let team1 = TrueSkillTeam::from_player_ratings(vec![player1.clone()]);
+    let team2 = TrueSkillTeam::from_player_ratings(vec![player2.clone()]);
+
+    let win_result = ts
+        .rate(&[team1.clone(), team2.clone()], &GameOutcome::win(0, 2))
+        .unwrap();
+    let lose_result = ts
+        .rate(&[team1, team2], &GameOutcome::win(1, 2))
+        .unwrap();
+
+    let win_mu = win_result[0].player_ratings()[0].mean();
+    let lose_mu = lose_result[0].player_ratings()[0].mean();
+
+    assert!( (win_mu - lose_mu).abs() > 1e-6, "Different outcomes should change ratings differently" );
+}
+
+#[test]
 fn test_variable_updates_in_schedule_loop() {
     use ladder_rs::trueskill::{FactorGraph, GaussianDistribution, GaussianPriorFactor};
 
