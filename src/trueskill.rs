@@ -74,7 +74,7 @@ impl GaussianDistribution {
     /// Following the CONVERGENCE.md guidance
     pub fn absolute_difference(&self, other: &Self) -> f64 {
         let precision_mean_diff = (self.precision_mean - other.precision_mean).abs();
-        let precision_diff = (self.precision - other.precision).abs().sqrt();
+        let precision_diff = (self.precision - other.precision).abs();
         precision_mean_diff.max(precision_diff)
     }
     
@@ -330,7 +330,7 @@ impl Factor for GaussianComparisonFactor {
             if denom.abs() < 1e-10 {
                 0.0
             } else {
-                let pdf = normal.pdf(eps);
+                let pdf = normal.pdf(eps); // symmetric
                 2.0 * eps * pdf / denom
             }
         };
@@ -361,7 +361,7 @@ impl Factor for GaussianComparisonFactor {
                 Ok(delta)
             } else {
                 let v = -v_win();
-                let w = v * (v - eps);
+                let w = w_win(v);
                 let new_msg = GaussianDistribution::from_precision_mean(v, w);
                 let delta = self.msg_lesser.value().absolute_difference(&new_msg);
                 self.msg_lesser.set_value(new_msg);
