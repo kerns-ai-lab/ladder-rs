@@ -137,7 +137,7 @@ fn test_rating_trait_implementation() {
     assert_eq!(elo_rating.variance(), 0.0); // Elo has no uncertainty
 
     // Glicko rating
-    let glicko_rating = GlickoRating::new(1600.0, 350.0 * 350.0).unwrap();
+    let glicko_rating = GlickoRating::new(1600.0, 350.0 * 350.0);
     assert_eq!(glicko_rating.mean(), 1600.0);
     assert_eq!(glicko_rating.variance(), 350.0 * 350.0);
 
@@ -158,8 +158,8 @@ fn test_team_rating_trait_implementation() {
 
     // Glicko team
     let glicko_players = vec![
-        GlickoRating::new(1500.0, 200.0 * 200.0).unwrap(),
-        GlickoRating::new(1600.0, 150.0 * 150.0).unwrap(),
+        GlickoRating::new(1500.0, 200.0 * 200.0),
+        GlickoRating::new(1600.0, 150.0 * 150.0),
     ];
     let glicko_team = GlickoTeam::from_player_ratings(glicko_players.clone());
     assert_eq!(glicko_team.player_ratings().len(), 2);
@@ -259,8 +259,8 @@ fn test_rating_progression() {
     let mut elo_p1 = EloRating::new(1500.0);
     let mut elo_p2 = EloRating::new(1500.0);
 
-    let mut glicko_p1 = GlickoRating::new(1500.0, 350.0 * 350.0).unwrap();
-    let mut glicko_p2 = GlickoRating::new(1500.0, 350.0 * 350.0).unwrap();
+    let mut glicko_p1 = GlickoRating::new(1500.0, 350.0 * 350.0);
+    let mut glicko_p2 = GlickoRating::new(1500.0, 350.0 * 350.0);
 
     let mut ts_p1 = TrueSkillRating::new(25.0, (25.0 / 3.0) * (25.0 / 3.0)).unwrap();
     let mut ts_p2 = TrueSkillRating::new(25.0, (25.0 / 3.0) * (25.0 / 3.0)).unwrap();
@@ -367,8 +367,8 @@ fn test_rating_sanity_checks() {
 
     // Similar test for Glicko
     let glicko = Glicko::new();
-    let strong_glicko = GlickoRating::new(2000.0, 50.0 * 50.0).unwrap();
-    let weak_glicko = GlickoRating::new(1000.0, 50.0 * 50.0).unwrap();
+    let strong_glicko = GlickoRating::new(2000.0, 50.0 * 50.0);
+    let weak_glicko = GlickoRating::new(1000.0, 50.0 * 50.0);
 
     let glicko_teams = vec![
         GlickoTeam::from_player_ratings(vec![strong_glicko]),
