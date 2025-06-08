@@ -189,10 +189,10 @@ fn test_multi_team_matches() {
     ];
     let elo_result = elo.rate(&elo_teams, &three_team_outcome);
     // Elo might not support >2 teams
-    match elo_result {
-        Ok(teams) => assert_eq!(teams.len(), 3),
-        Err(_) => {} // Error is acceptable
+    if let Ok(teams) = elo_result {
+        assert_eq!(teams.len(), 3);
     }
+    // Error is acceptable
 
     // Glicko typically doesn't support >2 teams
     let glicko = Glicko::new();
@@ -202,10 +202,10 @@ fn test_multi_team_matches() {
         GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
     ];
     let glicko_result = glicko.rate(&glicko_teams, &three_team_outcome);
-    match glicko_result {
-        Ok(teams) => assert_eq!(teams.len(), 3),
-        Err(_) => {} // Error is acceptable
+    if let Ok(teams) = glicko_result {
+        assert_eq!(teams.len(), 3);
     }
+    // Error is acceptable
 
     // TrueSkill might support multi-team in some implementations
     let trueskill = TrueSkill::new();
@@ -215,10 +215,10 @@ fn test_multi_team_matches() {
         TrueSkillTeam::from_player_ratings(vec![trueskill.create_rating()]),
     ];
     let ts_result = trueskill.rate(&ts_teams, &three_team_outcome);
-    match ts_result {
-        Ok(teams) => assert_eq!(teams.len(), 3),
-        Err(_) => {} // Error is acceptable
+    if let Ok(teams) = ts_result {
+        assert_eq!(teams.len(), 3);
     }
+    // Error is acceptable
 }
 
 /// Test that systems handle invalid inputs appropriately
@@ -429,14 +429,12 @@ fn test_match_quality() {
         EloTeamRating::from_player_ratings(vec![elo.create_rating()]),
     ];
     let elo_quality = elo.calculate_match_quality(&elo_teams);
-    match elo_quality {
-        Ok(quality) => {
-            assert!((0.0..=1.0).contains(&quality));
-            // Equal teams should have high quality
-            assert!(quality > 0.4);
-        }
-        Err(_) => {} // Not implemented is OK
+    if let Ok(quality) = elo_quality {
+        assert!((0.0..=1.0).contains(&quality));
+        // Equal teams should have high quality
+        assert!(quality > 0.4);
     }
+    // Not implemented is OK
 
     // Glicko match quality
     let glicko = Glicko::new();
@@ -445,13 +443,11 @@ fn test_match_quality() {
         GlickoTeamRating::from_player_ratings(vec![glicko.create_rating()]),
     ];
     let glicko_quality = glicko.calculate_match_quality(&glicko_teams);
-    match glicko_quality {
-        Ok(quality) => {
-            assert!((0.0..=1.0).contains(&quality));
-            assert!(quality > 0.4);
-        }
-        Err(_) => {} // Not implemented is OK
+    if let Ok(quality) = glicko_quality {
+        assert!((0.0..=1.0).contains(&quality));
+        assert!(quality > 0.4);
     }
+    // Not implemented is OK
 
     // TrueSkill match quality
     let trueskill = TrueSkill::new();
@@ -460,11 +456,9 @@ fn test_match_quality() {
         TrueSkillTeam::from_player_ratings(vec![trueskill.create_rating()]),
     ];
     let ts_quality = trueskill.calculate_match_quality(&ts_teams);
-    match ts_quality {
-        Ok(quality) => {
-            assert!((0.0..=1.0).contains(&quality));
-            assert!(quality > 0.4);
-        }
-        Err(_) => {} // Not implemented is OK
+    if let Ok(quality) = ts_quality {
+        assert!((0.0..=1.0).contains(&quality));
+        assert!(quality > 0.4);
     }
+    // Not implemented is OK
 }
