@@ -427,12 +427,15 @@ impl FactorGraph {
         self.variables.get(&id)
     }
     
-    /// Run message passing until convergence
+    /// Run message passing until convergence with improved convergence detection
     pub fn run_schedule_loop(&mut self, max_delta: f64, max_iterations: usize) -> Result<f64> {
         let mut iteration = 0;
         let mut delta = f64::INFINITY;
-
+        let mut delta_history = Vec::new();
+        let stagnation_threshold = 5; // Number of iterations to detect stagnation
+        
         while delta > max_delta && iteration < max_iterations {
+            let prev_delta = delta;
             delta = 0.0;
             iteration += 1;
 
@@ -455,6 +458,27 @@ impl FactorGraph {
                 }
                 let var_delta = variable.update_belief(&messages);
                 delta = delta.max(var_delta);
+            }
+            
+            // Track delta history for oscillation detection
+            delta_history.push(delta);
+            
+            // Check for stagnation (delta not decreasing significantly)
+            if delta_history.len() >= stagnation_threshold {
+                let recent_deltas = &delta_history[delta_history.len() - stagnation_threshold..];
+                let min_recent = recent_deltas.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+                let max_recent = recent_deltas.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+                
+                // If delta is oscillating in a small range, consider it converged
+                if max_recent - min_recent < max_delta * 2.0 && iteration > stagnation_threshold {
+                    break;
+                }
+            }
+            
+            // Early termination if delta stops improving
+            if iteration > 3 && delta >= prev_delta * 0.99 {
+                // Delta is not improving significantly, likely stuck
+                break;
             }
         }
 
@@ -509,8 +533,8 @@ impl Default for TrueSkill {
             gamma_squared: (sigma_0 / 100.0) * (sigma_0 / 100.0),
             draw_probability: 0.10, // 10% default draw probability
             draw_margin: 0.0, // Will be calculated in new()
-            convergence_threshold: 0.0001,
-            max_iterations: 20,
+            convergence_threshold: 0.001, // Relaxed from 0.0001 to prevent hanging
+            max_iterations: 50, // Increased from 20 to allow more convergence time
             implementation: TrueSkillImplementation::Simplified,
         }.calculate_draw_margin()
     }
