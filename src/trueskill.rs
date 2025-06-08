@@ -32,6 +32,15 @@ impl GaussianDistribution {
             precision,
         })
     }
+
+    /// Construct a Gaussian from a mean and variance without validation.
+    pub fn from_mean_and_variance(mean: f64, variance: f64) -> Self {
+        let precision = if variance.is_infinite() { 0.0 } else { 1.0 / variance };
+        Self {
+            precision_mean: precision * mean,
+            precision,
+        }
+    }
     
     pub fn from_precision_mean(precision_mean: f64, precision: f64) -> Self {
         Self { precision_mean, precision }
@@ -71,10 +80,9 @@ impl GaussianDistribution {
     }
     
     /// Calculate absolute difference between two Gaussian distributions
-    /// Following the CONVERGENCE.md guidance
     pub fn absolute_difference(&self, other: &Self) -> f64 {
         let precision_mean_diff = (self.precision_mean - other.precision_mean).abs();
-        let precision_diff = (self.precision - other.precision).abs().sqrt();
+        let precision_diff = (self.precision - other.precision).abs();
         precision_mean_diff.max(precision_diff)
     }
     
@@ -300,12 +308,29 @@ impl GaussianComparisonFactor {
 
 impl Factor for GaussianComparisonFactor {
     fn update_message(&mut self, variable_id: usize) -> Result<f64> {
+<<<<<<< HEAD
         let eps = self.draw_margin;
         let normal = Normal::new(0.0, 1.0).unwrap();
 
         let v_win = || {
             let denom = normal.cdf(-eps);
             if denom < 1e-10 { 0.0 } else { normal.pdf(-eps) / denom }
+=======
+        // Calculate new message based on win/draw assumptions using
+        // the TrueSkill V and W functions with a default cavity of
+        // mean=0 and variance=1.
+        let eps = self.draw_margin;
+        let normal = Normal::new(0.0, 1.0).unwrap();
+
+        // Helper closures for V and W functions with t=0
+        let v_win = || {
+            let denom = normal.cdf(-eps);
+            if denom < 1e-10 {
+                0.0
+            } else {
+                normal.pdf(-eps) / denom
+            }
+>>>>>>> main
         };
 
         let w_win = |v: f64| v * (v + eps);
@@ -330,12 +355,20 @@ impl Factor for GaussianComparisonFactor {
             if denom.abs() < 1e-10 {
                 0.0
             } else {
+<<<<<<< HEAD
                 let pdf = normal.pdf(eps);
+=======
+                let pdf = normal.pdf(eps); // symmetric
+>>>>>>> main
                 2.0 * eps * pdf / denom
             }
         };
 
         if variable_id == self.greater_variable_id {
+<<<<<<< HEAD
+=======
+            // Message to the greater variable (winner)
+>>>>>>> main
             if self.is_draw {
                 let v = v_draw();
                 let w = w_draw();
@@ -352,6 +385,10 @@ impl Factor for GaussianComparisonFactor {
                 Ok(delta)
             }
         } else if variable_id == self.lesser_variable_id {
+<<<<<<< HEAD
+=======
+            // Message to the lesser variable (loser)
+>>>>>>> main
             if self.is_draw {
                 let v = v_draw();
                 let w = w_draw();
@@ -361,7 +398,11 @@ impl Factor for GaussianComparisonFactor {
                 Ok(delta)
             } else {
                 let v = -v_win();
+<<<<<<< HEAD
                 let w = v * (v - eps);
+=======
+                let w = w_win(v);
+>>>>>>> main
                 let new_msg = GaussianDistribution::from_precision_mean(v, w);
                 let delta = self.msg_lesser.value().absolute_difference(&new_msg);
                 self.msg_lesser.set_value(new_msg);
@@ -385,6 +426,7 @@ impl Factor for GaussianComparisonFactor {
             Err(Error::InvalidInput("Variable ID not connected to this factor".to_string()))
         }
     }
+<<<<<<< HEAD
 }
 
 /// Factor modeling the difference between two performance variables.
@@ -460,6 +502,8 @@ impl Factor for TruncationFactor {
         }
     }
 
+=======
+>>>>>>> main
 }
 
 /// Factor graph for TrueSkill computation
@@ -510,7 +554,11 @@ impl FactorGraph {
                 }
             }
 
+<<<<<<< HEAD
             // Update all variable beliefs based on incoming messages
+=======
+            // Update all variable beliefs
+>>>>>>> main
             for variable in self.variables.values_mut() {
                 let var_id = variable.id();
                 let mut messages = Vec::new();
@@ -793,6 +841,7 @@ impl TrueSkill {
             skill2_id, perf2_id, self.beta_squared,
         )?));
 
+<<<<<<< HEAD
         // Add performance difference variable and factors
         let diff_id = factor_graph.add_variable(GaussianDistribution::from_precision_mean(0.0, 0.0));
         factor_graph.add_factor(Box::new(PerformanceDifferenceFactor::new(
@@ -806,11 +855,52 @@ impl TrueSkill {
         )));
 
         // Run convergence loop following CONVERGENCE.md guidance
+=======
+        // Determine outcome and add comparison factor
+        let ranks = outcome.ranks();
+        let two_player_outcome = if ranks[0] < ranks[1] {
+            TwoPlayerOutcome::Player1Wins
+        } else if ranks[0] > ranks[1] {
+            TwoPlayerOutcome::Player2Wins
+        } else {
+            TwoPlayerOutcome::Draw
+        };
+
+        match two_player_outcome {
+            TwoPlayerOutcome::Player1Wins => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf1_id,
+                    perf2_id,
+                    self.draw_margin,
+                    false,
+                )?));
+            }
+            TwoPlayerOutcome::Player2Wins => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf2_id,
+                    perf1_id,
+                    self.draw_margin,
+                    false,
+                )?));
+            }
+            TwoPlayerOutcome::Draw => {
+                factor_graph.add_factor(Box::new(GaussianComparisonFactor::new(
+                    perf1_id,
+                    perf2_id,
+                    self.draw_margin,
+                    true,
+                )?));
+            }
+        }
+        
+        // Run convergence loop
+>>>>>>> main
         let _final_delta = factor_graph.run_schedule_loop(
             self.convergence_threshold,
             self.max_iterations,
         )?;
 
+<<<<<<< HEAD
         // Use simplified update formulas to adjust skill values based on outcome
         let ranks = outcome.ranks();
         let match_outcome = if ranks[0] < ranks[1] {
@@ -821,6 +911,9 @@ impl TrueSkill {
             TwoPlayerOutcome::Draw
         };
 
+=======
+        // Until full factor graph updates are implemented, use simplified updater
+>>>>>>> main
         let updater = SimplifiedTrueSkillUpdater::new(
             self.beta_squared,
             self.gamma_squared,
@@ -830,7 +923,11 @@ impl TrueSkill {
         let (final_rating1, final_rating2) = updater.update_ratings(
             player1_rating,
             player2_rating,
+<<<<<<< HEAD
             match_outcome,
+=======
+            two_player_outcome,
+>>>>>>> main
         )?;
 
         let updated_team1 = TrueSkillTeam::from_player_ratings(vec![final_rating1]);
