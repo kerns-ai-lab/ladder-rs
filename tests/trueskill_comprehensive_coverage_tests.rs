@@ -1,7 +1,7 @@
 use ladder_rs::{
     core::{GameOutcome, RatingSystem},
     trueskill::{
-        FactorGraph, GaussianDistribution, PriorFactor, TrueSkill, TrueSkillImplementation,
+        Factor, FactorGraph, GaussianDistribution, PriorFactor, TrueSkill, TrueSkillImplementation,
         TrueSkillRating, TrueSkillTeam,
     },
 };
