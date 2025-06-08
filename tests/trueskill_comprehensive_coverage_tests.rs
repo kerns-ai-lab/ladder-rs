@@ -294,7 +294,7 @@ fn test_factor_graph_basic_operations() {
 
     // Invalid variable ID
     let invalid_var = fg.get_variable(999);
-    assert!(invalid_var.is_err());
+    assert!(invalid_var.is_none());
 }
 
 #[test]
