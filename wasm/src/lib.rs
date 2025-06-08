@@ -28,9 +28,9 @@ fn set_panic_hook() {
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-// Initialize the WASM module
+// Initialize the WASM module - renamed to avoid conflict with test main
 #[wasm_bindgen(start)]
-pub fn main() {
+pub fn wasm_main() {
     #[cfg(feature = "console_error_panic_hook")]
     set_panic_hook();
 
@@ -49,11 +49,15 @@ pub use ladder_rs::error::Error as LadderError;
 
 // Module declarations
 pub mod api;
+pub mod player_management;
 pub mod types;
 pub mod utils;
 
 // Re-export commonly used types
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
+pub use player_management::{
+    HeadToHeadRecord, MatchRecord, PlayerManager, PlayerProfile, PlayerStats,
+};
 pub use types::{
     JsGameOutcome, JsRating, JsTeam, RatingSystemConfig, RatingSystemType, RatingUpdate,
 };
