@@ -9,7 +9,7 @@ fn test_draw_message_construction() {
     let mut factor = GaussianComparisonFactor::new(difference_id, draw_margin);
     let _ = factor.update_message(difference_id).unwrap();
 
-    let msg = factor.message_to(difference_id).unwrap().value();
+    let msg = factor.message_to(difference_id).unwrap();
 
     let normal = Normal::new(0.0, 1.0).unwrap();
     let phi_upper = normal.cdf(draw_margin);
