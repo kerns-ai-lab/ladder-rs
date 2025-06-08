@@ -32,6 +32,9 @@ path = "../"
 version = "0.2"
 features = ["js"]
 
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
 [features]
 default = ["console_error_panic_hook"]
 console_error_panic_hook = ["dep:console_error_panic_hook"]

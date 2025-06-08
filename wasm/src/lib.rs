@@ -33,7 +33,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 pub fn main() {
     #[cfg(feature = "console_error_panic_hook")]
     set_panic_hook();
-    
+
     console_log!("ladder-rs WASM module initialized");
 }
 
@@ -44,7 +44,7 @@ pub fn greet(name: &str) {
 }
 
 // Re-export ladder-rs core types for internal use
-pub use ladder_rs::core::{Rating, RatingSystem, TeamRating, Outcome};
+pub use ladder_rs::core::{Outcome, Rating, RatingSystem, TeamRating};
 pub use ladder_rs::error::Error as LadderError;
 
 // Module declarations
@@ -53,7 +53,7 @@ pub mod types;
 pub mod utils;
 
 // Re-export commonly used types
+pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
 pub use types::{
-    JsRating, JsTeam, JsGameOutcome, RatingSystemType, 
-    RatingSystemConfig, RatingUpdate
+    JsGameOutcome, JsRating, JsTeam, RatingSystemConfig, RatingSystemType, RatingUpdate,
 };

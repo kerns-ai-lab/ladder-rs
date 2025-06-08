@@ -54,7 +54,11 @@ impl JsRating {
     /// Creates a string representation
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
-        format!("Rating(μ={:.2}, σ={:.2})", self.mean, self.standard_deviation())
+        format!(
+            "Rating(μ={:.2}, σ={:.2})",
+            self.mean,
+            self.standard_deviation()
+        )
     }
 }
 
@@ -135,7 +139,7 @@ impl JsGameOutcome {
         if ranks.is_empty() {
             return Err(JsValue::from_str("Ranks cannot be empty"));
         }
-        
+
         // Check for duplicate ranks
         let mut sorted_ranks = ranks.clone();
         sorted_ranks.sort_unstable();
@@ -144,7 +148,7 @@ impl JsGameOutcome {
                 return Err(JsValue::from_str("Duplicate ranks are not allowed"));
             }
         }
-        
+
         self.ranks = ranks;
         Ok(())
     }
@@ -166,8 +170,10 @@ impl JsGameOutcome {
 
         let mut ranks = vec![2; total_teams];
         ranks[winner_index] = 1;
-        
-        Ok(JsGameOutcome { ranks: ranks.into_iter().map(|r| r as u32).collect() })
+
+        Ok(JsGameOutcome {
+            ranks: ranks.into_iter().map(|r| r as u32).collect(),
+        })
     }
 
     /// Creates a draw outcome between all teams
@@ -209,7 +215,7 @@ pub enum RatingSystemType {
 pub struct RatingSystemConfig {
     /// Type of rating system
     pub system_type: RatingSystemType,
-    
+
     /// Custom parameters (JSON string for flexibility)
     #[wasm_bindgen(skip)]
     pub parameters: Option<String>,
@@ -245,7 +251,7 @@ pub struct RatingUpdate {
     /// Updated teams with new ratings
     #[wasm_bindgen(skip)]
     pub updated_teams: Vec<JsTeam>,
-    
+
     /// Optional match quality (0-1, higher is better)
     pub match_quality: Option<f64>,
 }
@@ -274,12 +280,12 @@ impl RatingUpdate {
 pub mod conversions {
     use super::*;
     use ladder_rs::core::{GameOutcome as CoreGameOutcome, Rating};
-    
+
     /// Converts a JsGameOutcome to core GameOutcome
     pub fn js_to_core_outcome(js_outcome: &JsGameOutcome) -> CoreGameOutcome {
         CoreGameOutcome::new(js_outcome.ranks.iter().map(|&r| r as usize).collect())
     }
-    
+
     /// Converts any Rating implementation to JsRating
     pub fn rating_to_js<R: Rating>(rating: &R) -> JsRating {
         JsRating {
@@ -287,7 +293,7 @@ pub mod conversions {
             variance: rating.variance(),
         }
     }
-    
+
     /// Converts a vector of ratings to JsTeam
     pub fn ratings_to_js_team<R: Rating>(ratings: Vec<R>) -> JsTeam {
         JsTeam {
@@ -318,8 +324,22 @@ mod tests {
     #[test]
     fn test_js_rating_validation() {
         // These would normally be caught by the constructor
-        assert!(JsRating { mean: 25.0, variance: 0.0 }.variance <= 0.0);
-        assert!(JsRating { mean: 25.0, variance: -1.0 }.variance <= 0.0);
+        assert!(
+            JsRating {
+                mean: 25.0,
+                variance: 0.0
+            }
+            .variance
+                <= 0.0
+        );
+        assert!(
+            JsRating {
+                mean: 25.0,
+                variance: -1.0
+            }
+            .variance
+                <= 0.0
+        );
     }
 
     #[test]
@@ -330,10 +350,16 @@ mod tests {
                 create_test_rating(30.0, 36.0),
             ],
         };
-        
+
         assert_eq!(team.player_ratings.len(), 2);
-        assert_eq!(team.player_ratings.iter().map(|r| r.mean).sum::<f64>(), 55.0);
-        assert_eq!(team.player_ratings.iter().map(|r| r.variance).sum::<f64>(), 100.0);
+        assert_eq!(
+            team.player_ratings.iter().map(|r| r.mean).sum::<f64>(),
+            55.0
+        );
+        assert_eq!(
+            team.player_ratings.iter().map(|r| r.variance).sum::<f64>(),
+            100.0
+        );
     }
 
     #[test]
@@ -352,7 +378,7 @@ mod tests {
         // Test validation logic that would be in set_ranks
         let empty_ranks: Vec<u32> = vec![];
         assert!(empty_ranks.is_empty());
-        
+
         let duplicate_ranks = vec![1, 1, 2];
         let mut sorted = duplicate_ranks.clone();
         sorted.sort_unstable();
@@ -365,10 +391,10 @@ mod tests {
         // Test the logic for creating a win outcome
         let winner_index = 0;
         let total_teams = 3;
-        
+
         let mut ranks = vec![2; total_teams];
         ranks[winner_index] = 1;
-        
+
         assert_eq!(ranks, vec![1, 2, 2]);
     }
 
@@ -383,21 +409,33 @@ mod tests {
     #[test]
     fn test_conversions() {
         use crate::types::conversions::*;
-        
+
         // Test outcome conversion
-        let js_outcome = JsGameOutcome { ranks: vec![1, 2, 3] };
+        let js_outcome = JsGameOutcome {
+            ranks: vec![1, 2, 3],
+        };
         let core_outcome = js_to_core_outcome(&js_outcome);
         assert_eq!(core_outcome.ranks(), &[1, 2, 3]);
-        
+
         // Test rating conversion
         #[derive(Debug, Clone)]
-        struct TestRating { mean: f64, variance: f64 }
-        impl crate::Rating for TestRating {
-            fn mean(&self) -> f64 { self.mean }
-            fn variance(&self) -> f64 { self.variance }
+        struct TestRating {
+            mean: f64,
+            variance: f64,
         }
-        
-        let test_rating = TestRating { mean: 25.0, variance: 64.0 };
+        impl crate::Rating for TestRating {
+            fn mean(&self) -> f64 {
+                self.mean
+            }
+            fn variance(&self) -> f64 {
+                self.variance
+            }
+        }
+
+        let test_rating = TestRating {
+            mean: 25.0,
+            variance: 64.0,
+        };
         let js_rating = rating_to_js(&test_rating);
         assert_eq!(js_rating.mean, 25.0);
         assert_eq!(js_rating.variance, 64.0);
