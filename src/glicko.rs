@@ -582,14 +582,14 @@ mod tests {
 
     #[test]
     fn test_glicko_rating_creation() {
-        let rating = GlickoRating::default();
+        let rating = GlickoRating::with_default_values();
         assert_eq!(rating.mean(), 1500.0);
         assert_eq!(rating.standard_deviation(), 350.0);
     }
 
     #[test]
     fn test_glicko2_rating_creation() {
-        let rating = Glicko2Rating::default();
+        let rating = Glicko2Rating::with_default_values();
         assert_eq!(rating.mean(), 1500.0);
         assert_eq!(rating.standard_deviation(), 350.0);
         assert_eq!(rating.volatility, 0.06);
