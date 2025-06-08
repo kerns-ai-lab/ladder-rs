@@ -48,6 +48,19 @@ mod enhanced_structure_tests {
         assert!(content.contains("\"out-dir\": \"pkg\""), "Must specify output directory");
         assert!(content.contains("\"target\": \"web\""), "Must specify default target");
         assert!(content.contains("\"mode\": \"normal\""), "Must specify build mode");
+        assert!(content.contains("\"out-name\": \"ladder_rs_wasm\""), "Must specify output file name");
+    }
+
+    #[test]
+    fn test_cargo_wasm_pack_metadata() {
+        let cargo_content = fs::read_to_string("Cargo.toml")
+            .expect("Should be able to read Cargo.toml");
+
+        assert!(cargo_content.contains("[package.metadata.wasm-pack]"), "Cargo.toml must include wasm-pack metadata section");
+        assert!(cargo_content.contains("out-dir = \"pkg\""), "Must set out-dir in metadata");
+        assert!(cargo_content.contains("target = \"web\""), "Must set default target in metadata");
+        assert!(cargo_content.contains("out-name = \"ladder_rs_wasm\""), "Must set out-name in metadata");
+        assert!(cargo_content.contains("scope = \"@ladder-rs\""), "Must set npm scope in metadata");
     }
 
     #[test]
