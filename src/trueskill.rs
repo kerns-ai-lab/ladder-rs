@@ -441,7 +441,7 @@ impl FactorGraph {
                 let var_id = variable.id();
                 let mut messages = Vec::new();
                 for factor in &self.factors {
-                    if factor.connected_variables().iter().any(|&id| id == var_id) {
+                    if factor.connected_variables().contains(&var_id) {
                         messages.push(factor.message_to(var_id)?);
                     }
                 }
