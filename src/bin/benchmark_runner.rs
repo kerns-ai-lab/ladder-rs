@@ -259,10 +259,11 @@ impl BaselineEstablisher {
         &self,
         baseline: &BaselineData,
     ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-        let timestamp_str = chrono::DateTime::<chrono::Utc>::from_timestamp(baseline.timestamp as i64, 0)
-            .unwrap_or_else(chrono::Utc::now)
-            .format("%Y%m%d_%H%M%S")
-            .to_string();
+        let timestamp_str =
+            chrono::DateTime::<chrono::Utc>::from_timestamp(baseline.timestamp as i64, 0)
+                .unwrap_or_else(chrono::Utc::now)
+                .format("%Y%m%d_%H%M%S")
+                .to_string();
 
         let baseline_file = self
             .baselines_dir
