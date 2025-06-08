@@ -431,7 +431,7 @@ impl FactorGraph {
     pub fn run_schedule_loop(&mut self, max_delta: f64, max_iterations: usize) -> Result<f64> {
         let mut iteration = 0;
         let mut delta = f64::INFINITY;
-        
+
         while delta > max_delta && iteration < max_iterations {
             delta = 0.0;
             iteration += 1;
@@ -457,7 +457,7 @@ impl FactorGraph {
                 delta = delta.max(var_delta);
             }
         }
-        
+
         Ok(delta)
     }
 }
