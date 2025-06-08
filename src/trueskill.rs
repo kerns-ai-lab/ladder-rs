@@ -364,7 +364,7 @@ impl Factor for GaussianComparisonFactor {
         let w = Self::w_function(t, 0.0);
 
         // Clamp w to prevent numerical issues
-        let w_clamped = w.max(1e-10).min(1e10);
+        let w_clamped = w.clamp(1e-10, 1e10);
 
         let new_precision = w_clamped / variance;
         let new_precision_mean = (mean + std_dev * v) * new_precision;
@@ -477,6 +477,12 @@ impl FactorGraph {
     }
 }
 
+impl Default for FactorGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Implementation of Microsoft's TrueSkill rating system.
 ///
 /// TrueSkill is a Bayesian skill rating system developed by Microsoft Research
@@ -540,16 +546,18 @@ impl TrueSkill {
 
     /// Creates a new TrueSkill instance using simplified implementation.
     pub fn new_simplified() -> Self {
-        let mut ts = Self::default();
-        ts.implementation = TrueSkillImplementation::Simplified;
-        ts
+        Self {
+            implementation: TrueSkillImplementation::Simplified,
+            ..Default::default()
+        }
     }
 
     /// Creates a new TrueSkill instance using factor graph implementation.
     pub fn new_factor_graph() -> Self {
-        let mut ts = Self::default();
-        ts.implementation = TrueSkillImplementation::FactorGraph;
-        ts
+        Self {
+            implementation: TrueSkillImplementation::FactorGraph,
+            ..Default::default()
+        }
     }
 
     /// Creates a new TrueSkill instance with custom parameters.
@@ -808,42 +816,46 @@ impl TrueSkill {
         let normal = Normal::new(0.0, 1.0).unwrap();
 
         // Determine the update based on the outcome
-        let (v1, v2, w1, w2) = if ranks[0] < ranks[1] {
-            // Team 1 wins
-            let t = mu_diff / c;
-            let v = normal.pdf(t) / normal.cdf(t);
-            let w = v * (v + t);
-            (v, -v, w, w)
-        } else if ranks[0] > ranks[1] {
-            // Team 2 wins
-            let t = -mu_diff / c;
-            let v = normal.pdf(t) / normal.cdf(t);
-            let w = v * (v + t);
-            (-v, v, w, w)
-        } else {
-            // Draw
-            let epsilon = self.draw_margin;
-            let t = mu_diff / c;
+        let (v1, v2, w1, w2) = match ranks[0].cmp(&ranks[1]) {
+            std::cmp::Ordering::Less => {
+                // Team 1 wins
+                let t = mu_diff / c;
+                let v = normal.pdf(t) / normal.cdf(t);
+                let w = v * (v + t);
+                (v, -v, w, w)
+            }
+            std::cmp::Ordering::Greater => {
+                // Team 2 wins
+                let t = -mu_diff / c;
+                let v = normal.pdf(t) / normal.cdf(t);
+                let w = v * (v + t);
+                (-v, v, w, w)
+            }
+            std::cmp::Ordering::Equal => {
+                // Draw
+                let epsilon = self.draw_margin;
+                let t = mu_diff / c;
 
-            let cdf_plus = normal.cdf((epsilon - t) / c);
-            let cdf_minus = normal.cdf((-epsilon - t) / c);
-            let pdf_plus = normal.pdf((epsilon - t) / c);
-            let pdf_minus = normal.pdf((-epsilon - t) / c);
+                let cdf_plus = normal.cdf((epsilon - t) / c);
+                let cdf_minus = normal.cdf((-epsilon - t) / c);
+                let pdf_plus = normal.pdf((epsilon - t) / c);
+                let pdf_minus = normal.pdf((-epsilon - t) / c);
 
-            let denom = cdf_plus - cdf_minus;
-            let v = if denom > 1e-10 {
-                (pdf_minus - pdf_plus) / denom
-            } else {
-                0.0
-            };
+                let denom = cdf_plus - cdf_minus;
+                let v = if denom > 1e-10 {
+                    (pdf_minus - pdf_plus) / denom
+                } else {
+                    0.0
+                };
 
-            let w = if denom > 1e-10 {
-                v * v + ((epsilon - t) * pdf_plus - (-epsilon - t) * pdf_minus) / denom
-            } else {
-                1.0
-            };
+                let w = if denom > 1e-10 {
+                    v * v + ((epsilon - t) * pdf_plus - (-epsilon - t) * pdf_minus) / denom
+                } else {
+                    1.0
+                };
 
-            (v, -v, w, w)
+                (v, -v, w, w)
+            }
         };
 
         // Update team ratings
@@ -911,7 +923,7 @@ impl TrueSkill {
 
         // Add performance variables (skill + noise)
         let mut _performance_variables = Vec::new();
-        for (_team_idx, team_skills) in skill_variables.iter().enumerate() {
+        for team_skills in skill_variables.iter() {
             let mut team_performances = Vec::new();
             for &skill_id in team_skills {
                 let perf_dist = GaussianDistribution::from_precision_mean(0.0, 0.0);
