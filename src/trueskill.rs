@@ -335,7 +335,7 @@ impl Factor for GaussianComparisonFactor {
         // Get the current belief about the difference
         // For now, we'll use a simplified approach
         let mean = 0.0; // This should come from the variable's current belief
-        let variance = 1.0; // This should also come from the variable
+        let variance: f64 = 1.0; // This should also come from the variable
         
         let std_dev = variance.sqrt();
         let t = (mean - self.draw_margin) / std_dev;
@@ -690,12 +690,12 @@ impl TrueSkillRating {
 }
 
 impl Rating for TrueSkillRating {
-    fn display_rating(&self) -> f64 {
-        self.conservative_rating()
+    fn mean(&self) -> f64 {
+        self.mean
     }
     
-    fn uncertainty(&self) -> f64 {
-        self.std_dev()
+    fn variance(&self) -> f64 {
+        self.variance
     }
 }
 
@@ -736,20 +736,12 @@ impl TrueSkillTeam {
 impl TeamRating for TrueSkillTeam {
     type PlayerRating = TrueSkillRating;
     
-    fn team_mean(&self) -> f64 {
-        self.team_mean()
-    }
-    
-    fn team_variance(&self) -> f64 {
-        self.team_variance()
-    }
-    
     fn player_ratings(&self) -> &[Self::PlayerRating] {
         &self.player_ratings
     }
     
-    fn player_ratings_mut(&mut self) -> &mut Vec<Self::PlayerRating> {
-        &mut self.player_ratings
+    fn from_player_ratings(ratings: Vec<Self::PlayerRating>) -> Self {
+        Self { player_ratings: ratings }
     }
 }
 
@@ -883,8 +875,8 @@ impl TrueSkill {
         }
         
         // Add performance variables (skill + noise)
-        let mut performance_variables = Vec::new();
-        for (team_idx, team_skills) in skill_variables.iter().enumerate() {
+        let mut _performance_variables = Vec::new();
+        for (_team_idx, team_skills) in skill_variables.iter().enumerate() {
             let mut team_performances = Vec::new();
             for &skill_id in team_skills {
                 let perf_dist = GaussianDistribution::from_precision_mean(0.0, 0.0);
@@ -896,7 +888,7 @@ impl TrueSkill {
                 
                 team_performances.push(perf_id);
             }
-            performance_variables.push(team_performances);
+            _performance_variables.push(team_performances);
         }
         
         // For now, just run a few iterations and fall back to simplified
