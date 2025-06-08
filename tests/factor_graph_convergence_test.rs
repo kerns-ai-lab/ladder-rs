@@ -161,8 +161,8 @@ fn test_variable_updates_in_schedule_loop() {
     // Run schedule loop
     let _ = fg.run_schedule_loop(1e-6, 5).unwrap();
 
-    let var = fg.get_variable(var_id).unwrap();
-    assert!((var.mean() - 5.0).abs() < 1e-6);
+    let var = fg.get_variable(var_id).expect("Variable should exist");
+    assert!((var.value().mean() - 5.0).abs() < 1e-6);
 }
 
 #[test]
@@ -188,11 +188,11 @@ fn test_schedule_with_comparison_factor() {
     // Verify convergence was achieved
     assert!(convergence_result < 1e-6, "Should converge within tolerance");
 
-    let difference_var = fg.get_variable(difference_id).unwrap();
+    let difference_var = fg.get_variable(difference_id).expect("Variable should exist");
 
     // Verify the result makes sense
-    assert!(difference_var.variance() > 0.0 && difference_var.variance().is_finite());
-    assert!(difference_var.mean() > 0.0, "Difference should be positive");
+    assert!(difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite());
+    assert!(difference_var.value().mean() > 0.0, "Difference should be positive");
 }
 
 #[test]  
@@ -217,11 +217,11 @@ fn test_comparison_factor_with_draw_margin() {
     let convergence_result = fg.run_schedule_loop(1e-6, 10).unwrap();
     assert!(convergence_result < 1e-6, "Should converge for draw scenario");
 
-    let difference_var = fg.get_variable(difference_id).unwrap();
+    let difference_var = fg.get_variable(difference_id).expect("Variable should exist");
 
     // In a draw scenario, the difference should be within the draw margin
-    assert!(difference_var.mean().abs() < draw_margin, "Difference should be within draw margin");
+    assert!(difference_var.value().mean().abs() < draw_margin, "Difference should be within draw margin");
     
     // Should have valid belief
-    assert!(difference_var.variance() > 0.0 && difference_var.variance().is_finite());
+    assert!(difference_var.value().variance() > 0.0 && difference_var.value().variance().is_finite());
 }
