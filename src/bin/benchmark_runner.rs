@@ -77,11 +77,11 @@ impl BaselineEstablisher {
             "integration_scenarios",
         ];
 
-        for suite in &benchmark_suites {
+        for suite in benchmark_suites {
             println!("  📊 Running {} benchmark suite...", suite);
 
             let output = Command::new("cargo")
-                .args(&["bench", "--bench", suite])
+                .args(["bench", "--bench", suite])
                 .current_dir(&self.project_root)
                 .output()?;
 
@@ -356,9 +356,10 @@ impl BaselineEstablisher {
             let mut max_actual_throughput: f64 = 0.0;
 
             // Find the best throughput for this algorithm
-            for (group_name, group_data) in &baseline.measurements {
+            for group_data in baseline.measurements.values() {
                 for (bench_name, metrics) in group_data {
-                    if bench_name.to_lowercase().contains(&algo.to_lowercase()) {
+                    let algo_lower = algo.to_lowercase();
+                    if bench_name.to_lowercase().contains(&algo_lower) {
                         max_actual_throughput =
                             max_actual_throughput.max(metrics.throughput_ops_per_sec);
                     }

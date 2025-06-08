@@ -7,3 +7,5 @@ You MUST inform the user how to view your work using `git checkout <branch_name>
 ALWAYS write tests first to comprehensively exercise the target functionality and interfaces for the systems being implemented.
 
 ALWAYS create PRs on remote origin instead of container-use
+
+ALWAYS create git hooks pre-push to run fmt and tests

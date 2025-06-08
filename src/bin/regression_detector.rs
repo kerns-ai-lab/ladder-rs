@@ -128,7 +128,7 @@ impl RegressionDetector {
     fn generate_report(&self, regressions: &[RegressionResult]) -> String {
         let mut report = String::new();
 
-        report.push_str("# Performance Regression Analysis Report\n\n");
+        report.push("# Performance Regression Analysis Report\n\n");
 
         let total_benchmarks = regressions.len();
         let regressions_found: Vec<_> = regressions.iter().filter(|r| r.is_regression).collect();
@@ -223,7 +223,7 @@ impl RegressionDetector {
         for result in regressions {
             grouped_results
                 .entry(result.group_name.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(result);
         }
 
