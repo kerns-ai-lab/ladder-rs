@@ -87,8 +87,8 @@ fn test_winner_loser_behavior() {
     let ts_p1 = trueskill.create_rating();
     let ts_p2 = trueskill.create_rating();
     let ts_teams = vec![
-        TrueSkillTeam::from_player_ratings(vec![ts_p1]),
-        TrueSkillTeam::from_player_ratings(vec![ts_p2]),
+        TrueSkillTeam::from_player_ratings(vec![ts_p1.clone()]),
+        TrueSkillTeam::from_player_ratings(vec![ts_p2.clone()]),
     ];
     let ts_result = trueskill.rate(&ts_teams, &GameOutcome::win(0, 2)).unwrap();
     assert!(ts_result[0].player_ratings()[0].mean() > ts_p1.mean());
@@ -291,8 +291,8 @@ fn test_rating_progression() {
 
         // TrueSkill
         let ts_teams = vec![
-            TrueSkillTeam::from_player_ratings(vec![ts_p1]),
-            TrueSkillTeam::from_player_ratings(vec![ts_p2]),
+            TrueSkillTeam::from_player_ratings(vec![ts_p1.clone()]),
+            TrueSkillTeam::from_player_ratings(vec![ts_p2.clone()]),
         ];
         let ts_result = trueskill.rate(&ts_teams, &GameOutcome::win(0, 2)).unwrap();
         ts_p1 = ts_result[0].player_ratings()[0].clone();
