@@ -181,8 +181,8 @@ impl RatingSystem for EloSystem {
         // Calculate rating updates
         let delta = self.calculate_delta(player1_rating, player2_rating, y);
 
-        let new_player1_rating = player1_rating + y * delta;
-        let new_player2_rating = player2_rating - y * delta;
+        let new_player1_rating = player1_rating + delta;
+        let new_player2_rating = player2_rating - delta;
 
         let updated_team1 = EloTeamRating::new(EloRating::new(new_player1_rating));
         let updated_team2 = EloTeamRating::new(EloRating::new(new_player2_rating));
