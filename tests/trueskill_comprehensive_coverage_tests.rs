@@ -13,7 +13,7 @@ fn test_trueskill_system_default_creation() {
 
     // Check default parameters
     assert_eq!(rating.mean(), 25.0);
-    assert!((rating.variance() - (25.0 / 3.0).powi(2)).abs() < 1e-10);
+    assert!((rating.variance() - (25.0_f64 / 3.0).powi(2)).abs() < 1e-10);
 
     // Test that we can create a custom rating
     let custom_rating = ts.create_rating_with_values(30.0, 100.0);
@@ -385,8 +385,8 @@ fn test_trueskill_simple_two_player_rating() {
 
     assert!(winner.mean() > 25.0);
     assert!(loser.mean() < 25.0);
-    assert!(winner.variance() < (25.0 / 3.0).powi(2));
-    assert!(loser.variance() < (25.0 / 3.0).powi(2));
+    assert!(winner.variance() < (25.0_f64 / 3.0).powi(2));
+    assert!(loser.variance() < (25.0_f64 / 3.0).powi(2));
 
     // Test draw outcome
     let draw_outcome = GameOutcome::draw(2);
