@@ -1,0 +1,6 @@
+{
+  "out-dir": "pkg",
+  "target": "web",
+  "mode": "normal",
+  "scope": "@ladder-rs"
+}
