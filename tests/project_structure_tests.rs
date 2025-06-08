@@ -20,11 +20,10 @@ mod tests {
         
         // All traits should be in scope and usable
         // This is validated by the mock implementations in core_traits_comprehensive_tests.rs
-        // but we test basic trait object creation here
         
-        // Test that we can create trait objects (ensuring traits are object-safe where appropriate)
-        let outcome_trait: &dyn Outcome = &GameOutcome::new(vec![1]);
-        assert!(outcome_trait.is_valid_for_team_count(1));
+        // Test that GameOutcome implements Outcome trait
+        assert!(outcome.is_valid_for_team_count(2));
+        assert!(!outcome.is_valid_for_team_count(3));
     }
 
     #[test]
@@ -65,8 +64,7 @@ mod tests {
         
         // GameOutcome implements Outcome
         let outcome = GameOutcome::new(vec![1, 2]);
-        let outcome_ref: &dyn Outcome = &outcome;
-        assert!(outcome_ref.is_valid_for_team_count(2));
+        assert!(outcome.is_valid_for_team_count(2));
         
         // Test Clone and Debug are properly implemented
         let cloned = outcome.clone();
@@ -102,7 +100,7 @@ mod tests {
         use ladder_rs::error::*;
         
         let outcome = GameOutcome::new(vec![1]);
-        let _: &dyn Outcome = &outcome;
+        assert!(outcome.is_valid_for_team_count(1));
         
         let error = Error::InvalidInput("test".to_string());
         let result: Result<i32> = Err(error);
