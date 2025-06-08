@@ -1,0 +1,21 @@
+{
+    // Format on save
+    "editor.formatOnSave": true,
+    
+    // Rust analyzer settings
+    "rust-analyzer.checkOnSave.command": "clippy",
+    "rust-analyzer.checkOnSave.allTargets": true,
+    "rust-analyzer.checkOnSave.extraArgs": ["--", "-D", "warnings"],
+    
+    // Run clippy instead of just check
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.check.allTargets": true,
+    
+    // Show all features
+    "rust-analyzer.cargo.allFeatures": true,
+    
+    // Format with rustfmt
+    "[rust]": {
+        "editor.defaultFormatter": "rust-lang.rust-analyzer"
+    }
+}

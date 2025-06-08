@@ -1,13 +1,19 @@
 use ladder_rs::{
-    core::{GameOutcome, Rating, RatingSystem, TeamRating},
+    core::{GameOutcome, RatingSystem},
     trueskill::{TrueSkill, TrueSkillImplementation, TrueSkillRating, TrueSkillTeam},
 };
 
 #[test]
 fn test_simplified_implementation() {
     let trueskill = TrueSkill::new_simplified();
-    let team1 = TrueSkillTeam::new(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
-    let team2 = TrueSkillTeam::new(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
+    let team1 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
+    let team2 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
 
     let outcome = GameOutcome::win(0, 2);
     let result = trueskill.rate(&[team1, team2], &outcome);
@@ -17,30 +23,36 @@ fn test_simplified_implementation() {
     assert_eq!(updated_teams.len(), 2);
 
     // Winner should have higher rating than initial
-    let winner = &updated_teams[0].players()[0];
-    let loser = &updated_teams[1].players()[0];
+    let winner = &updated_teams[0].player_ratings()[0];
+    let loser = &updated_teams[1].player_ratings()[0];
 
     println!(
         "Simplified - Winner: μ={:.3}, σ={:.3}",
-        winner.mu(),
-        winner.sigma()
+        winner.mean(),
+        winner.std_dev()
     );
     println!(
         "Simplified - Loser: μ={:.3}, σ={:.3}",
-        loser.mu(),
-        loser.sigma()
+        loser.mean(),
+        loser.std_dev()
     );
 
-    assert!(winner.mu() > 25.0, "Winner should have mu > 25.0");
-    assert!(loser.mu() < 25.0, "Loser should have mu < 25.0");
+    assert!(winner.mean() > 25.0, "Winner should have mu > 25.0");
+    assert!(loser.mean() < 25.0, "Loser should have mu < 25.0");
 }
 
 #[test]
 fn test_factor_graph_implementation_fallback() {
     // Currently falls back to simplified implementation
     let trueskill = TrueSkill::new_factor_graph();
-    let team1 = TrueSkillTeam::new(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
-    let team2 = TrueSkillTeam::new(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
+    let team1 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
+    let team2 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
 
     let outcome = GameOutcome::win(0, 2);
     let result = trueskill.rate(&[team1, team2], &outcome);
@@ -52,18 +64,18 @@ fn test_factor_graph_implementation_fallback() {
     let updated_teams = result.unwrap();
     assert_eq!(updated_teams.len(), 2);
 
-    let winner = &updated_teams[0].players()[0];
-    let loser = &updated_teams[1].players()[0];
+    let winner = &updated_teams[0].player_ratings()[0];
+    let loser = &updated_teams[1].player_ratings()[0];
 
     println!(
         "Factor Graph (fallback) - Winner: μ={:.3}, σ={:.3}",
-        winner.mu(),
-        winner.sigma()
+        winner.mean(),
+        winner.std_dev()
     );
     println!(
         "Factor Graph (fallback) - Loser: μ={:.3}, σ={:.3}",
-        loser.mu(),
-        loser.sigma()
+        loser.mean(),
+        loser.std_dev()
     );
 
     // Ratings should remain valid
@@ -74,8 +86,14 @@ fn test_factor_graph_implementation_fallback() {
 #[test]
 fn test_both_implementations_similar_results() {
     // Test that both implementations produce similar results for a simple case
-    let team1 = TrueSkillTeam::new(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
-    let team2 = TrueSkillTeam::new(vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()]);
+    let team1 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
+    let team2 =
+        TrueSkillTeam::from_player_ratings(
+            vec![TrueSkillRating::new(25.0, 8.333 * 8.333).unwrap()],
+        );
 
     let trueskill_simple = TrueSkill::new_simplified();
     let outcome = GameOutcome::win(0, 2);
@@ -86,8 +104,8 @@ fn test_both_implementations_similar_results() {
     let trueskill_fg = TrueSkill::new_factor_graph();
     let result_fg = trueskill_fg.rate(&[team1, team2], &outcome).unwrap();
 
-    let simple_winner_mu = result_simple[0].players()[0].mu();
-    let fg_winner_mu = result_fg[0].players()[0].mu();
+    let simple_winner_mu = result_simple[0].player_ratings()[0].mean();
+    let fg_winner_mu = result_fg[0].player_ratings()[0].mean();
 
     println!("Simplified winner μ: {:.3}", simple_winner_mu);
     println!("Factor graph winner μ: {:.3}", fg_winner_mu);
@@ -120,8 +138,10 @@ fn test_with_parameters_both_implementations() {
     )
     .unwrap();
 
-    let team1 = TrueSkillTeam::new(vec![TrueSkillRating::new(25.0, 69.44).unwrap()]);
-    let team2 = TrueSkillTeam::new(vec![TrueSkillRating::new(25.0, 69.44).unwrap()]);
+    let team1 =
+        TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 69.44).unwrap()]);
+    let team2 =
+        TrueSkillTeam::from_player_ratings(vec![TrueSkillRating::new(25.0, 69.44).unwrap()]);
     let outcome = GameOutcome::win(0, 2);
 
     let simple_result = simplified.rate(&[team1.clone(), team2.clone()], &outcome);

@@ -34,10 +34,10 @@ fn test_glicko_rating_period_updates() {
 
 #[test]
 fn test_glicko_custom_configuration() {
-    // Test with custom c value (rating period variance increase)
+    // Test with custom q value (conversion factor)
     let custom_config = GlickoConfig {
-        c: 30.0, // Higher than default 15.8
-        q: (10.0_f64).ln() / 400.0,
+        c: 15.8,                    // Same as default
+        q: (10.0_f64).ln() / 300.0, // Different q value to affect g() function
     };
 
     let custom_glicko = Glicko::with_config(custom_config);

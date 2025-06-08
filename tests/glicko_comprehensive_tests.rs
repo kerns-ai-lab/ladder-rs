@@ -10,7 +10,7 @@ use ladder_rs::{
 // Glicko (original) tests
 #[test]
 fn test_glicko_rating_creation_and_properties() {
-    let rating = GlickoRating::default();
+    let rating = GlickoRating::with_default_values();
     assert_eq!(rating.mean(), 1500.0);
     assert_eq!(rating.standard_deviation(), 350.0);
     assert_eq!(rating.variance(), 350.0 * 350.0);
@@ -135,9 +135,9 @@ fn test_glicko_error_conditions() {
 
     // Too many teams
     let teams = vec![
-        GlickoTeamRating::from_player_ratings(vec![GlickoRating::default()]),
-        GlickoTeamRating::from_player_ratings(vec![GlickoRating::default()]),
-        GlickoTeamRating::from_player_ratings(vec![GlickoRating::default()]),
+        GlickoTeamRating::from_player_ratings(vec![GlickoRating::with_default_values()]),
+        GlickoTeamRating::from_player_ratings(vec![GlickoRating::with_default_values()]),
+        GlickoTeamRating::from_player_ratings(vec![GlickoRating::with_default_values()]),
     ];
     let outcome = GameOutcome::new(vec![1, 2, 3]);
     let result = system.rate(&teams, &outcome);
@@ -148,7 +148,8 @@ fn test_glicko_error_conditions() {
         GlickoRating::new(1500.0, 200.0),
         GlickoRating::new(1600.0, 150.0),
     ]);
-    let single_team = GlickoTeamRating::from_player_ratings(vec![GlickoRating::default()]);
+    let single_team =
+        GlickoTeamRating::from_player_ratings(vec![GlickoRating::with_default_values()]);
 
     let outcome = GameOutcome::win(0, 2);
     let result = system.rate(&[multi_team, single_team], &outcome);
@@ -158,7 +159,7 @@ fn test_glicko_error_conditions() {
 // Glicko-2 tests
 #[test]
 fn test_glicko2_rating_creation_and_properties() {
-    let rating = Glicko2Rating::default();
+    let rating = Glicko2Rating::with_default_values();
     assert_eq!(rating.mean(), 1500.0);
     assert_eq!(rating.standard_deviation(), 350.0);
     assert_eq!(rating.volatility, 0.06);
@@ -315,9 +316,9 @@ fn test_glicko2_error_conditions() {
 
     // Too many teams
     let teams = vec![
-        Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::default()]),
-        Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::default()]),
-        Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::default()]),
+        Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::with_default_values()]),
+        Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::with_default_values()]),
+        Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::with_default_values()]),
     ];
     let outcome = GameOutcome::new(vec![1, 2, 3]);
     let result = system.rate(&teams, &outcome);
@@ -328,7 +329,8 @@ fn test_glicko2_error_conditions() {
         Glicko2Rating::new(1500.0, 200.0, 0.06),
         Glicko2Rating::new(1600.0, 150.0, 0.05),
     ]);
-    let single_team = Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::default()]);
+    let single_team =
+        Glicko2TeamRating::from_player_ratings(vec![Glicko2Rating::with_default_values()]);
 
     let outcome = GameOutcome::win(0, 2);
     let result = system.rate(&[multi_team, single_team], &outcome);

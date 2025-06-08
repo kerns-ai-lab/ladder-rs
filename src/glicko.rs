@@ -21,7 +21,7 @@ impl GlickoRating {
     }
 
     /// Creates a default Glicko rating (μ=1500, RD=350).
-    pub fn default() -> Self {
+    pub fn with_default_values() -> Self {
         Self::new(1500.0, 350.0)
     }
 
@@ -72,7 +72,7 @@ impl Glicko2Rating {
     }
 
     /// Creates a default Glicko-2 rating (μ=1500, RD=350, σ_volatility=0.06).
-    pub fn default() -> Self {
+    pub fn with_default_values() -> Self {
         Self::new(1500.0, 350.0, 0.06)
     }
 
@@ -250,7 +250,7 @@ impl RatingSystem for Glicko {
     type Outcome = GameOutcome;
 
     fn create_rating(&self) -> Self::PlayerRating {
-        GlickoRating::default()
+        GlickoRating::with_default_values()
     }
 
     fn create_rating_with_values(&self, mean: f64, variance: f64) -> Self::PlayerRating {
@@ -482,7 +482,7 @@ impl RatingSystem for Glicko2 {
     type Outcome = GameOutcome;
 
     fn create_rating(&self) -> Self::PlayerRating {
-        Glicko2Rating::default()
+        Glicko2Rating::with_default_values()
     }
 
     fn create_rating_with_values(&self, mean: f64, variance: f64) -> Self::PlayerRating {
@@ -571,9 +571,6 @@ impl RatingSystem for Glicko2 {
 }
 
 // Maintain Phase 6 module structure for backward compatibility
-pub mod glicko {
-    pub use super::Glicko;
-}
 
 pub mod glicko2 {
     pub use super::Glicko2;
@@ -585,14 +582,14 @@ mod tests {
 
     #[test]
     fn test_glicko_rating_creation() {
-        let rating = GlickoRating::default();
+        let rating = GlickoRating::with_default_values();
         assert_eq!(rating.mean(), 1500.0);
         assert_eq!(rating.standard_deviation(), 350.0);
     }
 
     #[test]
     fn test_glicko2_rating_creation() {
-        let rating = Glicko2Rating::default();
+        let rating = Glicko2Rating::with_default_values();
         assert_eq!(rating.mean(), 1500.0);
         assert_eq!(rating.standard_deviation(), 350.0);
         assert_eq!(rating.volatility, 0.06);

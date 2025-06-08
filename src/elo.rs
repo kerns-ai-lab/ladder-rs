@@ -170,19 +170,17 @@ impl RatingSystem for EloSystem {
         let ranks = outcome.ranks();
 
         // Determine the outcome: y = +1 if player 1 wins, y = -1 if player 2 wins, y = 0 for draw
-        let y = if ranks[0] < ranks[1] {
-            1.0 // Player 1 wins
-        } else if ranks[0] > ranks[1] {
-            -1.0 // Player 2 wins
-        } else {
-            0.0 // Draw
+        let y = match ranks[0].cmp(&ranks[1]) {
+            std::cmp::Ordering::Less => 1.0,     // Player 1 wins
+            std::cmp::Ordering::Greater => -1.0, // Player 2 wins
+            std::cmp::Ordering::Equal => 0.0,    // Draw
         };
 
         // Calculate rating updates
         let delta = self.calculate_delta(player1_rating, player2_rating, y);
 
-        let new_player1_rating = player1_rating + y * delta;
-        let new_player2_rating = player2_rating - y * delta;
+        let new_player1_rating = player1_rating + delta;
+        let new_player2_rating = player2_rating - delta;
 
         let updated_team1 = EloTeamRating::new(EloRating::new(new_player1_rating));
         let updated_team2 = EloTeamRating::new(EloRating::new(new_player2_rating));

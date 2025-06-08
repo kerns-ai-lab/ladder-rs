@@ -117,7 +117,7 @@ mod tests {
         // Test successful result
         let success: Result<i32> = Ok(42);
         assert!(success.is_ok());
-        assert_eq!(success.unwrap(), 42);
+        assert_eq!(success.as_ref().unwrap(), &42);
 
         // Test error result
         let failure: Result<i32> = Err(Error::InvalidInput("bad input".to_string()));
