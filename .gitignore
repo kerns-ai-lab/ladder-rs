@@ -1,8 +1,13 @@
 /target/
 /.container-use/
 /instruction/
+
+# WASM build artifacts
 wasm/target/
+wasm/pkg/
+wasm/pkg-node/
+wasm/pkg-bundler/
 
 # Coverage reports
 coverage.json
-coverage.lcovwasm/target/
+coverage.lcov

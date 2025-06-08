@@ -5,21 +5,35 @@
   "main": "pkg/ladder_rs_wasm.js",
   "types": "pkg/ladder_rs_wasm.d.ts",
   "files": [
-    "pkg/**/*"
+    "pkg/**/*",
+    "pkg-node/**/*",
+    "pkg-bundler/**/*"
   ],
   "scripts": {
-    "build": "wasm-pack build --target web --out-dir pkg",
-    "build:dev": "wasm-pack build --target web --out-dir pkg --dev",
-    "build:release": "wasm-pack build --target web --out-dir pkg --release",
-    "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
-    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler",
-    "clean": "rm -rf pkg pkg-node pkg-bundler target",
+    "build": "./build.sh --release --target web",
+    "build:dev": "./build.sh --dev --target web",
+    "build:release": "./build.sh --release --target web",
+    "build:all": "./build.sh --release --all-targets",
+    "build:all-parallel": "./build.sh --release --all-targets --parallel",
+    "build:node": "./build.sh --release --target nodejs",
+    "build:bundler": "./build.sh --release --target bundler",
+    "build:size-check": "./build.sh --release --target web --verbose",
+    "clean": "rm -rf pkg pkg-node pkg-bundler target .wasm-pack-*",
     "test": "wasm-pack test --headless --firefox --chrome",
     "test:node": "wasm-pack test --node",
+    "test:structure": "cargo test --test package_structure_validation",
+    "test:all": "npm run test:structure && npm run test && npm run test:node",
     "lint": "cargo clippy --target wasm32-unknown-unknown -- -D warnings",
     "fmt": "cargo fmt",
+    "fmt:check": "cargo fmt -- --check",
     "check": "cargo check --target wasm32-unknown-unknown",
-    "prepublishOnly": "npm run build:release"
+    "check:all": "npm run fmt:check && npm run lint && npm run check",
+    "dev": "./build.sh --dev --target web --verbose",
+    "watch": "cargo watch -x 'run --bin dev-server'",
+    "size-report": "./build.sh --release --all-targets && echo '=== Bundle Size Report ===' && find . -name '*.wasm' -exec ls -lh {} \\;",
+    "prepublishOnly": "npm run clean && npm run check:all && npm run test:all && npm run build:release",
+    "postbuild": "echo 'Build complete! Generated files:' && ls -la pkg/ 2>/dev/null || echo 'No pkg/ directory found'",
+    "validate": "npm run test:structure && npm run size-report"
   },
   "repository": {
     "type": "git",
@@ -34,7 +48,9 @@
     "glicko",
     "trueskill",
     "javascript",
-    "typescript"
+    "typescript",
+    "ladder",
+    "ranking"
   ],
   "author": "Kerns AI Lab",
   "license": "MIT",
@@ -44,9 +60,34 @@
   "homepage": "https://github.com/kerns-ai-lab/ladder-rs#readme",
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "cargo-watch": "^8.0.0"
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./pkg/ladder_rs_wasm.d.ts",
+      "import": "./pkg/ladder_rs_wasm.js",
+      "require": "./pkg-node/ladder_rs_wasm.js"
+    },
+    "./web": {
+      "types": "./pkg/ladder_rs_wasm.d.ts",
+      "import": "./pkg/ladder_rs_wasm.js"
+    },
+    "./node": {
+      "types": "./pkg-node/ladder_rs_wasm.d.ts",
+      "import": "./pkg-node/ladder_rs_wasm.js",
+      "require": "./pkg-node/ladder_rs_wasm.js"
+    },
+    "./bundler": {
+      "types": "./pkg-bundler/ladder_rs_wasm.d.ts",
+      "import": "./pkg-bundler/ladder_rs_wasm.js"
+    }
   }
 }

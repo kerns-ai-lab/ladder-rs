@@ -2,32 +2,42 @@
 name = "ladder-rs-wasm"
 version = "0.1.0"
 edition = "2021"
-authors = ["Zanion"]
+authors = ["Kerns AI Lab"]
 description = "WebAssembly bindings for the ladder-rs matchmaking library"
-repository = "https://github.com/zanion/ladder-rs"
+repository = "https://github.com/kerns-ai-lab/ladder-rs"
 license = "MIT"
 keywords = ["wasm", "webassembly", "matchmaking", "rating", "javascript"]
 categories = ["wasm", "web-programming", "game-development"]
+readme = "README.md"
 
 [lib]
 crate-type = ["cdylib"]
 name = "ladder_rs_wasm"
 
 [dependencies]
+# Core WASM bindings
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Performance", "console", "Document", "Element", "HtmlElement", "Storage", "Navigator"] }
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde-wasm-bindgen = "0.6"
-chrono = { version = "0.4", features = ["serde", "wasmbind"] }
-uuid = { version = "1.0", features = ["v4", "serde", "js"] }
+
+# Utilities
+chrono = { version = "0.4", features = ["serde", "wasmbind"], default-features = false }
+uuid = { version = "1.0", features = ["v4", "serde", "js"], default-features = false }
+
+# WASM-specific optimizations
 console_error_panic_hook = { version = "0.1", optional = true }
 wee_alloc = { version = "0.4", optional = true }
 
+# Core library dependency
 [dependencies.ladder-rs]
 path = "../"
+default-features = false
 
 # Fix getrandom for WASM builds
 [dependencies.getrandom]
@@ -43,36 +53,70 @@ default = ["console_error_panic_hook"]
 console_error_panic_hook = ["dep:console_error_panic_hook"]
 wee_alloc = ["dep:wee_alloc"]
 
-# Default target is configured via command line flags in build scripts
+# Size optimization features
+minimal = ["wee_alloc"]
+full = ["console_error_panic_hook", "wee_alloc"]
 
+# Feature flags for conditional compilation
+elo-only = []
+glicko-only = []
+trueskill-only = []
+all-algorithms = []
+
+# Performance profiles optimized for different use cases
 [package.metadata.wasm-pack.profile.dev]
 # Development profile - faster builds, easier debugging
 wasm-opt = false
 
 [package.metadata.wasm-pack.profile.release]
 # Production profile - maximum optimization
-wasm-opt = ["-Oz", "--enable-mutable-globals"]
+wasm-opt = ["-Oz", "--enable-mutable-globals", "--enable-bulk-memory"]
 
 [package.metadata.wasm-pack.profile.profiling]
 # Profiling profile - balanced optimization with debug info
 wasm-opt = ["-O2", "--enable-mutable-globals"]
 
+[package.metadata.wasm-pack.profile.size]
+# Size-focused profile - aggressive size optimization
+wasm-opt = ["-Oz", "-g0", "--enable-mutable-globals", "--enable-bulk-memory", "--strip-debug"]
+
+# Rust compiler profiles
 [profile.release]
-# Enable maximum optimizations
-opt-level = "z"     # Optimize for size
-lto = true          # Enable Link Time Optimization
-codegen-units = 1   # Single codegen unit for better optimization
-strip = true        # Strip symbols for smaller size
-panic = "abort"     # Smaller binary size
+# Enable maximum optimizations for size
+opt-level = "z"           # Optimize for size
+lto = "fat"               # Enable fat Link Time Optimization  
+codegen-units = 1         # Single codegen unit for better optimization
+strip = true              # Strip symbols for smaller size
+panic = "abort"           # Smaller binary size
+overflow-checks = false   # Disable overflow checks for size
 
 [profile.dev]
-# Development profile
+# Development profile - faster compilation
 opt-level = 0
 debug = true
+lto = false
 
-[profile.wasm]
-# Custom profile for WASM builds
+[profile.wasm-release]
+# Custom profile for WASM builds - inherits from release
 inherits = "release"
 opt-level = "z"
 lto = "fat"
 panic = "abort"
+strip = true
+
+[profile.wasm-size]
+# Ultra-aggressive size optimization profile
+inherits = "release"
+opt-level = "z"
+lto = "fat" 
+codegen-units = 1
+strip = true
+panic = "abort"
+overflow-checks = false
+debug-assertions = false
+
+# Package metadata for tooling
+[package.metadata.docs.rs]
+# Documentation build settings for docs.rs
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
