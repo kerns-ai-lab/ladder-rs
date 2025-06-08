@@ -47,7 +47,7 @@ impl Performance {
             .map(|p| p.now())
             .unwrap_or(0.0)
     }
-    
+
     /// Measures the time taken to execute a function
     pub fn measure(name: &str, start: f64) -> f64 {
         let duration = Self::now() - start;
@@ -68,7 +68,7 @@ impl Memory {
         // more sophisticated implementation
         0 // Placeholder - actual implementation would use web_sys APIs
     }
-    
+
     /// Logs memory usage to console
     pub fn log_usage(label: &str) {
         let usage = Self::usage();
@@ -90,18 +90,19 @@ impl BatchOperations {
             operation_type: String,
             data: serde_json::Value,
         }
-        
+
         #[derive(Serialize)]
         struct BatchResult {
             success: bool,
             data: Option<serde_json::Value>,
             error: Option<String>,
         }
-        
+
         let operations: Vec<BatchOperation> = serde_json::from_str(operations_json)
             .map_err(|e| js_error(&format!("Invalid batch operations: {}", e)))?;
-        
-        let results: Vec<BatchResult> = operations.into_iter()
+
+        let results: Vec<BatchResult> = operations
+            .into_iter()
             .map(|op| {
                 // Process each operation (to be implemented with actual operations)
                 match op.operation_type.as_str() {
@@ -118,7 +119,7 @@ impl BatchOperations {
                 }
             })
             .collect();
-        
+
         serde_json::to_string(&results)
             .map_err(|e| js_error(&format!("Failed to serialize results: {}", e)))
     }
@@ -127,37 +128,37 @@ impl BatchOperations {
 /// Console logging utilities
 pub mod console {
     use wasm_bindgen::prelude::*;
-    
+
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen(js_namespace = console)]
         pub fn log(s: &str);
-        
+
         #[wasm_bindgen(js_namespace = console)]
         pub fn error(s: &str);
-        
+
         #[wasm_bindgen(js_namespace = console)]
         pub fn warn(s: &str);
-        
+
         #[wasm_bindgen(js_namespace = console)]
         pub fn info(s: &str);
-        
+
         #[wasm_bindgen(js_namespace = console)]
         pub fn debug(s: &str);
     }
-    
+
     /// Macro for console.log with formatting
     #[macro_export]
     macro_rules! console_log {
         ($($t:tt)*) => ($crate::utils::console::log(&format!($($t)*)));
     }
-    
+
     /// Macro for console.error with formatting
     #[macro_export]
     macro_rules! console_error {
         ($($t:tt)*) => ($crate::utils::console::error(&format!($($t)*)));
     }
-    
+
     /// Macro for console.warn with formatting
     #[macro_export]
     macro_rules! console_warn {
@@ -167,7 +168,7 @@ pub mod console {
 
 #[cfg(test)]
 mod tests {
-    
+
     #[test]
     fn test_js_error() {
         // Test that js_error creates proper error messages
@@ -177,7 +178,7 @@ mod tests {
         let expected = format!("ladder-rs error: {}", error_msg);
         assert_eq!(expected, "ladder-rs error: test error");
     }
-    
+
     #[test]
     fn test_batch_operation_structure() {
         // Test that we can create the batch operation structures
@@ -186,7 +187,7 @@ mod tests {
             operation_type: String,
             data: serde_json::Value,
         }
-        
+
         let json = r#"{"operation_type": "test", "data": {"value": 42}}"#;
         let op: TestBatchOp = serde_json::from_str(json).unwrap();
         assert_eq!(op.operation_type, "test");
