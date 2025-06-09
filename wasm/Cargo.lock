@@ -104,6 +104,7 @@ dependencies = [
  "ladder-rs",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",

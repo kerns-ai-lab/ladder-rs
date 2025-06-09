@@ -1,8 +1,7 @@
-//! JavaScript API layer for ladder-rs rating systems
+//! Optimized JavaScript API for ladder-rs Elo rating system
 //!
-//! This module provides a unified interface for all rating systems (Elo, Glicko, TrueSkill)
-//! through the WasmRatingSystem struct, enabling JavaScript applications to easily work
-//! with any of the supported rating algorithms.
+//! This module provides a minimal interface for Elo rating calculations,
+//! optimized for smallest possible WASM bundle size.
 
 use serde::Deserialize;
 use serde_wasm_bindgen::from_value;
@@ -12,21 +11,17 @@ use wasm_bindgen::prelude::*;
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating as TeamRatingTrait},
     elo::{EloRating, EloSystem, EloTeamRating},
-    glicko::{Glicko, GlickoRating, GlickoTeamRating},
-    trueskill::{TrueSkill, TrueSkillRating, TrueSkillTeam},
 };
 
 use crate::utils::js_error;
 
-/// Player rating with ID for JavaScript
+/// Player rating for JavaScript
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
 pub struct WasmRating {
     #[wasm_bindgen(getter_with_clone)]
     pub player_id: String,
     pub rating: f64,
-    pub uncertainty: Option<f64>,
-    pub volatility: Option<f64>,
 }
 
 /// Team representation for JavaScript  
@@ -58,109 +53,42 @@ impl WasmTeam {
     }
 }
 
-/// Configuration for rating systems, parsed from JavaScript
+/// Elo system configuration
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-enum RatingSystemConfig {
-    Elo {
-        #[serde(default = "default_k_factor")]
-        k_factor: f64,
-    },
-    Glicko {
-        #[serde(default = "default_initial_volatility")]
-        initial_volatility: f64,
-    },
-    TrueSkill {
-        #[serde(default = "default_beta")]
-        beta: f64,
-        #[serde(default = "default_tau")]
-        tau: f64,
-    },
+struct EloConfig {
+    #[serde(default = "default_k_factor")]
+    k_factor: f64,
 }
 
 fn default_k_factor() -> f64 {
     32.0
 }
-fn default_initial_volatility() -> f64 {
-    0.06
-}
-fn default_beta() -> f64 {
-    25.0 / 6.0
-}
-fn default_tau() -> f64 {
-    25.0 / 300.0
-}
 
-/// Internal enum to hold different rating system implementations
-enum RatingSystemImpl {
-    Elo(EloSystem),
-    Glicko(Glicko),
-    TrueSkill(TrueSkill),
-}
-
-/// Player data stored internally
-struct PlayerData {
-    elo_rating: Option<EloRating>,
-    glicko_rating: Option<GlickoRating>,
-    trueskill_rating: Option<TrueSkillRating>,
-}
-
-/// Unified rating system interface for JavaScript
+/// Optimized Elo rating system for JavaScript
 ///
-/// This struct provides a consistent API for working with all supported rating systems.
-/// It handles system-specific configuration and provides methods that work across all systems.
+/// This provides a minimal API surface for Elo rating calculations
+/// to achieve the smallest possible WASM bundle size.
 #[wasm_bindgen]
 pub struct WasmRatingSystem {
-    system: RatingSystemImpl,
-    players: HashMap<String, PlayerData>,
+    system: EloSystem,
+    players: HashMap<String, EloRating>,
 }
 
 #[wasm_bindgen]
 impl WasmRatingSystem {
-    /// Creates a new rating system instance
+    /// Creates a new Elo rating system
     ///
     /// # Arguments
-    /// * `system_type` - The type of rating system: "elo", "glicko", or "trueskill"
-    /// * `config` - JSON configuration object specific to the rating system
+    /// * `config` - JSON configuration object with optional k_factor
     ///
     /// # Returns
-    /// A new WasmRatingSystem instance or an error if configuration is invalid
+    /// A new WasmRatingSystem instance
     #[wasm_bindgen(constructor)]
-    pub fn new(system_type: &str, config: JsValue) -> Result<WasmRatingSystem, JsValue> {
-        let config: RatingSystemConfig =
-            from_value(config).map_err(|e| js_error(&format!("Invalid configuration: {}", e)))?;
+    pub fn new(config: JsValue) -> Result<WasmRatingSystem, JsValue> {
+        let config: EloConfig = from_value(config)
+            .unwrap_or_else(|_| EloConfig { k_factor: 32.0 });
 
-        let system = match (system_type, config) {
-            ("elo", RatingSystemConfig::Elo { k_factor }) => {
-                let elo = EloSystem::with_parameters(k_factor, 1.0, 400.0, 1500.0);
-                RatingSystemImpl::Elo(elo)
-            }
-            ("glicko", RatingSystemConfig::Glicko { .. }) => {
-                // Use default Glicko configuration
-                let glicko = Glicko::new();
-                RatingSystemImpl::Glicko(glicko)
-            }
-            ("trueskill", RatingSystemConfig::TrueSkill { beta, .. }) => {
-                // Calculate beta_squared from beta
-                let beta_squared = beta * beta;
-                let ts = TrueSkill::with_parameters(
-                    25.0,                            // mu_0
-                    (25.0 / 3.0) * (25.0 / 3.0),     // sigma_0_squared
-                    beta_squared,                    // beta_squared
-                    (25.0 / 300.0) * (25.0 / 300.0), // tau_squared
-                    0.1,                             // draw_probability
-                    ladder_rs::trueskill::TrueSkillImplementation::Simplified,
-                )
-                .map_err(|e| js_error(&format!("Failed to create TrueSkill: {}", e)))?;
-                RatingSystemImpl::TrueSkill(ts)
-            }
-            _ => {
-                return Err(js_error(&format!(
-                    "Unsupported rating system: {}",
-                    system_type
-                )))
-            }
-        };
+        let system = EloSystem::with_parameters(config.k_factor, 1.0, 400.0, 1500.0);
 
         Ok(WasmRatingSystem {
             system,
@@ -168,499 +96,137 @@ impl WasmRatingSystem {
         })
     }
 
-    /// Creates a new player with the default rating for the system
+    /// Creates a new player with default Elo rating (1500)
     ///
     /// # Arguments
     /// * `player_id` - Unique identifier for the player
     ///
     /// # Returns
-    /// A JsRating object representing the new player's rating
+    /// A WasmRating object representing the new player's rating
     pub fn create_player(&mut self, player_id: String) -> Result<WasmRating, JsValue> {
-        let mut player_data = PlayerData {
-            elo_rating: None,
-            glicko_rating: None,
-            trueskill_rating: None,
+        let rating = self.system.create_rating();
+        
+        let js_rating = WasmRating {
+            player_id: player_id.clone(),
+            rating: rating.mean(),
         };
 
-        let js_rating = match &self.system {
-            RatingSystemImpl::Elo(elo) => {
-                let rating = elo.create_rating();
-                player_data.elo_rating = Some(rating.clone());
-                WasmRating {
-                    player_id: player_id.clone(),
-                    rating: rating.mean(),
-                    uncertainty: None,
-                    volatility: None,
-                }
-            }
-            RatingSystemImpl::Glicko(glicko) => {
-                let rating = glicko.create_rating();
-                player_data.glicko_rating = Some(rating.clone());
-                WasmRating {
-                    player_id: player_id.clone(),
-                    rating: rating.mu,
-                    uncertainty: Some(rating.rd),
-                    volatility: None,
-                }
-            }
-            RatingSystemImpl::TrueSkill(trueskill) => {
-                let rating = trueskill.create_rating();
-                player_data.trueskill_rating = Some(rating.clone());
-                WasmRating {
-                    player_id: player_id.clone(),
-                    rating: rating.mean(),
-                    uncertainty: Some(rating.std_dev()),
-                    volatility: None,
-                }
-            }
-        };
-
-        self.players.insert(player_id, player_data);
+        self.players.insert(player_id, rating);
         Ok(js_rating)
     }
 
-    /// Updates ratings based on match results
+    /// Updates ratings for a 1v1 match
     ///
     /// # Arguments
-    /// * `teams` - Array of JsTeam objects representing the match participants and results
+    /// * `player1_id` - ID of first player
+    /// * `player2_id` - ID of second player  
+    /// * `player1_wins` - true if player1 wins, false if player2 wins
     ///
     /// # Returns
-    /// Updated teams with new ratings for all players
-    pub fn update_ratings(&mut self, teams: Vec<WasmTeam>) -> Result<Vec<WasmTeam>, JsValue> {
-        // Validate input
-        if teams.len() < 2 {
-            return Err(js_error("At least 2 teams are required for a match"));
-        }
-
-        for team in &teams {
-            if team.players.is_empty() {
-                return Err(js_error("Teams cannot be empty"));
-            }
-        }
-
-        // Create outcome based on scores
-        let mut score_indices: Vec<(usize, f64)> = teams
-            .iter()
-            .enumerate()
-            .map(|(i, t)| (i, t.score))
-            .collect();
-
-        // Sort by score descending (lower score = better rank)
-        score_indices.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-        // Convert scores to ranks
-        let mut rank_map = vec![0; teams.len()];
-        let mut current_rank = 1;
-        for i in 0..score_indices.len() {
-            if i > 0 && score_indices[i].1 != score_indices[i - 1].1 {
-                current_rank = i + 1;
-            }
-            rank_map[score_indices[i].0] = current_rank;
-        }
-        let ranks = rank_map;
-
-        let outcome = GameOutcome::new(ranks);
-
-        // Process based on rating system type
-        match &self.system {
-            RatingSystemImpl::Elo(_) => self.update_elo_ratings(&teams, &outcome),
-            RatingSystemImpl::Glicko(_) => self.update_glicko_ratings(&teams, &outcome),
-            RatingSystemImpl::TrueSkill(_) => self.update_trueskill_ratings(&teams, &outcome),
-        }
-    }
-
-    /// Calculates the match quality for a proposed match
-    ///
-    /// # Arguments
-    /// * `teams` - Array of JsTeam objects representing the proposed match participants
-    ///
-    /// # Returns
-    /// A quality score between 0 and 1, where 1 indicates a perfectly balanced match
-    pub fn get_match_quality(&self, teams: Vec<WasmTeam>) -> Result<f64, JsValue> {
-        match &self.system {
-            RatingSystemImpl::Elo(elo) => {
-                // Elo only supports 1v1
-                if teams.len() != 2 || teams[0].players.len() != 1 || teams[1].players.len() != 1 {
-                    return Err(js_error("Elo only supports 1v1 matches"));
-                }
-
-                let rating1 = self
-                    .players
-                    .get(&teams[0].players[0].player_id)
-                    .and_then(|p| p.elo_rating.as_ref())
-                    .map(|r| r.clone())
-                    .unwrap_or_else(|| elo.create_rating());
-
-                let rating2 = self
-                    .players
-                    .get(&teams[1].players[0].player_id)
-                    .and_then(|p| p.elo_rating.as_ref())
-                    .map(|r| r.clone())
-                    .unwrap_or_else(|| elo.create_rating());
-
-                let team1 = EloTeamRating::new(rating1);
-                let team2 = EloTeamRating::new(rating2);
-
-                elo.calculate_match_quality(&[team1, team2])
-                    .map_err(|e| js_error(&format!("Match quality calculation failed: {}", e)))
-            }
-            RatingSystemImpl::Glicko(glicko) => {
-                // Glicko only supports 1v1
-                if teams.len() != 2 || teams[0].players.len() != 1 || teams[1].players.len() != 1 {
-                    return Err(js_error("Glicko only supports 1v1 matches"));
-                }
-
-                let rating1 = self
-                    .players
-                    .get(&teams[0].players[0].player_id)
-                    .and_then(|p| p.glicko_rating.as_ref())
-                    .map(|r| r.clone())
-                    .unwrap_or_else(|| glicko.create_rating());
-
-                let rating2 = self
-                    .players
-                    .get(&teams[1].players[0].player_id)
-                    .and_then(|p| p.glicko_rating.as_ref())
-                    .map(|r| r.clone())
-                    .unwrap_or_else(|| glicko.create_rating());
-
-                let team1 =
-                    <GlickoTeamRating as TeamRatingTrait>::from_player_ratings(vec![rating1]);
-                let team2 =
-                    <GlickoTeamRating as TeamRatingTrait>::from_player_ratings(vec![rating2]);
-
-                glicko
-                    .calculate_match_quality(&[team1, team2])
-                    .map_err(|e| js_error(&format!("Match quality calculation failed: {}", e)))
-            }
-            RatingSystemImpl::TrueSkill(trueskill) => {
-                // Convert to TrueSkill teams and calculate quality
-                let mut ts_teams = Vec::new();
-
-                for team in &teams {
-                    let mut ts_players = Vec::new();
-                    for player in &team.players {
-                        if let Some(player_data) = self.players.get(&player.player_id) {
-                            if let Some(rating) = &player_data.trueskill_rating {
-                                ts_players.push(rating.clone());
-                            } else {
-                                ts_players.push(trueskill.create_rating());
-                            }
-                        } else {
-                            ts_players.push(trueskill.create_rating());
-                        }
-                    }
-                    ts_teams.push(TrueSkillTeam::from_player_ratings(ts_players));
-                }
-
-                trueskill
-                    .calculate_match_quality(&ts_teams)
-                    .map_err(|e| js_error(&format!("Match quality calculation failed: {}", e)))
-            }
-        }
-    }
-
-    /// Returns a sorted leaderboard of all tracked players
-    ///
-    /// # Returns
-    /// Array of JsRating objects sorted by rating (highest first)
-    pub fn get_leaderboard(&self) -> Result<Vec<WasmRating>, JsValue> {
-        let mut leaderboard = Vec::new();
-
-        for (player_id, player_data) in &self.players {
-            let js_rating = match &self.system {
-                RatingSystemImpl::Elo(_) => {
-                    if let Some(rating) = &player_data.elo_rating {
-                        WasmRating {
-                            player_id: player_id.clone(),
-                            rating: rating.mean(),
-                            uncertainty: None,
-                            volatility: None,
-                        }
-                    } else {
-                        continue;
-                    }
-                }
-                RatingSystemImpl::Glicko(_) => {
-                    if let Some(rating) = &player_data.glicko_rating {
-                        WasmRating {
-                            player_id: player_id.clone(),
-                            rating: rating.mu,
-                            uncertainty: Some(rating.rd),
-                            volatility: None,
-                        }
-                    } else {
-                        continue;
-                    }
-                }
-                RatingSystemImpl::TrueSkill(_) => {
-                    if let Some(rating) = &player_data.trueskill_rating {
-                        WasmRating {
-                            player_id: player_id.clone(),
-                            rating: rating.mean(),
-                            uncertainty: Some(rating.std_dev()),
-                            volatility: None,
-                        }
-                    } else {
-                        continue;
-                    }
-                }
-            };
-            leaderboard.push(js_rating);
-        }
-
-        // Sort by rating descending
-        leaderboard.sort_by(|a, b| b.rating.partial_cmp(&a.rating).unwrap());
-
-        Ok(leaderboard)
-    }
-}
-
-// Private helper methods
-impl WasmRatingSystem {
-    fn update_elo_ratings(
-        &mut self,
-        teams: &[WasmTeam],
-        outcome: &GameOutcome,
-    ) -> Result<Vec<WasmTeam>, JsValue> {
-        let elo = match &self.system {
-            RatingSystemImpl::Elo(elo) => elo,
-            _ => unreachable!(),
-        };
-        // Elo only supports 1v1
-        if teams.len() != 2 || teams[0].players.len() != 1 || teams[1].players.len() != 1 {
-            return Err(js_error("Elo only supports 1v1 matches"));
-        }
-
-        let player1_id = teams[0].players[0].player_id.clone();
-        let player2_id = teams[1].players[0].player_id.clone();
-
+    /// Array with updated ratings for both players
+    pub fn update_match(&mut self, player1_id: String, player2_id: String, player1_wins: bool) -> Result<Vec<WasmRating>, JsValue> {
         // Get or create ratings
-        let rating1 = self
-            .players
-            .get(&player1_id)
-            .and_then(|p| p.elo_rating.as_ref())
-            .map(|r| r.clone())
-            .unwrap_or_else(|| elo.create_rating());
-
-        let rating2 = self
-            .players
-            .get(&player2_id)
-            .and_then(|p| p.elo_rating.as_ref())
-            .map(|r| r.clone())
-            .unwrap_or_else(|| elo.create_rating());
+        let rating1 = self.players.get(&player1_id)
+            .cloned()
+            .unwrap_or_else(|| self.system.create_rating());
+            
+        let rating2 = self.players.get(&player2_id)
+            .cloned()
+            .unwrap_or_else(|| self.system.create_rating());
 
         // Create teams
         let team1 = EloTeamRating::new(rating1);
         let team2 = EloTeamRating::new(rating2);
 
+        // Create outcome (rank 1 wins, rank 2 loses)
+        let outcome = if player1_wins {
+            GameOutcome::new(vec![1, 2])
+        } else {
+            GameOutcome::new(vec![2, 1])
+        };
+
         // Update ratings
-        let updated = elo
-            .rate(&[team1, team2], outcome)
+        let updated = self.system
+            .rate(&[team1, team2], &outcome)
             .map_err(|e| js_error(&format!("Rating update failed: {}", e)))?;
 
         // Extract updated ratings
         let updated_rating1 = &updated[0].player_ratings()[0];
         let updated_rating2 = &updated[1].player_ratings()[0];
 
-        // Update stored ratings
-        self.players
-            .entry(player1_id.clone())
-            .or_insert(PlayerData {
-                elo_rating: None,
-                glicko_rating: None,
-                trueskill_rating: None,
-            })
-            .elo_rating = Some(updated_rating1.clone());
+        // Store updated ratings
+        self.players.insert(player1_id.clone(), updated_rating1.clone());
+        self.players.insert(player2_id.clone(), updated_rating2.clone());
 
-        self.players
-            .entry(player2_id.clone())
-            .or_insert(PlayerData {
-                elo_rating: None,
-                glicko_rating: None,
-                trueskill_rating: None,
-            })
-            .elo_rating = Some(updated_rating2.clone());
-
-        // Create result teams
-        let mut result_teams = Vec::new();
-
-        let mut team1_result = WasmTeam::new(teams[0].score);
-        team1_result.players.push(WasmRating {
-            player_id: player1_id,
-            rating: updated_rating1.mean(),
-            uncertainty: None,
-            volatility: None,
-        });
-        result_teams.push(team1_result);
-
-        let mut team2_result = WasmTeam::new(teams[1].score);
-        team2_result.players.push(WasmRating {
-            player_id: player2_id,
-            rating: updated_rating2.mean(),
-            uncertainty: None,
-            volatility: None,
-        });
-        result_teams.push(team2_result);
-
-        Ok(result_teams)
+        // Return updated ratings
+        Ok(vec![
+            WasmRating {
+                player_id: player1_id,
+                rating: updated_rating1.mean(),
+            },
+            WasmRating {
+                player_id: player2_id,
+                rating: updated_rating2.mean(),
+            }
+        ])
     }
 
-    fn update_glicko_ratings(
-        &mut self,
-        teams: &[WasmTeam],
-        outcome: &GameOutcome,
-    ) -> Result<Vec<WasmTeam>, JsValue> {
-        let glicko = match &self.system {
-            RatingSystemImpl::Glicko(glicko) => glicko,
-            _ => unreachable!(),
-        };
-        // Glicko only supports 1v1
-        if teams.len() != 2 || teams[0].players.len() != 1 || teams[1].players.len() != 1 {
-            return Err(js_error("Glicko only supports 1v1 matches"));
-        }
+    /// Calculates expected win probability for player1 vs player2
+    ///
+    /// # Arguments
+    /// * `player1_id` - ID of first player
+    /// * `player2_id` - ID of second player
+    ///
+    /// # Returns
+    /// Probability (0.0 to 1.0) that player1 wins
+    pub fn get_win_probability(&self, player1_id: String, player2_id: String) -> Result<f64, JsValue> {
+        let rating1 = self.players.get(&player1_id)
+            .cloned()
+            .unwrap_or_else(|| self.system.create_rating());
+            
+        let rating2 = self.players.get(&player2_id)
+            .cloned()
+            .unwrap_or_else(|| self.system.create_rating());
 
-        let player1_id = teams[0].players[0].player_id.clone();
-        let player2_id = teams[1].players[0].player_id.clone();
+        let team1 = EloTeamRating::new(rating1);
+        let team2 = EloTeamRating::new(rating2);
 
-        // Get or create ratings
-        let rating1 = self
-            .players
-            .get(&player1_id)
-            .and_then(|p| p.glicko_rating.as_ref())
-            .map(|r| r.clone())
-            .unwrap_or_else(|| glicko.create_rating());
-
-        let rating2 = self
-            .players
-            .get(&player2_id)
-            .and_then(|p| p.glicko_rating.as_ref())
-            .map(|r| r.clone())
-            .unwrap_or_else(|| glicko.create_rating());
-
-        // Create teams
-        let team1 = <GlickoTeamRating as TeamRatingTrait>::from_player_ratings(vec![rating1]);
-        let team2 = <GlickoTeamRating as TeamRatingTrait>::from_player_ratings(vec![rating2]);
-
-        // Update ratings
-        let updated = glicko
-            .rate(&[team1, team2], outcome)
-            .map_err(|e| js_error(&format!("Rating update failed: {}", e)))?;
-
-        // Extract updated ratings
-        let updated_rating1 = &updated[0].player_ratings()[0];
-        let updated_rating2 = &updated[1].player_ratings()[0];
-
-        // Update stored ratings
-        self.players
-            .entry(player1_id.clone())
-            .or_insert(PlayerData {
-                elo_rating: None,
-                glicko_rating: None,
-                trueskill_rating: None,
-            })
-            .glicko_rating = Some(updated_rating1.clone());
-
-        self.players
-            .entry(player2_id.clone())
-            .or_insert(PlayerData {
-                elo_rating: None,
-                glicko_rating: None,
-                trueskill_rating: None,
-            })
-            .glicko_rating = Some(updated_rating2.clone());
-
-        // Create result teams
-        let mut result_teams = Vec::new();
-
-        let mut team1_result = WasmTeam::new(teams[0].score);
-        team1_result.players.push(WasmRating {
-            player_id: player1_id,
-            rating: updated_rating1.mu,
-            uncertainty: Some(updated_rating1.rd),
-            volatility: None,
-        });
-        result_teams.push(team1_result);
-
-        let mut team2_result = WasmTeam::new(teams[1].score);
-        team2_result.players.push(WasmRating {
-            player_id: player2_id,
-            rating: updated_rating2.mu,
-            uncertainty: Some(updated_rating2.rd),
-            volatility: None,
-        });
-        result_teams.push(team2_result);
-
-        Ok(result_teams)
+        self.system.calculate_match_quality(&[team1, team2])
+            .map_err(|e| js_error(&format!("Win probability calculation failed: {}", e)))
     }
 
-    fn update_trueskill_ratings(
-        &mut self,
-        teams: &[WasmTeam],
-        outcome: &GameOutcome,
-    ) -> Result<Vec<WasmTeam>, JsValue> {
-        let trueskill = match &self.system {
-            RatingSystemImpl::TrueSkill(trueskill) => trueskill,
-            _ => unreachable!(),
-        };
-        let mut ts_teams = Vec::new();
-        let mut player_ids: Vec<Vec<String>> = Vec::new();
+    /// Gets a player's current rating
+    ///
+    /// # Arguments
+    /// * `player_id` - ID of the player
+    ///
+    /// # Returns
+    /// Current rating value, or default (1500) if player not found
+    pub fn get_rating(&self, player_id: String) -> f64 {
+        self.players.get(&player_id)
+            .map(|r| r.mean())
+            .unwrap_or(1500.0)
+    }
 
-        // Convert to TrueSkill teams
-        for team in teams {
-            let mut ts_players = Vec::new();
-            let mut team_player_ids = Vec::new();
+    /// Returns all players sorted by rating (highest first)
+    ///
+    /// # Returns
+    /// Array of WasmRating objects sorted by rating descending
+    pub fn get_leaderboard(&self) -> Vec<WasmRating> {
+        let mut leaderboard: Vec<WasmRating> = self.players
+            .iter()
+            .map(|(id, rating)| WasmRating {
+                player_id: id.clone(),
+                rating: rating.mean(),
+            })
+            .collect();
 
-            for player in &team.players {
-                team_player_ids.push(player.player_id.clone());
+        leaderboard.sort_by(|a, b| b.rating.partial_cmp(&a.rating).unwrap());
+        leaderboard
+    }
 
-                let rating = self
-                    .players
-                    .get(&player.player_id)
-                    .and_then(|p| p.trueskill_rating.as_ref())
-                    .map(|r| r.clone())
-                    .unwrap_or_else(|| trueskill.create_rating());
-
-                ts_players.push(rating);
-            }
-
-            ts_teams.push(TrueSkillTeam::from_player_ratings(ts_players));
-            player_ids.push(team_player_ids);
-        }
-
-        // Update ratings
-        let updated = trueskill
-            .rate(&ts_teams, outcome)
-            .map_err(|e| js_error(&format!("Rating update failed: {}", e)))?;
-
-        // Convert back and store
-        let mut result_teams = Vec::new();
-        for (team_idx, updated_team) in updated.iter().enumerate() {
-            let mut js_team = WasmTeam::new(teams[team_idx].score);
-
-            for (player_idx, rating) in updated_team.player_ratings().iter().enumerate() {
-                let player_id: String = player_ids[team_idx][player_idx].clone();
-
-                // Update stored rating
-                self.players
-                    .entry(player_id.clone())
-                    .or_insert(PlayerData {
-                        elo_rating: None,
-                        glicko_rating: None,
-                        trueskill_rating: None,
-                    })
-                    .trueskill_rating = Some(rating.clone());
-
-                js_team.players.push(WasmRating {
-                    player_id,
-                    rating: rating.mean(),
-                    uncertainty: Some(rating.std_dev()),
-                    volatility: None,
-                });
-            }
-            result_teams.push(js_team);
-        }
-
-        Ok(result_teams)
+    /// Gets the number of tracked players
+    pub fn player_count(&self) -> usize {
+        self.players.len()
     }
 }
