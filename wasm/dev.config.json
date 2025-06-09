@@ -1,0 +1,64 @@
+{
+  "build": {
+    "mode": "development",
+    "target": "web",
+    "sourcemap": true,
+    "optimization": false,
+    "debug_symbols": true,
+    "watch_mode": true
+  },
+  "watch": {
+    "directories": ["src", "tests", "types"],
+    "extensions": [".rs", ".toml", ".js", ".ts", ".json"],
+    "debounce_ms": 500,
+    "ignore_patterns": ["target/*", "pkg/*", "node_modules/*"],
+    "recursive": true
+  },
+  "server": {
+    "port": 3000,
+    "host": "127.0.0.1",
+    "cors": {
+      "enabled": true,
+      "origins": ["http://localhost:*", "http://127.0.0.1:*"],
+      "methods": ["GET", "POST", "OPTIONS"],
+      "headers": ["Content-Type", "Authorization"]
+    },
+    "static_files": "pkg",
+    "fallback_file": "index.html",
+    "hot_reload": {
+      "enabled": true,
+      "ws_port": 3001,
+      "inject_client": true
+    }
+  },
+  "debug": {
+    "log_level": "verbose",
+    "show_build_stats": true,
+    "show_file_changes": true,
+    "show_server_requests": true,
+    "performance_monitoring": true,
+    "memory_tracking": true
+  },
+  "environment": {
+    "variables": {
+      "LADDER_RS_DEV_MODE": "true",
+      "RUST_LOG": "debug",
+      "WASM_INTERFACE_TYPES": "1"
+    },
+    "node_env": "development"
+  },
+  "tools": {
+    "wasm_pack": {
+      "extra_args": ["--dev", "--debug"]
+    },
+    "wasm_opt": {
+      "enabled": false,
+      "reason": "Disabled in development for faster builds"
+    },
+    "source_maps": {
+      "rust": true,
+      "javascript": true,
+      "wasm": true
+    }
+  }
+}
