@@ -89,15 +89,13 @@ fn test_wasm_dependencies() {
         .get("dependencies")
         .expect("wasm/Cargo.toml should have [dependencies] section");
 
-    // Check for required WASM dependencies
+    // Check for required WASM dependencies (optimized for bundle size)
     let required_deps = [
         "wasm-bindgen",
-        "wasm-bindgen-futures",
         "js-sys",
         "web-sys",
         "serde",
         "serde-wasm-bindgen",
-        "console_error_panic_hook",
     ];
 
     for dep in required_deps {
@@ -106,6 +104,20 @@ fn test_wasm_dependencies() {
             "Should include {} dependency",
             dep
         );
+    }
+
+    // Check for optional dependencies (for size optimization)
+    let optional_deps = ["console_error_panic_hook", "wee_alloc"];
+    for dep in optional_deps {
+        if let Some(dep_config) = dependencies.get(dep) {
+            if let Some(dep_table) = dep_config.as_table() {
+                assert!(
+                    dep_table.get("optional").and_then(|v| v.as_bool()) == Some(true),
+                    "{} should be marked as optional",
+                    dep
+                );
+            }
+        }
     }
 
     // Check for ladder-rs dependency with proper path

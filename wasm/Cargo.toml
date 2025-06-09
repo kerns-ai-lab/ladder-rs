@@ -15,60 +15,46 @@ crate-type = ["cdylib"]
 name = "ladder_rs_wasm"
 
 [dependencies]
-# Core WASM bindings
+# Core WASM bindings - minimal features
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["Window", "Performance", "console", "Document", "Element", "HtmlElement", "Storage", "Navigator"] }
+web-sys = { version = "0.3", features = ["console"] }  # Only console for logging
 
-# Serialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+# Minimal serialization
+serde = { version = "1.0", features = ["derive"], default-features = false }
 serde-wasm-bindgen = "0.6"
 
-# Utilities
-chrono = { version = "0.4", features = ["serde", "wasmbind"], default-features = false }
-uuid = { version = "1.0", features = ["v4", "serde", "js"], default-features = false }
+# Utilities - minimal features
+uuid = { version = "1.0", features = ["v4", "js"], default-features = false }
 
 # WASM-specific optimizations
-console_error_panic_hook = { version = "0.1", optional = true }
 wee_alloc = { version = "0.4", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
 
-# Core library dependency
+# Core library dependency with minimal features
 [dependencies.ladder-rs]
 path = "../"
 default-features = false
+features = ["elo-only"]
 
-# Fix getrandom for WASM builds
+# Essential WASM compatibility
 [dependencies.getrandom]
 version = "0.2"
 features = ["js"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
-instant = { version = "0.1", features = ["wasm-bindgen"] }
+serde_json = "1.0"
+serde-wasm-bindgen = "0.6"
 
 [features]
-default = ["console_error_panic_hook"]
+default = ["wee_alloc"]
 console_error_panic_hook = ["dep:console_error_panic_hook"]
 wee_alloc = ["dep:wee_alloc"]
 
 # Size optimization features
 minimal = ["wee_alloc"]
 full = ["console_error_panic_hook", "wee_alloc"]
-
-# Feature flags for conditional compilation
-elo-only = []
-glicko-only = []
-trueskill-only = []
-all-algorithms = []
-
-# Global wasm-pack settings for consistent builds
-[package.metadata.wasm-pack]
-target = "web"
-out-dir = "pkg"
-out-name = "ladder_rs_wasm"
-scope = "@ladder-rs"
 
 # Performance profiles optimized for different use cases
 [package.metadata.wasm-pack.profile.dev]
@@ -87,15 +73,15 @@ wasm-opt = ["-O2", "--enable-mutable-globals", "--enable-nontrapping-float-to-in
 # Size-focused profile - aggressive size optimization
 wasm-opt = ["-Oz", "-g0", "--enable-mutable-globals", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--strip-debug"]
 
-# Rust compiler profiles
+# Rust compiler profiles - ultra-aggressive size optimization
 [profile.release]
-# Enable maximum optimizations for size
 opt-level = "z"           # Optimize for size
 lto = "fat"               # Enable fat Link Time Optimization  
 codegen-units = 1         # Single codegen unit for better optimization
 strip = true              # Strip symbols for smaller size
 panic = "abort"           # Smaller binary size
 overflow-checks = false   # Disable overflow checks for size
+debug-assertions = false  # Disable debug assertions
 
 [profile.dev]
 # Development profile - faster compilation
@@ -110,6 +96,7 @@ opt-level = "z"
 lto = "fat"
 panic = "abort"
 strip = true
+debug-assertions = false
 
 [profile.wasm-size]
 # Ultra-aggressive size optimization profile
