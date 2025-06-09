@@ -70,7 +70,7 @@ impl JsRatingSystemInterface {
         system_type: String,
         teams: Vec<JsTeamInterface>,
         outcome: JsGameOutcomeInterface,
-    ) -> Result<Array, JsError> {
+    ) -> Result<Array, JsValue> {
         // Simulate processing time
         let _ = js_sys::Promise::resolve(&JsValue::from(0));
         
