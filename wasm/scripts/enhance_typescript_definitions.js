@@ -81,10 +81,10 @@ export interface PlayerStatistics {
 }
 
 function addDocumentationEnhancements(content) {
-  // Enhanced JSDoc comments for key classes
+  // Enhanced JSDoc comments for key classes - replace existing comments to avoid duplication
   const enhancements = [
     {
-      search: /export class WasmRatingSystem \{/,
+      search: /(\/\*\*[\s\S]*?\*\/\s*)?export class WasmRatingSystem \{/,
       replace: `/**
  * Optimized Elo rating system for JavaScript
  * 
@@ -104,7 +104,7 @@ function addDocumentationEnhancements(content) {
 export class WasmRatingSystem {`
     },
     {
-      search: /export class WasmRating \{/,
+      search: /(\/\*\*[\s\S]*?\*\/\s*)?export class WasmRating \{/,
       replace: `/**
  * Player rating representation for JavaScript
  * 
@@ -120,7 +120,7 @@ export class WasmRatingSystem {`
 export class WasmRating {`
     },
     {
-      search: /export class WasmTeam \{/,
+      search: /(\/\*\*[\s\S]*?\*\/\s*)?export class WasmTeam \{/,
       replace: `/**
  * Team representation for JavaScript
  * 
@@ -137,7 +137,7 @@ export class WasmRating {`
 export class WasmTeam {`
     },
     {
-      search: /export enum RatingSystemType \{/,
+      search: /(\/\*\*[\s\S]*?\*\/\s*)?export enum RatingSystemType \{/,
       replace: `/**
  * Rating system type enumeration
  * 
