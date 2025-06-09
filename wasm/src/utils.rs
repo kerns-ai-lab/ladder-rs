@@ -1,7 +1,7 @@
 //! Utility functions for WASM bindings
 //!
 //! This module provides helper functions for JavaScript interop,
-//! including serialization, error handling, and performance utilities.
+//! optimized for minimal bundle size.
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -32,97 +32,6 @@ pub fn js_result<T>(result: Result<T, ladder_rs::error::Error>) -> Result<T, JsV
 /// Helper for creating JavaScript errors with consistent formatting
 pub fn js_error(message: &str) -> JsValue {
     JsValue::from_str(&format!("ladder-rs error: {}", message))
-}
-
-/// Performance measurement utilities
-#[wasm_bindgen]
-pub struct Performance;
-
-#[wasm_bindgen]
-impl Performance {
-    /// Gets the current high-resolution timestamp in milliseconds
-    pub fn now() -> f64 {
-        web_sys::window()
-            .and_then(|w| w.performance())
-            .map(|p| p.now())
-            .unwrap_or(0.0)
-    }
-
-    /// Measures the time taken to execute a function
-    pub fn measure(name: &str, start: f64) -> f64 {
-        let duration = Self::now() - start;
-        web_sys::console::log_1(&format!("{}: {:.2}ms", name, duration).into());
-        duration
-    }
-}
-
-/// Memory utilities for WASM
-#[wasm_bindgen]
-pub struct Memory;
-
-#[wasm_bindgen]
-impl Memory {
-    /// Gets the current memory usage in bytes
-    pub fn usage() -> u32 {
-        // This is a simplified version - actual memory usage tracking would require
-        // more sophisticated implementation
-        0 // Placeholder - actual implementation would use web_sys APIs
-    }
-
-    /// Logs memory usage to console
-    pub fn log_usage(label: &str) {
-        let usage = Self::usage();
-        web_sys::console::log_1(&format!("{}: {} bytes", label, usage).into());
-    }
-}
-
-/// Batch operations helper for efficient JavaScript interop
-#[wasm_bindgen]
-pub struct BatchOperations;
-
-#[wasm_bindgen]
-impl BatchOperations {
-    /// Processes multiple rating updates in a single call
-    /// Takes a JSON string of operations and returns a JSON string of results
-    pub fn process_batch(operations_json: &str) -> Result<String, JsValue> {
-        #[derive(Deserialize)]
-        struct BatchOperation {
-            operation_type: String,
-            data: serde_json::Value,
-        }
-
-        #[derive(Serialize)]
-        struct BatchResult {
-            success: bool,
-            data: Option<serde_json::Value>,
-            error: Option<String>,
-        }
-
-        let operations: Vec<BatchOperation> = serde_json::from_str(operations_json)
-            .map_err(|e| js_error(&format!("Invalid batch operations: {}", e)))?;
-
-        let results: Vec<BatchResult> = operations
-            .into_iter()
-            .map(|op| {
-                // Process each operation (to be implemented with actual operations)
-                match op.operation_type.as_str() {
-                    "test" => BatchResult {
-                        success: true,
-                        data: Some(op.data),
-                        error: None,
-                    },
-                    _ => BatchResult {
-                        success: false,
-                        data: None,
-                        error: Some(format!("Unknown operation type: {}", op.operation_type)),
-                    },
-                }
-            })
-            .collect();
-
-        serde_json::to_string(&results)
-            .map_err(|e| js_error(&format!("Failed to serialize results: {}", e)))
-    }
 }
 
 /// Console logging utilities
@@ -179,18 +88,4 @@ mod tests {
         assert_eq!(expected, "ladder-rs error: test error");
     }
 
-    #[test]
-    fn test_batch_operation_structure() {
-        // Test that we can create the batch operation structures
-        #[derive(serde::Deserialize)]
-        struct TestBatchOp {
-            operation_type: String,
-            data: serde_json::Value,
-        }
-
-        let json = r#"{"operation_type": "test", "data": {"value": 42}}"#;
-        let op: TestBatchOp = serde_json::from_str(json).unwrap();
-        assert_eq!(op.operation_type, "test");
-        assert!(op.data.is_object());
-    }
 }

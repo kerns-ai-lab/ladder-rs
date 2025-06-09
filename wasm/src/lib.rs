@@ -1,26 +1,20 @@
-//! WebAssembly bindings for the ladder-rs matchmaking library
+//! Optimized WebAssembly bindings for the ladder-rs Elo rating system
 //!
-//! This crate provides JavaScript-accessible bindings for the core rating systems
-//! implemented in ladder-rs, including Elo, Glicko, and TrueSkill algorithms.
+//! This crate provides a lightweight JavaScript interface for Elo rating calculations,
+//! optimized for minimal WASM bundle size.
 
 use wasm_bindgen::prelude::*;
 
-// Import the `console.log` function from the `console` module for debugging
+// Import the `console.log` function for debugging
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
 
-// Define a macro to provide `println!(..)` style syntax for `console.log` logging
+// Simplified logging macro
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
-}
-
-// Set up panic hook for better error messages in the browser
-#[cfg(feature = "console_error_panic_hook")]
-fn set_panic_hook() {
-    console_error_panic_hook::set_once();
 }
 
 // Use `wee_alloc` as the global allocator for smaller WASM binary size
@@ -28,41 +22,31 @@ fn set_panic_hook() {
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-// Initialize the WASM module - renamed to avoid conflict with test main
+// Set up panic hook for better error messages in the browser
+#[cfg(feature = "console_error_panic_hook")]
+fn set_panic_hook() {
+    console_error_panic_hook::set_once();
+}
+
+// Initialize the WASM module
 #[wasm_bindgen(start)]
 pub fn wasm_main() {
     #[cfg(feature = "console_error_panic_hook")]
     set_panic_hook();
 
-    console_log!("ladder-rs WASM module initialized");
+    console_log!("ladder-rs WASM (Elo-optimized) module initialized");
 }
 
-// Basic test function to verify WASM bindings work
+// Basic test function
 #[wasm_bindgen]
 pub fn greet(name: &str) {
-    console_log!("Hello, {}! Welcome to ladder-rs WASM.", name);
+    console_log!("Hello, {}! Welcome to ladder-rs Elo WASM.", name);
 }
 
-// Re-export ladder-rs core types for internal use
-pub use ladder_rs::core::{Outcome, Rating, RatingSystem, TeamRating};
-pub use ladder_rs::error::Error as LadderError;
-
-// Module declarations
+// Module declarations - minimal set
 pub mod api;
-pub mod player_management;
-// pub mod test_utils;
 pub mod types;
 pub mod utils;
 
-// Re-export commonly used types
+// Re-export optimized API
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
-pub use player_management::{
-    HeadToHeadRecord, MatchRecord, PlayerManager, PlayerProfile, PlayerStats,
-};
-// pub use test_utils::{
-//     AssertionHelper, BrowserEnvironment, MockDataGenerator, PerformanceTimer, TestFixture,
-//     TestLogger, TestSnapshot,
-// };
-pub use types::{
-    JsGameOutcome, JsRating, JsTeam, RatingSystemConfig, RatingSystemType, RatingUpdate,
-};

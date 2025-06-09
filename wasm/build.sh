@@ -121,6 +121,7 @@ build_target() {
             wasm-opt -Oz \
                 --enable-mutable-globals \
                 --enable-bulk-memory \
+                --enable-nontrapping-float-to-int \
                 "$target_output_dir/ladder_rs_wasm_bg.wasm" \
                 -o "$target_output_dir/ladder_rs_wasm_bg.wasm"
             log_success "Optimization complete for $target"
