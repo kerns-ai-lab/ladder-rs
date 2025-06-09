@@ -28,7 +28,6 @@ impl JsRating {
     }
     
     /// Create a new rating (for internal use, not exposed to JS)
-    #[cfg(test)]
     pub fn new_unchecked(mean: f64, variance: f64) -> Self {
         Self { mean, variance }
     }
