@@ -81,10 +81,9 @@ build_extension_filter() {
         done
         filter="${filter})$"
     elif [ "$WATCH_TOOL" = "fswatch" ]; then
-        # Build include patterns for fswatch
-        for ext in "${WATCH_EXTENSIONS[@]}"; do
-            filter="${filter} --include='.*\.${ext}$'"
-        done
+        # For fswatch, we'll build the filters directly in start_fswatch
+        # This function returns empty for fswatch since array-based filtering is used
+        filter=""
     fi
     
     echo "$filter"
@@ -152,7 +151,7 @@ notify_dev_server() {
         
         # You could use tools like wscat, websocat, or a simple curl for WebSocket communication
         # For now, just create a signal file that the server can detect
-        echo "$changed_file" > "../pkg/.hot_reload_trigger"
+        mkdir -p "../pkg" && echo "$changed_file" > "../pkg/.hot_reload_trigger"
     fi
 }
 

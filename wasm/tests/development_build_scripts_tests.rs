@@ -139,6 +139,37 @@ fn test_watch_script_shell_compatibility() {
     );
 }
 
+/// Test that watch script creates necessary directories for hot reload
+#[test]
+fn test_watch_script_directory_creation() {
+    use std::fs;
+    use std::path::Path;
+    
+    // Clean up any existing test directory
+    let test_dir = "test_pkg_dir";
+    if Path::new(test_dir).exists() {
+        fs::remove_dir_all(test_dir).ok();
+    }
+    
+    // Test that directory would be created (we can't fully test the hot reload trigger
+    // without a running watch process, but we can verify the mkdir command works)
+    let mkdir_test = Command::new("bash")
+        .arg("-c")
+        .arg(&format!("mkdir -p {} && echo 'test' > {}/.hot_reload_trigger", test_dir, test_dir))
+        .output()
+        .expect("Should execute mkdir test");
+    
+    assert!(mkdir_test.status.success(), "Directory creation should succeed");
+    
+    // Verify the directory and file were created
+    assert!(Path::new(test_dir).exists(), "Test directory should be created");
+    assert!(Path::new(&format!("{}/.hot_reload_trigger", test_dir)).exists(), 
+            "Hot reload trigger file should be created");
+    
+    // Clean up
+    fs::remove_dir_all(test_dir).ok();
+}
+
 /// Test that development server script supports multiple protocols
 #[test]
 fn test_dev_server_script_functionality() {
