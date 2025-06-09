@@ -423,7 +423,7 @@ mod tests {
             mean: f64,
             variance: f64,
         }
-        impl crate::Rating for TestRating {
+        impl ladder_rs::Rating for TestRating {
             fn mean(&self) -> f64 {
                 self.mean
             }
