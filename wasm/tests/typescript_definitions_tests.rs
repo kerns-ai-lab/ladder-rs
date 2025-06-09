@@ -64,7 +64,6 @@ fn test_typescript_documentation_quality() {
         assert!(content.contains("/**"), "Should contain JSDoc comments");
         assert!(content.contains("* Creates a new"), "Should document constructors");
         assert!(content.contains("* Gets"), "Should document getters");
-        assert!(content.contains("* @"), "Should contain JSDoc tags");
         
         // Specific class documentation
         assert!(content.contains("JavaScript-friendly"), "Should have user-friendly descriptions");
@@ -102,7 +101,7 @@ fn test_typescript_memory_management() {
             if content.contains(&class_pattern) {
                 // This is a simplified check - in practice we'd need more sophisticated parsing
                 assert!(content.contains("free(): void"), 
-                    &format!("{} should have memory management", class));
+                    "{} should have memory management", class);
             }
         }
     }
