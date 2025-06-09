@@ -2,7 +2,6 @@
 //!
 //! Provides factory methods and system-specific interfaces.
 
-use crate::types::*;
 use crate::js_interface::core::*;
 use wasm_bindgen::prelude::*;
 use js_sys::*;

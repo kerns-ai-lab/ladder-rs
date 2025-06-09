@@ -7,8 +7,6 @@ use crate::js_interface::systems::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 use js_sys::*;
-use std::future::Future;
-use std::pin::Pin;
 
 /// Async extension for rating system interface
 #[wasm_bindgen]
@@ -20,7 +18,7 @@ impl JsRatingSystemInterface {
         teams: Vec<JsTeamInterface>,
         outcome: JsGameOutcomeInterface,
     ) -> Promise {
-        let system_type = self.system_type.clone();
+        let system_type = self.get_system_type();
         
         future_to_promise(async move {
             // Simulate async processing
@@ -33,16 +31,13 @@ impl JsRatingSystemInterface {
     /// Process batch of matches asynchronously
     #[wasm_bindgen(js_name = "processBatchAsync")]
     pub fn process_batch_async(&self, batch: JsMatchBatchInterface) -> Promise {
-        let system_type = self.system_type.clone();
+        let system_type = self.get_system_type();
         
         future_to_promise(async move {
             let results = Array::new();
             
             for i in 0..batch.size() {
-                if let Some(match_data) = batch.get_match(i) {
-                    let teams = match_data.teams;
-                    let outcome = match_data.outcome;
-                    
+                if let (Some(teams), Some(outcome)) = (batch.get_teams(i), batch.get_outcome(i)) {
                     let match_result = Self::process_async_rating_update(
                         system_type.clone(), 
                         teams, 
@@ -131,13 +126,8 @@ impl JsRatingSystemInterface {
 /// Batch processing interface for multiple matches
 #[wasm_bindgen(js_name = "MatchBatch")]
 pub struct JsMatchBatchInterface {
-    matches: Vec<MatchData>,
-}
-
-#[derive(Clone)]
-pub struct MatchData {
-    pub teams: Vec<JsTeamInterface>,
-    pub outcome: JsGameOutcomeInterface,
+    teams: Vec<Vec<JsTeamInterface>>,
+    outcomes: Vec<JsGameOutcomeInterface>,
 }
 
 #[wasm_bindgen(js_class = "MatchBatch")]
@@ -146,29 +136,39 @@ impl JsMatchBatchInterface {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
-            matches: Vec::new(),
+            teams: Vec::new(),
+            outcomes: Vec::new(),
         }
     }
     
     /// Adds a match to the batch
     #[wasm_bindgen(js_name = "addMatch")]
     pub fn add_match(&mut self, teams: Vec<JsTeamInterface>, outcome: JsGameOutcomeInterface) {
-        self.matches.push(MatchData { teams, outcome });
+        self.teams.push(teams);
+        self.outcomes.push(outcome);
     }
     
     /// Gets the number of matches in the batch
     pub fn size(&self) -> usize {
-        self.matches.len()
+        self.teams.len()
     }
     
-    /// Gets a match by index (internal use)
-    pub fn get_match(&self, index: usize) -> Option<MatchData> {
-        self.matches.get(index).cloned()
+    /// Gets teams for a match by index
+    #[wasm_bindgen(js_name = "getTeams")]
+    pub fn get_teams(&self, index: usize) -> Option<Vec<JsTeamInterface>> {
+        self.teams.get(index).cloned()
+    }
+    
+    /// Gets outcome for a match by index
+    #[wasm_bindgen(js_name = "getOutcome")]
+    pub fn get_outcome(&self, index: usize) -> Option<JsGameOutcomeInterface> {
+        self.outcomes.get(index).cloned()
     }
     
     /// Clear all matches
     pub fn clear(&mut self) {
-        self.matches.clear();
+        self.teams.clear();
+        self.outcomes.clear();
     }
 }
 
@@ -192,7 +192,7 @@ impl JsPromiseUtils {
     
     /// Create a promise that resolves after a delay
     #[wasm_bindgen(js_name = "delay")]
-    pub fn delay(ms: u32) -> Promise {
+    pub fn delay(_ms: u32) -> Promise {
         future_to_promise(async move {
             // In a real implementation, this would use setTimeout
             Ok(JsValue::undefined())
