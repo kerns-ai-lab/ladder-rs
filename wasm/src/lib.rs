@@ -47,6 +47,10 @@ pub fn greet(name: &str) {
 pub mod api;
 pub mod types;
 pub mod utils;
+pub mod js_interface;
 
 // Re-export optimized API
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
+
+// Re-export JavaScript interface types
+pub use js_interface::*;

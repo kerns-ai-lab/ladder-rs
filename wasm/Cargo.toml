@@ -17,6 +17,7 @@ name = "ladder_rs_wasm"
 [dependencies]
 # Core WASM bindings - minimal features
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["console"] }  # Only console for logging
 
