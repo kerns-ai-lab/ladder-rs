@@ -1,139 +1,204 @@
-// TypeScript definitions for ladder-rs WASM bindings
-// Generated for Task 1.1.4
 
+// Utility types for ladder-rs WASM
+export type PlayerId = string;
+export type RatingValue = number;
+export type MatchOutcome = 0 | 1 | 2; // 0=draw, 1=team1 wins, 2=team2 wins
+export type Probability = number; // 0.0 to 1.0
+
+// Configuration types for rating systems
+export interface EloConfig {
+  k_factor?: number;
+}
+
+export interface GlickoConfig {
+  initial_volatility?: number;
+}
+
+export interface TrueSkillConfig {
+  beta?: number;
+  tau?: number;
+}
+
+export type RatingSystemConfigType = EloConfig | GlickoConfig | TrueSkillConfig;
+
+// Error types for better error handling
+export interface LadderRsError {
+  message: string;
+  code?: string;
+}
+
+// Match result types
+export interface MatchResult {
+  player_id: string;
+  old_rating: number;
+  new_rating: number;
+  rating_change: number;
+}
+
+// Tournament types
+export interface TournamentMatch {
+  player1_id: PlayerId;
+  player2_id: PlayerId;
+  result: MatchOutcome;
+  timestamp?: number;
+}
+
+// Statistics types
+export interface PlayerStatistics {
+  total_matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number;
+  current_streak: number;
+  average_rating: number;
+  peak_rating: number;
+}
+
+/* tslint:disable */
+/* eslint-disable */
 export function wasm_main(): void;
 export function greet(name: string): void;
-
-export class JsRating {
-    constructor(mean: number, variance: number);
-    readonly mean: number;
-    readonly variance: number;
-    readonly standard_deviation: number;
-    readonly conservative_rating: number;
-    toString(): string;
-}
-
-export class JsTeam {
-    constructor();
-    add_player(rating: JsRating): void;
-    readonly player_count: number;
-    readonly team_mean: number;
-    readonly team_variance: number;
-    get_player(index: number): JsRating | undefined;
-    toString(): string;
-}
-
-export class JsGameOutcome {
-    constructor();
-    set_ranks(ranks: number[]): void;
-    readonly team_count: number;
-    static win(winnerIndex: number, totalTeams: number): JsGameOutcome;
-    static draw(totalTeams: number): JsGameOutcome;
-    get_rank(teamIndex: number): number | undefined;
-    toString(): string;
-}
-
-export const enum RatingSystemType {
-    Elo = 0,
-    Glicko = 1,
-    Glicko2 = 2,
-    TrueSkill = 3,
-}
-
-export class RatingSystemConfig {
-    constructor(systemType: RatingSystemType);
-    set_parameters(params: string): void;
-    readonly systemType: RatingSystemType;
-}
-
-export class RatingUpdate {
-    readonly team_count: number;
-    get_team(index: number): JsTeam | undefined;
-    readonly matchQuality?: number;
-}
-
-export class WasmRating {
-    player_id: string;
-    rating: number;
-    uncertainty?: number;
-    volatility?: number;
-}
-
+/**
+ * Team representation for JavaScript
+ * 
+ * Represents a team of players with a score for match processing.
+ * Used primarily for team-based game modes and tournaments.
+ * 
+ * @example
+ * ```typescript
+ * const team = new WasmTeam(100);
+ * team.add_player(alice_rating);
+ * team.add_player(bob_rating);
+ * ```
+ */
 export class WasmTeam {
-    constructor(score: number);
-    add_player(player: WasmRating): void;
-    readonly player_count: number;
-    score: number;
-    players: WasmRating[];
+  free(): void;
+  constructor(score: number);
+  add_player(player: WasmRating): void;
+  score: number;
+  readonly player_count: number;
 }
 
-export class WasmRatingSystem {
-    constructor(system_type: string, config: any);
-    create_player(player_id: string): WasmRating;
-    update_ratings(teams: WasmTeam[]): WasmTeam[];
-    get_match_quality(teams: WasmTeam[]): number;
-    get_leaderboard(): WasmRating[];
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+
+export interface InitOutput {
+  readonly memory: WebAssembly.Memory;
+  readonly wasm_main: () => void;
+  readonly greet: (a: number, b: number) => void;
+  readonly __wbg_wasmrating_free: (a: number, b: number) => void;
+  readonly __wbg_get_wasmrating_player_id: (a: number, b: number) => void;
+  readonly __wbg_set_wasmrating_player_id: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_wasmrating_rating: (a: number) => number;
+  readonly __wbg_set_wasmrating_rating: (a: number, b: number) => void;
+  readonly __wbg_wasmteam_free: (a: number, b: number) => void;
+  readonly wasmteam_new: (a: number) => number;
+  readonly wasmteam_add_player: (a: number, b: number) => void;
+  readonly wasmteam_player_count: (a: number) => number;
+  readonly __wbg_wasmratingsystem_free: (a: number, b: number) => void;
+  readonly wasmratingsystem_new: (a: number, b: number) => void;
+  readonly wasmratingsystem_create_player: (a: number, b: number, c: number, d: number) => void;
+  readonly wasmratingsystem_update_match: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+  readonly wasmratingsystem_get_win_probability: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+  readonly wasmratingsystem_get_rating: (a: number, b: number, c: number) => number;
+  readonly wasmratingsystem_get_leaderboard: (a: number, b: number) => void;
+  readonly wasmratingsystem_player_count: (a: number) => number;
+  readonly __wbg_jsrating_free: (a: number, b: number) => void;
+  readonly jsrating_new: (a: number, b: number, c: number) => void;
+  readonly jsrating_mean: (a: number) => number;
+  readonly jsrating_variance: (a: number) => number;
+  readonly jsrating_standard_deviation: (a: number) => number;
+  readonly jsrating_conservative_rating: (a: number) => number;
+  readonly jsrating_toString: (a: number, b: number) => void;
+  readonly __wbg_jsteam_free: (a: number, b: number) => void;
+  readonly jsteam_new: () => number;
+  readonly jsteam_add_player: (a: number, b: number) => void;
+  readonly jsteam_player_count: (a: number) => number;
+  readonly jsteam_team_mean: (a: number) => number;
+  readonly jsteam_team_variance: (a: number) => number;
+  readonly jsteam_get_player: (a: number, b: number) => number;
+  readonly jsteam_toString: (a: number, b: number) => void;
+  readonly __wbg_jsgameoutcome_free: (a: number, b: number) => void;
+  readonly jsgameoutcome_new: () => number;
+  readonly jsgameoutcome_set_ranks: (a: number, b: number, c: number, d: number) => void;
+  readonly jsgameoutcome_team_count: (a: number) => number;
+  readonly jsgameoutcome_win: (a: number, b: number, c: number) => void;
+  readonly jsgameoutcome_draw: (a: number, b: number) => void;
+  readonly jsgameoutcome_get_rank: (a: number, b: number) => number;
+  readonly jsgameoutcome_toString: (a: number, b: number) => void;
+  readonly __wbg_ratingsystemconfig_free: (a: number, b: number) => void;
+  readonly __wbg_get_ratingsystemconfig_system_type: (a: number) => number;
+  readonly __wbg_set_ratingsystemconfig_system_type: (a: number, b: number) => void;
+  readonly ratingsystemconfig_new: (a: number) => number;
+  readonly ratingsystemconfig_set_parameters: (a: number, b: number, c: number) => void;
+  readonly ratingsystemconfig_get_system_type: (a: number) => number;
+  readonly __wbg_ratingupdate_free: (a: number, b: number) => void;
+  readonly __wbg_get_ratingupdate_match_quality: (a: number, b: number) => void;
+  readonly __wbg_set_ratingupdate_match_quality: (a: number, b: number, c: number) => void;
+  readonly ratingupdate_team_count: (a: number) => number;
+  readonly ratingupdate_get_team: (a: number, b: number) => number;
+  readonly ratingupdate_get_match_quality: (a: number, b: number) => void;
+  readonly __wbg_set_wasmteam_score: (a: number, b: number) => void;
+  readonly __wbg_get_wasmteam_score: (a: number) => number;
+  readonly __wbindgen_export_0: (a: number, b: number) => number;
+  readonly __wbindgen_export_1: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
+  readonly __wbindgen_export_2: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_start: () => void;
 }
 
-export interface PlayerProfile {
-    id: string;
-    name?: string | null;
-    email?: string | null;
-    created_at: number;
-    updated_at: number;
-    is_active: boolean;
+export type SyncInitInput = BufferSource | WebAssembly.Module;
+/**
+* Instantiates the given `module`, which can either be bytes or
+* a precompiled `WebAssembly.Module`.
+*
+* @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+*
+* @returns {InitOutput}
+*/
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+
+/**
+* If `module_or_path` is {RequestInfo} or {URL}, makes a request and
+* for everything else, calls `WebAssembly.instantiate` directly.
+*
+* @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+*
+* @returns {Promise<InitOutput>}
+*/
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
+
+// Type assertions for runtime validation
+export declare function isWasmRating(obj: any): obj is WasmRating;
+export declare function isValidPlayerId(id: any): id is PlayerId;
+export declare function isValidProbability(p: any): p is Probability;
+export declare function isMatchOutcome(outcome: any): outcome is MatchOutcome;
+
+// Enhanced async types for WebAssembly initialization
+export interface WasmInitOptions {
+  module?: WebAssembly.Module | BufferSource | Response | Promise<WebAssembly.Module | BufferSource | Response>;
+  memory?: WebAssembly.Memory;
+  instantiateStreaming?: boolean;
 }
 
-export interface MatchRecord {
-    id: string;
-    team1_players: string[];
-    team2_players: string[];
-    outcome: number;
-    timestamp: number;
-    notes?: string | null;
+export interface WasmInitResult extends InitOutput {
+  initialized: boolean;
+  moduleSize: number;
 }
 
-export interface PlayerStats {
-    player_id: string;
-    total_matches: number;
-    wins: number;
-    losses: number;
-    draws: number;
-    win_rate: number;
-    current_streak: number;
-    longest_win_streak: number;
-    longest_loss_streak: number;
+// Promise-based initialization wrapper
+export declare function initializeWasm(options?: WasmInitOptions): Promise<WasmInitResult>;
+
+// Backward compatibility aliases
+export type JsRatingValue = WasmRating;
+export type JsTeamValue = WasmTeam;
+export type JsSystemValue = WasmRatingSystem;
+
+// Legacy interface support
+export interface LegacyEloConfig {
+  k_factor?: number;
+  initial_rating?: number;
 }
 
-export interface HeadToHeadRecord {
-    player1_id: string;
-    player2_id: string;
-    total_matches: number;
-    player1_wins: number;
-    player2_wins: number;
-    draws: number;
-}
-
-export class PlayerManager {
-    constructor();
-    register_player(id: string, name?: string | null, email?: string | null): PlayerProfile;
-    get_player_profile(idOrAlias: string): PlayerProfile;
-    update_player_profile(id: string, name?: string | null, email?: string | null): PlayerProfile;
-    deactivate_player(id: string): void;
-    reactivate_player(id: string): void;
-    is_player_active(id: string): boolean;
-    add_match_record(team1: string[], team2: string[], outcome: number, notes?: string | null): string;
-    get_player_match_history(player_id: string, limit?: number, offset?: number): MatchRecord[];
-    get_player_stats(player_id: string): PlayerStats;
-    player_count(): number;
-    get_active_players(): PlayerProfile[];
-    search_players(query: string): PlayerProfile[];
-    bulk_import_players(json_data: string): number;
-    export_players(include_inactive: boolean): string;
-    get_player_head_to_head(player1_id: string, player2_id: string): HeadToHeadRecord;
-    merge_players(from_id: string, to_id: string): void;
-    add_player_alias(player_id: string, alias: string): void;
-    get_player_aliases(player_id: string): string[];
-}
-
-export default function init(module?: WebAssembly.Module | BufferSource | Response | Promise<WebAssembly.Module | BufferSource | Response>): Promise<void>;
+// Convert legacy config to new format
+export declare function convertLegacyConfig(legacy: LegacyEloConfig): EloConfig;

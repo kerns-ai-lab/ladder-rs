@@ -2,7 +2,6 @@
 //!
 //! Provides idiomatic JavaScript interfaces for core rating system types.
 
-use crate::types::{JsRating, JsTeam, JsGameOutcome, RatingSystemType};
 use wasm_bindgen::prelude::*;
 use js_sys::*;
 use std::collections::HashMap;

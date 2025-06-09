@@ -1,5 +1,5 @@
 #!/bin/bash
-# Enhanced build script for ladder-rs WASM package - Task 1.1.1
+# Enhanced build script for ladder-rs WASM package - Task 1.1.1 + 1.1.4
 
 set -e
 
@@ -22,6 +22,7 @@ PARALLEL_BUILDS=false
 ALL_TARGETS=false
 SIZE_CHECK=true
 VERBOSE=false
+ENHANCE_TYPESCRIPT=true
 
 # Helper functions
 log_info() {
@@ -46,12 +47,67 @@ log_verbose() {
     fi
 }
 
+# Enhanced TypeScript definition processing (Task 1.1.4)
+enhance_typescript_definitions() {
+    local out_dir="$1"
+    
+    if [ "$ENHANCE_TYPESCRIPT" = true ] && [ -f "$out_dir/ladder_rs_wasm.d.ts" ]; then
+        log_info "Enhancing TypeScript definitions (Task 1.1.4)"
+        
+        # Check if Node.js is available for enhancement script
+        if command -v node &> /dev/null && [ -f "scripts/enhance_typescript_definitions.js" ]; then
+            if node scripts/enhance_typescript_definitions.js; then
+                log_success "TypeScript definitions enhanced successfully"
+            else
+                log_warning "TypeScript enhancement script failed, using original definitions"
+            fi
+        else
+            log_verbose "Node.js or enhancement script not available, using wasm-pack generated definitions"
+        fi
+        
+        # Validate TypeScript definitions
+        validate_typescript_definitions "$out_dir"
+    else
+        log_verbose "TypeScript enhancement disabled or definitions not found"
+    fi
+}
+
+# Validate TypeScript definitions (Task 1.1.4)
+validate_typescript_definitions() {
+    local out_dir="$1"
+    local ts_file="$out_dir/ladder_rs_wasm.d.ts"
+    
+    if [ -f "$ts_file" ]; then
+        log_verbose "Validating TypeScript definitions"
+        
+        # Basic validation checks
+        local has_exports=$(grep -c "export" "$ts_file" || echo "0")
+        local has_classes=$(grep -c "export class" "$ts_file" || echo "0")
+        local has_interfaces=$(grep -c "export interface" "$ts_file" || echo "0")
+        local file_size=$(stat -c%s "$ts_file" 2>/dev/null || stat -f%z "$ts_file" 2>/dev/null)
+        
+        log_verbose "TypeScript definitions validation:"
+        log_verbose "  - File size: ${file_size} bytes"
+        log_verbose "  - Exports: ${has_exports}"
+        log_verbose "  - Classes: ${has_classes}"
+        log_verbose "  - Interfaces: ${has_interfaces}"
+        
+        if [ "$has_exports" -gt 0 ] && [ "$file_size" -gt 1000 ]; then
+            log_success "TypeScript definitions validation passed"
+        else
+            log_warning "TypeScript definitions may be incomplete"
+        fi
+    else
+        log_warning "TypeScript definitions file not found for validation"
+    fi
+}
+
 # Copy custom TypeScript definitions into the output directory
 copy_ts_defs() {
     local out_dir="$1"
     if [ -f "types/ladder_rs_wasm.d.ts" ]; then
         cp "types/ladder_rs_wasm.d.ts" "$out_dir/ladder_rs_wasm.d.ts"
-        log_verbose "Copied TypeScript definitions to $out_dir"
+        log_verbose "Copied custom TypeScript definitions to $out_dir"
     fi
 }
 
@@ -127,12 +183,15 @@ build_target() {
             log_success "Optimization complete for $target"
         fi
         
+        # Enhanced TypeScript definition processing (Task 1.1.4)
+        enhance_typescript_definitions "$target_output_dir"
+        
         # Size check
         if [ "$SIZE_CHECK" = true ]; then
             check_bundle_size "$target_output_dir" "$target"
         fi
 
-        # Copy TypeScript definitions
+        # Copy custom TypeScript definitions (if any)
         copy_ts_defs "$target_output_dir"
         
         # Generate file listing
@@ -170,9 +229,10 @@ while [[ "$#" -gt 0 ]]; do
         --all-targets) ALL_TARGETS=true;;
         --parallel) PARALLEL_BUILDS=true;;
         --no-size-check) SIZE_CHECK=false;;
+        --no-typescript-enhancement) ENHANCE_TYPESCRIPT=false;;
         --verbose|-v) VERBOSE=true;;
         --help|-h) 
-            echo "Enhanced WASM Build Script - Task 1.1.1"
+            echo "Enhanced WASM Build Script - Task 1.1.1 + 1.1.4"
             echo ""
             echo "Usage: ./build.sh [options]"
             echo ""
@@ -190,6 +250,9 @@ while [[ "$#" -gt 0 ]]; do
             echo "  --out-dir DIR     Set output directory (default: pkg)"
             echo "  --no-size-check   Skip bundle size validation"
             echo ""
+            echo "TypeScript Options (Task 1.1.4):"
+            echo "  --no-typescript-enhancement  Skip TypeScript definition enhancement"
+            echo ""
             echo "Other Options:"
             echo "  --verbose, -v     Enable verbose output"
             echo "  --help, -h        Show this help message"
@@ -197,7 +260,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "Examples:"
             echo "  ./build.sh --release --target web"
             echo "  ./build.sh --all-targets --parallel --release"
-            echo "  ./build.sh --dev --verbose"
+            echo "  ./build.sh --dev --verbose --no-typescript-enhancement"
             exit 0
             ;;
         *) log_error "Unknown parameter: $1"; exit 1;;
@@ -207,7 +270,7 @@ done
 
 # Header
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║                    Ladder-RS WASM Build System - Task 1.1.1               ║${NC}"
+echo -e "${BLUE}║                    Ladder-RS WASM Build System - Task 1.1.1 + 1.1.4       ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -224,6 +287,7 @@ fi
 echo "  📁 Output: $OUTPUT_DIR"
 echo "  🔍 Size check: $SIZE_CHECK"
 echo "  📝 Verbose: $VERBOSE"
+echo "  🔧 TypeScript enhancement: $ENHANCE_TYPESCRIPT"
 echo ""
 
 # Pre-build checks
@@ -245,6 +309,17 @@ fi
 if [ ! -f "Cargo.toml" ]; then
     log_error "Cargo.toml not found. Make sure you're in the wasm directory."
     exit 1
+fi
+
+# Optional: Check for TypeScript enhancement dependencies
+if [ "$ENHANCE_TYPESCRIPT" = true ]; then
+    if ! command -v node &> /dev/null; then
+        log_warning "Node.js not found. TypeScript enhancement will be skipped."
+        ENHANCE_TYPESCRIPT=false
+    elif [ ! -f "scripts/enhance_typescript_definitions.js" ]; then
+        log_warning "TypeScript enhancement script not found. Enhancement will be skipped."
+        ENHANCE_TYPESCRIPT=false
+    fi
 fi
 
 log_success "Pre-build checks passed"
@@ -339,3 +414,12 @@ log_info "To use the generated package:"
 echo "  📝 Import in JavaScript: import init from './pkg/ladder_rs_wasm.js'"
 echo "  📝 TypeScript definitions: ./pkg/ladder_rs_wasm.d.ts"
 echo "  📝 Package for publishing: npm publish pkg/"
+
+if [ "$ENHANCE_TYPESCRIPT" = true ]; then
+    echo ""
+    log_info "TypeScript enhancements (Task 1.1.4):"
+    echo "  ✨ Enhanced JSDoc documentation"
+    echo "  🔧 Improved type safety"
+    echo "  📦 Utility types and interfaces"
+    echo "  🛡️ Runtime type assertions"
+fi
