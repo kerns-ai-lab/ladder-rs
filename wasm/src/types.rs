@@ -111,7 +111,7 @@ pub enum JsOutcome {
 
 /// Match configuration for different algorithms
 #[wasm_bindgen]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct JsMatchConfig {
     /// Algorithm to use
     algorithm: String,
