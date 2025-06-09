@@ -18,412 +18,447 @@ pub struct JsRating {
 
 #[wasm_bindgen]
 impl JsRating {
-    /// Creates a new rating with the given mean and variance
+    /// Create a new rating
     #[wasm_bindgen(constructor)]
-    pub fn new(mean: f64, variance: f64) -> Result<JsRating, JsValue> {
-        if variance <= 0.0 {
-            return Err(JsValue::from_str("Variance must be positive"));
-        }
-        Ok(JsRating { mean, variance })
+    pub fn new(mean: f64, variance: f64) -> Self {
+        Self { mean, variance }
     }
 
-    /// Gets the mean skill value
+    /// Get the mean value
     #[wasm_bindgen(getter)]
     pub fn mean(&self) -> f64 {
         self.mean
     }
 
-    /// Gets the variance
+    /// Get the variance value
     #[wasm_bindgen(getter)]
     pub fn variance(&self) -> f64 {
         self.variance
     }
 
-    /// Gets the standard deviation (σ)
-    #[wasm_bindgen(getter)]
-    pub fn standard_deviation(&self) -> f64 {
-        self.variance.sqrt()
+    /// Convert to JSON string
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
-    /// Gets a conservative skill estimate (μ - 3σ)
-    #[wasm_bindgen(getter)]
-    pub fn conservative_rating(&self) -> f64 {
-        self.mean - 3.0 * self.standard_deviation()
-    }
-
-    /// Creates a string representation
-    #[wasm_bindgen(js_name = toString)]
-    pub fn to_string(&self) -> String {
-        format!(
-            "Rating(μ={:.2}, σ={:.2})",
-            self.mean,
-            self.standard_deviation()
-        )
+    /// Create from JSON string
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(json: &str) -> Result<JsRating, JsValue> {
+        serde_json::from_str(json).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
 
-/// JavaScript-friendly team representation
+/// JavaScript-friendly player representation
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct JsPlayer {
+    /// Unique player identifier
+    id: String,
+    /// Optional display name
+    name: Option<String>,
+    /// Current rating
+    rating: JsRating,
+}
+
+#[wasm_bindgen]
+impl JsPlayer {
+    /// Create a new player
+    #[wasm_bindgen(constructor)]
+    pub fn new(id: String, name: Option<String>, rating: JsRating) -> Self {
+        Self { id, name, rating }
+    }
+
+    /// Get player ID
+    #[wasm_bindgen(getter)]
+    pub fn id(&self) -> String {
+        self.id.clone()
+    }
+
+    /// Get player name
+    #[wasm_bindgen(getter)]
+    pub fn name(&self) -> Option<String> {
+        self.name.clone()
+    }
+
+    /// Get player rating
+    #[wasm_bindgen(getter)]
+    pub fn rating(&self) -> JsRating {
+        self.rating.clone()
+    }
+
+    /// Convert to JSON string
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self).map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    /// Create from JSON string
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(json: &str) -> Result<JsPlayer, JsValue> {
+        serde_json::from_str(json).map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+}
+
+/// JavaScript-friendly match outcome
+#[wasm_bindgen]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum JsOutcome {
+    Win = 0,
+    Loss = 1,
+    Draw = 2,
+}
+
+/// Match configuration for different algorithms
 #[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsTeam {
-    /// Player ratings in this team
-    #[wasm_bindgen(skip)]
-    pub player_ratings: Vec<JsRating>,
+pub struct JsMatchConfig {
+    /// Algorithm to use
+    algorithm: String,
+    /// Algorithm-specific parameters
+    params: JsValue,
 }
 
 #[wasm_bindgen]
-impl JsTeam {
-    /// Creates a new team from an array of ratings
+impl JsMatchConfig {
+    /// Create match configuration
     #[wasm_bindgen(constructor)]
-    pub fn new() -> JsTeam {
-        JsTeam {
-            player_ratings: Vec::new(),
-        }
+    pub fn new(algorithm: String, params: JsValue) -> Self {
+        Self { algorithm, params }
     }
 
-    /// Adds a player rating to the team
-    pub fn add_player(&mut self, rating: JsRating) {
-        self.player_ratings.push(rating);
-    }
-
-    /// Gets the number of players in the team
+    /// Get algorithm name
     #[wasm_bindgen(getter)]
-    pub fn player_count(&self) -> usize {
-        self.player_ratings.len()
+    pub fn algorithm(&self) -> String {
+        self.algorithm.clone()
     }
 
-    /// Gets the team's total mean (sum of player means)
+    /// Get parameters
     #[wasm_bindgen(getter)]
-    pub fn team_mean(&self) -> f64 {
-        self.player_ratings.iter().map(|r| r.mean).sum()
-    }
-
-    /// Gets the team's total variance (sum of player variances)
-    #[wasm_bindgen(getter)]
-    pub fn team_variance(&self) -> f64 {
-        self.player_ratings.iter().map(|r| r.variance).sum()
-    }
-
-    /// Gets a player rating at the specified index
-    pub fn get_player(&self, index: usize) -> Option<JsRating> {
-        self.player_ratings.get(index).cloned()
-    }
-
-    /// Creates a string representation
-    #[wasm_bindgen(js_name = toString)]
-    pub fn to_string(&self) -> String {
-        format!("Team({} players)", self.player_count())
+    pub fn params(&self) -> JsValue {
+        self.params.clone()
     }
 }
 
-/// JavaScript-friendly game outcome representation
-#[wasm_bindgen]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct JsGameOutcome {
-    /// Ranks for each team (lower is better, 1 = winner)
-    #[wasm_bindgen(skip)]
-    pub ranks: Vec<u32>,
-}
-
-#[wasm_bindgen]
-impl JsGameOutcome {
-    /// Creates a new game outcome from ranks
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> JsGameOutcome {
-        JsGameOutcome { ranks: Vec::new() }
-    }
-
-    /// Sets ranks from a JavaScript array
-    pub fn set_ranks(&mut self, ranks: Vec<u32>) -> Result<(), JsValue> {
-        // Validate ranks
-        if ranks.is_empty() {
-            return Err(JsValue::from_str("Ranks cannot be empty"));
-        }
-
-        // Check for duplicate ranks
-        let mut sorted_ranks = ranks.clone();
-        sorted_ranks.sort_unstable();
-        for i in 1..sorted_ranks.len() {
-            if sorted_ranks[i] == sorted_ranks[i - 1] {
-                return Err(JsValue::from_str("Duplicate ranks are not allowed"));
-            }
-        }
-
-        self.ranks = ranks;
-        Ok(())
-    }
-
-    /// Gets the number of teams
-    #[wasm_bindgen(getter)]
-    pub fn team_count(&self) -> usize {
-        self.ranks.len()
-    }
-
-    /// Creates a win outcome (team at index wins)
-    pub fn win(winner_index: usize, total_teams: usize) -> Result<JsGameOutcome, JsValue> {
-        if winner_index >= total_teams {
-            return Err(JsValue::from_str("Winner index out of bounds"));
-        }
-        if total_teams < 2 {
-            return Err(JsValue::from_str("At least 2 teams required"));
-        }
-
-        let mut ranks = vec![2; total_teams];
-        ranks[winner_index] = 1;
-
-        Ok(JsGameOutcome {
-            ranks: ranks.into_iter().map(|r| r as u32).collect(),
-        })
-    }
-
-    /// Creates a draw outcome between all teams
-    pub fn draw(total_teams: usize) -> Result<JsGameOutcome, JsValue> {
-        if total_teams < 2 {
-            return Err(JsValue::from_str("At least 2 teams required"));
-        }
-
-        Ok(JsGameOutcome {
-            ranks: vec![1; total_teams],
-        })
-    }
-
-    /// Gets the rank for a specific team
-    pub fn get_rank(&self, team_index: usize) -> Option<u32> {
-        self.ranks.get(team_index).copied()
-    }
-
-    /// Creates a string representation
-    #[wasm_bindgen(js_name = toString)]
-    pub fn to_string(&self) -> String {
-        format!("GameOutcome({:?})", self.ranks)
-    }
-}
-
-/// Rating system type enumeration
-#[wasm_bindgen]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RatingSystemType {
-    Elo,
-    Glicko,
-    Glicko2,
-    TrueSkill,
-}
-
-/// Configuration for rating systems
+/// Match result between two players
 #[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RatingSystemConfig {
-    /// Type of rating system
-    pub system_type: RatingSystemType,
-
-    /// Custom parameters (JSON string for flexibility)
-    #[wasm_bindgen(skip)]
-    pub parameters: Option<String>,
+pub struct JsMatchResult {
+    /// Winner's player ID (None for draw)
+    winner: Option<String>,
+    /// Updated ratings for both players
+    ratings: Vec<JsRating>,
 }
 
 #[wasm_bindgen]
-impl RatingSystemConfig {
-    /// Creates a new configuration with default parameters
+impl JsMatchResult {
+    /// Create match result
     #[wasm_bindgen(constructor)]
-    pub fn new(system_type: RatingSystemType) -> RatingSystemConfig {
-        RatingSystemConfig {
-            system_type,
-            parameters: None,
-        }
+    pub fn new(winner: Option<String>, ratings: Vec<JsRating>) -> Self {
+        Self { winner, ratings }
     }
 
-    /// Sets custom parameters as a JSON string
-    pub fn set_parameters(&mut self, params: &str) {
-        self.parameters = Some(params.to_string());
+    /// Get winner ID
+    #[wasm_bindgen(getter)]
+    pub fn winner(&self) -> Option<String> {
+        self.winner.clone()
     }
 
-    /// Gets the rating system type
-    #[wasm_bindgen(getter = systemType)]
-    pub fn get_system_type(&self) -> RatingSystemType {
-        self.system_type
+    /// Get updated ratings
+    #[wasm_bindgen(getter)]
+    pub fn ratings(&self) -> Vec<JsRating> {
+        self.ratings.clone()
+    }
+
+    /// Convert to JSON string
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self).map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    /// Create from JSON string
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(json: &str) -> Result<JsMatchResult, JsValue> {
+        serde_json::from_str(json).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
 
-/// Result type for rating updates
+/// Configuration for Elo algorithm
 #[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RatingUpdate {
-    /// Updated teams with new ratings
-    #[wasm_bindgen(skip)]
-    pub updated_teams: Vec<JsTeam>,
-
-    /// Optional match quality (0-1, higher is better)
-    pub match_quality: Option<f64>,
+pub struct JsEloConfig {
+    /// K-factor for rating adjustments
+    k_factor: f64,
+    /// Initial rating for new players
+    initial_rating: f64,
+    /// Initial variance
+    initial_variance: f64,
 }
 
 #[wasm_bindgen]
-impl RatingUpdate {
-    /// Gets the number of teams updated
-    #[wasm_bindgen(getter)]
-    pub fn team_count(&self) -> usize {
-        self.updated_teams.len()
+impl JsEloConfig {
+    /// Create Elo configuration
+    #[wasm_bindgen(constructor)]
+    pub fn new(k_factor: f64, initial_rating: f64, initial_variance: f64) -> Self {
+        Self {
+            k_factor,
+            initial_rating,
+            initial_variance,
+        }
     }
 
-    /// Gets an updated team by index
-    pub fn get_team(&self, index: usize) -> Option<JsTeam> {
-        self.updated_teams.get(index).cloned()
+    /// Get K-factor
+    #[wasm_bindgen(getter, js_name = kFactor)]
+    pub fn k_factor(&self) -> f64 {
+        self.k_factor
     }
 
-    /// Gets the match quality if available
-    #[wasm_bindgen(getter = matchQuality)]
-    pub fn get_match_quality(&self) -> Option<f64> {
-        self.match_quality
+    /// Get initial rating
+    #[wasm_bindgen(getter, js_name = initialRating)]
+    pub fn initial_rating(&self) -> f64 {
+        self.initial_rating
+    }
+
+    /// Get initial variance
+    #[wasm_bindgen(getter, js_name = initialVariance)]
+    pub fn initial_variance(&self) -> f64 {
+        self.initial_variance
     }
 }
 
-// Internal conversion utilities (not exposed to JavaScript)
-pub mod conversions {
-    use super::*;
-    use ladder_rs::core::{GameOutcome as CoreGameOutcome, Rating};
+/// Configuration for Glicko algorithm
+#[wasm_bindgen]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsGlickoConfig {
+    /// Initial rating
+    initial_rating: f64,
+    /// Initial rating deviation
+    initial_deviation: f64,
+    /// Rating period constant
+    c: f64,
+}
 
-    /// Converts a JsGameOutcome to core GameOutcome
-    pub fn js_to_core_outcome(js_outcome: &JsGameOutcome) -> CoreGameOutcome {
-        CoreGameOutcome::new(js_outcome.ranks.iter().map(|&r| r as usize).collect())
-    }
-
-    /// Converts any Rating implementation to JsRating
-    pub fn rating_to_js<R: Rating>(rating: &R) -> JsRating {
-        JsRating {
-            mean: rating.mean(),
-            variance: rating.variance(),
+#[wasm_bindgen]
+impl JsGlickoConfig {
+    /// Create Glicko configuration
+    #[wasm_bindgen(constructor)]
+    pub fn new(initial_rating: f64, initial_deviation: f64, c: f64) -> Self {
+        Self {
+            initial_rating,
+            initial_deviation,
+            c,
         }
     }
 
-    /// Converts a vector of ratings to JsTeam
-    pub fn ratings_to_js_team<R: Rating>(ratings: Vec<R>) -> JsTeam {
-        JsTeam {
-            player_ratings: ratings.iter().map(rating_to_js).collect(),
+    /// Get initial rating
+    #[wasm_bindgen(getter, js_name = initialRating)]
+    pub fn initial_rating(&self) -> f64 {
+        self.initial_rating
+    }
+
+    /// Get initial deviation
+    #[wasm_bindgen(getter, js_name = initialDeviation)]
+    pub fn initial_deviation(&self) -> f64 {
+        self.initial_deviation
+    }
+
+    /// Get c constant
+    #[wasm_bindgen(getter)]
+    pub fn c(&self) -> f64 {
+        self.c
+    }
+}
+
+/// Configuration for TrueSkill algorithm
+#[wasm_bindgen]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsTrueSkillConfig {
+    /// Initial mean skill
+    initial_mean: f64,
+    /// Initial standard deviation
+    initial_std_dev: f64,
+    /// Performance variance factor (beta)
+    beta: f64,
+    /// Dynamics factor (tau)
+    tau: f64,
+    /// Draw probability
+    draw_probability: f64,
+}
+
+#[wasm_bindgen]
+impl JsTrueSkillConfig {
+    /// Create TrueSkill configuration
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        initial_mean: f64,
+        initial_std_dev: f64,
+        beta: f64,
+        tau: f64,
+        draw_probability: f64,
+    ) -> Self {
+        Self {
+            initial_mean,
+            initial_std_dev,
+            beta,
+            tau,
+            draw_probability,
         }
+    }
+
+    /// Get initial mean
+    #[wasm_bindgen(getter, js_name = initialMean)]
+    pub fn initial_mean(&self) -> f64 {
+        self.initial_mean
+    }
+
+    /// Get initial standard deviation
+    #[wasm_bindgen(getter, js_name = initialStdDev)]
+    pub fn initial_std_dev(&self) -> f64 {
+        self.initial_std_dev
+    }
+
+    /// Get beta
+    #[wasm_bindgen(getter)]
+    pub fn beta(&self) -> f64 {
+        self.beta
+    }
+
+    /// Get tau
+    #[wasm_bindgen(getter)]
+    pub fn tau(&self) -> f64 {
+        self.tau
+    }
+
+    /// Get draw probability
+    #[wasm_bindgen(getter, js_name = drawProbability)]
+    pub fn draw_probability(&self) -> f64 {
+        self.draw_probability
+    }
+}
+
+/// Error type for WASM operations
+#[wasm_bindgen]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsError {
+    /// Error message
+    message: String,
+    /// Error type/category
+    error_type: String,
+}
+
+#[wasm_bindgen]
+impl JsError {
+    /// Create an error
+    #[wasm_bindgen(constructor)]
+    pub fn new(message: String, error_type: String) -> Self {
+        Self {
+            message,
+            error_type,
+        }
+    }
+
+    /// Get error message
+    #[wasm_bindgen(getter)]
+    pub fn message(&self) -> String {
+        self.message.clone()
+    }
+
+    /// Get error type
+    #[wasm_bindgen(getter, js_name = errorType)]
+    pub fn error_type(&self) -> String {
+        self.error_type.clone()
+    }
+
+    /// Convert to string
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string(&self) -> String {
+        format!("{}: {}", self.error_type, self.message)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ladder_rs::Rating;
 
-    // Helper function to create JsRating for tests without wasm-bindgen
-    fn create_test_rating(mean: f64, variance: f64) -> JsRating {
-        JsRating { mean, variance }
+    #[test]
+    fn test_js_rating() {
+        let rating = JsRating::new(1500.0, 200.0);
+        assert_eq!(rating.mean(), 1500.0);
+        assert_eq!(rating.variance(), 200.0);
+
+        // Test JSON serialization
+        let json = rating.to_json().unwrap();
+        let parsed = JsRating::from_json(&json).unwrap();
+        assert_eq!(parsed.mean(), rating.mean());
+        assert_eq!(parsed.variance(), rating.variance());
     }
 
     #[test]
-    fn test_js_rating_fields() {
-        let rating = create_test_rating(25.0, 64.0);
-        assert_eq!(rating.mean, 25.0);
-        assert_eq!(rating.variance, 64.0);
-        // Test derived calculations
-        assert_eq!(rating.variance.sqrt(), 8.0); // standard deviation
-        assert_eq!(rating.mean - 3.0 * rating.variance.sqrt(), 1.0); // conservative rating
+    fn test_js_player() {
+        let rating = JsRating::new(1200.0, 100.0);
+        let player = JsPlayer::new("p1".to_string(), Some("Alice".to_string()), rating);
+
+        assert_eq!(player.id(), "p1");
+        assert_eq!(player.name(), Some("Alice".to_string()));
+        assert_eq!(player.rating().mean(), 1200.0);
+
+        // Test JSON serialization
+        let json = player.to_json().unwrap();
+        let parsed = JsPlayer::from_json(&json).unwrap();
+        assert_eq!(parsed.id(), player.id());
+        assert_eq!(parsed.name(), player.name());
     }
 
     #[test]
-    fn test_js_rating_validation() {
-        // These would normally be caught by the constructor
-        assert!(
-            JsRating {
-                mean: 25.0,
-                variance: 0.0
-            }
-            .variance
-                <= 0.0
-        );
-        assert!(
-            JsRating {
-                mean: 25.0,
-                variance: -1.0
-            }
-            .variance
-                <= 0.0
-        );
+    fn test_match_result() {
+        let ratings = vec![JsRating::new(1520.0, 190.0), JsRating::new(1480.0, 210.0)];
+
+        let result = JsMatchResult::new(Some("p1".to_string()), ratings);
+
+        assert_eq!(result.winner(), Some("p1".to_string()));
+        assert_eq!(result.ratings().len(), 2);
+        assert_eq!(result.ratings()[0].mean(), 1520.0);
+
+        // Test JSON serialization
+        let json = result.to_json().unwrap();
+        let parsed = JsMatchResult::from_json(&json).unwrap();
+        assert_eq!(parsed.winner(), result.winner());
+        assert_eq!(parsed.ratings().len(), result.ratings().len());
     }
 
     #[test]
-    fn test_js_team_fields() {
-        let team = JsTeam {
-            player_ratings: vec![
-                create_test_rating(25.0, 64.0),
-                create_test_rating(30.0, 36.0),
-            ],
-        };
+    fn test_config_types() {
+        let elo_config = JsEloConfig::new(32.0, 1500.0, 300.0);
+        assert_eq!(elo_config.k_factor(), 32.0);
+        assert_eq!(elo_config.initial_rating(), 1500.0);
 
-        assert_eq!(team.player_ratings.len(), 2);
-        assert_eq!(
-            team.player_ratings.iter().map(|r| r.mean).sum::<f64>(),
-            55.0
-        );
-        assert_eq!(
-            team.player_ratings.iter().map(|r| r.variance).sum::<f64>(),
-            100.0
-        );
+        let glicko_config = JsGlickoConfig::new(1500.0, 350.0, 15.0);
+        assert_eq!(glicko_config.initial_rating(), 1500.0);
+        assert_eq!(glicko_config.initial_deviation(), 350.0);
+
+        let trueskill_config = JsTrueSkillConfig::new(25.0, 8.333, 4.166, 0.083, 0.1);
+        assert_eq!(trueskill_config.initial_mean(), 25.0);
+        assert_eq!(trueskill_config.beta(), 4.166);
     }
 
     #[test]
-    fn test_js_game_outcome_fields() {
-        let outcome = JsGameOutcome {
-            ranks: vec![1, 2, 3],
-        };
-        assert_eq!(outcome.ranks.len(), 3);
-        assert_eq!(outcome.ranks[0], 1);
-        assert_eq!(outcome.ranks[1], 2);
-        assert_eq!(outcome.ranks[2], 3);
+    fn test_error_type() {
+        let error = JsError::new("Invalid player ID".to_string(), "ValidationError".to_string());
+        assert_eq!(error.message(), "Invalid player ID");
+        assert_eq!(error.error_type(), "ValidationError");
+        assert_eq!(error.to_string(), "ValidationError: Invalid player ID");
     }
 
     #[test]
-    fn test_game_outcome_validation_logic() {
-        // Test validation logic that would be in set_ranks
-        let empty_ranks: Vec<u32> = vec![];
-        assert!(empty_ranks.is_empty());
-
-        let duplicate_ranks = vec![1, 1, 2];
-        let mut sorted = duplicate_ranks.clone();
-        sorted.sort_unstable();
-        let has_duplicates = sorted.windows(2).any(|w| w[0] == w[1]);
-        assert!(has_duplicates);
-    }
-
-    #[test]
-    fn test_win_outcome_logic() {
-        // Test the logic for creating a win outcome
-        let winner_index = 0;
-        let total_teams = 3;
-
-        let mut ranks = vec![2; total_teams];
-        ranks[winner_index] = 1;
-
-        assert_eq!(ranks, vec![1, 2, 2]);
-    }
-
-    #[test]
-    fn test_draw_outcome_logic() {
-        // Test the logic for creating a draw outcome
-        let total_teams = 3;
-        let ranks = vec![1; total_teams];
-        assert_eq!(ranks, vec![1, 1, 1]);
-    }
-
-    #[test]
-    fn test_conversions() {
-        use crate::types::conversions::*;
-
-        // Test outcome conversion
-        let js_outcome = JsGameOutcome {
-            ranks: vec![1, 2, 3],
-        };
-        let core_outcome = js_to_core_outcome(&js_outcome);
-        assert_eq!(core_outcome.ranks(), &[1, 2, 3]);
-
+    fn test_rating_conversion() {
         // Test rating conversion
         #[derive(Debug, Clone)]
         struct TestRating {
             mean: f64,
             variance: f64,
         }
-        impl crate::Rating for TestRating {
+        impl Rating for TestRating {
             fn mean(&self) -> f64 {
                 self.mean
             }
@@ -433,11 +468,13 @@ mod tests {
         }
 
         let test_rating = TestRating {
-            mean: 25.0,
-            variance: 64.0,
+            mean: 1600.0,
+            variance: 225.0,
         };
-        let js_rating = rating_to_js(&test_rating);
-        assert_eq!(js_rating.mean, 25.0);
-        assert_eq!(js_rating.variance, 64.0);
+
+        // Convert to JsRating
+        let js_rating = JsRating::new(test_rating.mean(), test_rating.variance());
+        assert_eq!(js_rating.mean(), 1600.0);
+        assert_eq!(js_rating.variance(), 225.0);
     }
 }
