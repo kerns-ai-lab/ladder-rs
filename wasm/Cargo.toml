@@ -77,15 +77,15 @@ wasm-opt = false
 
 [package.metadata.wasm-pack.profile.release]
 # Production profile - maximum optimization
-wasm-opt = ["-Oz", "--enable-mutable-globals", "--enable-bulk-memory"]
+wasm-opt = ["-Oz", "--enable-mutable-globals", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 
 [package.metadata.wasm-pack.profile.profiling]
 # Profiling profile - balanced optimization with debug info
-wasm-opt = ["-O2", "--enable-mutable-globals"]
+wasm-opt = ["-O2", "--enable-mutable-globals", "--enable-nontrapping-float-to-int"]
 
 [package.metadata.wasm-pack.profile.size]
 # Size-focused profile - aggressive size optimization
-wasm-opt = ["-Oz", "-g0", "--enable-mutable-globals", "--enable-bulk-memory", "--strip-debug"]
+wasm-opt = ["-Oz", "-g0", "--enable-mutable-globals", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--strip-debug"]
 
 # Rust compiler profiles
 [profile.release]

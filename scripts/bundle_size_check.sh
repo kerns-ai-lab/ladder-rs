@@ -19,6 +19,11 @@ if [ ! -f "$WASM_FILE" ]; then
 fi
 
 size=$(stat -c%s "$WASM_FILE" 2>/dev/null || stat -f%z "$WASM_FILE" 2>/dev/null)
+if [ -z "$size" ]; then
+  echo "Failed to determine file size of $WASM_FILE"
+  exit 1
+fi
+
 size_kb=$((size / 1024))
 
 if [ "$size" -gt "$MAX_BUNDLE_SIZE" ]; then
