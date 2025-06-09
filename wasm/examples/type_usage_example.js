@@ -18,6 +18,7 @@
 console.log("=== Creating Players ===");
 
 // Create a rating for player 1
+// Note: JsRating constructor validates variance > 0 and can throw
 const player1Rating = new wasm.JsRating(1500.0, 200.0);
 console.log(`Player 1 Rating - Mean: ${player1Rating.mean}, Variance: ${player1Rating.variance}`);
 
@@ -73,7 +74,9 @@ const updatedRatings = [
     new wasm.JsRating(1480.0, 210.0)   // Loser's new rating
 ];
 
-const matchResult = new wasm.JsMatchResult("player1", updatedRatings);
+// Note: In JavaScript, we pass null for a draw, or a string for the winner
+const matchResult = new wasm.JsMatchResult("player1", updatedRatings);  // Winner: player1
+// For a draw: const drawResult = new wasm.JsMatchResult(null, updatedRatings);
 console.log(`Match Winner: ${matchResult.winner}`);
 console.log(`Updated Ratings Count: ${matchResult.ratings.length}`);
 console.log(`Winner's new rating: Mean=${matchResult.ratings[0].mean}, Variance=${matchResult.ratings[0].variance}`);
@@ -106,6 +109,21 @@ try {
     console.log("Error handling example: Would throw on invalid JSON");
 } catch (e) {
     console.error("Caught error:", e);
+}
+
+// Example of rating validation
+try {
+    // This will throw because variance must be positive
+    const invalidRating = new wasm.JsRating(1500.0, -100.0);
+} catch (e) {
+    console.log("Caught variance validation error:", e);  // "Variance must be positive"
+}
+
+try {
+    // Zero variance is also invalid
+    const zeroVarianceRating = new wasm.JsRating(1500.0, 0.0);
+} catch (e) {
+    console.log("Caught zero variance error:", e);  // "Variance must be positive"
 }
 
 // 8. Working with Collections

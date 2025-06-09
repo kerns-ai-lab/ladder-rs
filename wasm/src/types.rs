@@ -20,7 +20,16 @@ pub struct JsRating {
 impl JsRating {
     /// Create a new rating
     #[wasm_bindgen(constructor)]
-    pub fn new(mean: f64, variance: f64) -> Self {
+    pub fn new(mean: f64, variance: f64) -> Result<JsRating, JsValue> {
+        if variance <= 0.0 {
+            return Err(JsValue::from_str("Variance must be positive"));
+        }
+        Ok(Self { mean, variance })
+    }
+    
+    /// Create a new rating (for internal use, not exposed to JS)
+    #[cfg(test)]
+    pub fn new_unchecked(mean: f64, variance: f64) -> Self {
         Self { mean, variance }
     }
 
@@ -383,7 +392,7 @@ mod tests {
 
     #[test]
     fn test_js_rating() {
-        let rating = JsRating::new(1500.0, 200.0);
+        let rating = JsRating::new_unchecked(1500.0, 200.0);
         assert_eq!(rating.mean(), 1500.0);
         assert_eq!(rating.variance(), 200.0);
 
@@ -392,11 +401,21 @@ mod tests {
         let parsed = JsRating::from_json(&json).unwrap();
         assert_eq!(parsed.mean(), rating.mean());
         assert_eq!(parsed.variance(), rating.variance());
+        
+        // Test variance validation logic
+        let rating_with_negative = JsRating::new_unchecked(1500.0, -100.0);
+        assert!(rating_with_negative.variance < 0.0); // Would be invalid
+        
+        let rating_with_zero = JsRating::new_unchecked(1500.0, 0.0);
+        assert_eq!(rating_with_zero.variance, 0.0); // Would be invalid
+        
+        let rating_valid = JsRating::new_unchecked(1500.0, 0.001);
+        assert!(rating_valid.variance > 0.0); // Valid
     }
 
     #[test]
     fn test_js_player() {
-        let rating = JsRating::new(1200.0, 100.0);
+        let rating = JsRating::new_unchecked(1200.0, 100.0);
         let player = JsPlayer::new("p1".to_string(), Some("Alice".to_string()), rating);
 
         assert_eq!(player.id(), "p1");
@@ -412,7 +431,10 @@ mod tests {
 
     #[test]
     fn test_match_result() {
-        let ratings = vec![JsRating::new(1520.0, 190.0), JsRating::new(1480.0, 210.0)];
+        let ratings = vec![
+            JsRating::new_unchecked(1520.0, 190.0), 
+            JsRating::new_unchecked(1480.0, 210.0)
+        ];
 
         let result = JsMatchResult::new(Some("p1".to_string()), ratings);
 
@@ -425,6 +447,13 @@ mod tests {
         let parsed = JsMatchResult::from_json(&json).unwrap();
         assert_eq!(parsed.winner(), result.winner());
         assert_eq!(parsed.ratings().len(), result.ratings().len());
+        
+        // Test draw (None winner)
+        let draw_result = JsMatchResult::new(None, vec![
+            JsRating::new_unchecked(1500.0, 200.0),
+            JsRating::new_unchecked(1500.0, 200.0)
+        ]);
+        assert_eq!(draw_result.winner(), None);
     }
 
     #[test]
@@ -473,7 +502,7 @@ mod tests {
         };
 
         // Convert to JsRating
-        let js_rating = JsRating::new(test_rating.mean(), test_rating.variance());
+        let js_rating = JsRating::new_unchecked(test_rating.mean(), test_rating.variance());
         assert_eq!(js_rating.mean(), 1600.0);
         assert_eq!(js_rating.variance(), 225.0);
     }
