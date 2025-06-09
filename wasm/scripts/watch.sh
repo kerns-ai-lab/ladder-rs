@@ -188,7 +188,7 @@ start_inotifywait() {
         local event=$(echo "$line" | cut -d' ' -f2)
         
         # Check if file matches extension filter
-        if [[ "$file_path" =~ $extension_filter ]]; then
+        if [[ "$file_path" =~ ${extension_filter} ]]; then
             echo "$file_path ($event)"
         fi
     done | debounce_changes

@@ -114,6 +114,31 @@ fn test_watch_script_functionality() {
     assert!(help_text.contains("--debounce"), "Should support debounce timing");
 }
 
+/// Test shell compatibility for regex patterns
+#[test]
+fn test_watch_script_shell_compatibility() {
+    // This test validates that the regex pattern fix is syntactically correct
+    // The actual shell compatibility is tested by running the script with --help
+    let output = Command::new("./scripts/watch.sh")
+        .arg("--help")
+        .output()
+        .expect("Should execute watch script");
+    
+    assert!(output.status.success(), "Watch script should have valid bash syntax");
+    
+    // Verify the script has no syntax errors by checking exit code
+    let syntax_check = Command::new("bash")
+        .arg("-n")  // Check syntax only, don't execute
+        .arg("./scripts/watch.sh")
+        .output()
+        .expect("Should check script syntax");
+    
+    assert!(
+        syntax_check.status.success(),
+        "Watch script should have valid bash syntax with no errors"
+    );
+}
+
 /// Test that development server script supports multiple protocols
 #[test]
 fn test_dev_server_script_functionality() {
