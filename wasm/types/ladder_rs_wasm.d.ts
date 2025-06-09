@@ -448,21 +448,10 @@ export function initSync(module: { module: SyncInitInput } | SyncInitInput): Ini
 export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
 
 // Type assertions for runtime validation
-export function isWasmRating(obj: any): obj is WasmRating {
-  return obj && typeof obj.player_id === 'string' && typeof obj.rating === 'number';
-}
-
-export function isValidPlayerId(id: any): id is PlayerId {
-  return typeof id === 'string' && id.length > 0;
-}
-
-export function isValidProbability(p: any): p is Probability {
-  return typeof p === 'number' && p >= 0 && p <= 1;
-}
-
-export function isMatchOutcome(outcome: any): outcome is MatchOutcome {
-  return typeof outcome === 'number' && (outcome === 0 || outcome === 1 || outcome === 2);
-}
+export declare function isWasmRating(obj: any): obj is WasmRating;
+export declare function isValidPlayerId(id: any): id is PlayerId;
+export declare function isValidProbability(p: any): p is Probability;
+export declare function isMatchOutcome(outcome: any): outcome is MatchOutcome;
 
 // Enhanced async types for WebAssembly initialization
 export interface WasmInitOptions {
@@ -477,7 +466,7 @@ export interface WasmInitResult extends InitOutput {
 }
 
 // Promise-based initialization wrapper
-export function initializeWasm(options?: WasmInitOptions): Promise<WasmInitResult>;
+export declare function initializeWasm(options?: WasmInitOptions): Promise<WasmInitResult>;
 
 // Backward compatibility aliases
 export type JsRatingValue = WasmRating;
@@ -491,4 +480,4 @@ export interface LegacyEloConfig {
 }
 
 // Convert legacy config to new format
-export function convertLegacyConfig(legacy: LegacyEloConfig): EloConfig;
+export declare function convertLegacyConfig(legacy: LegacyEloConfig): EloConfig;
