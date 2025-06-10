@@ -5,7 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
-use crate::errors::{validate_finite, validate_finite_positive, validate_non_empty};
 
 /// JavaScript-friendly rating representation
 #[wasm_bindgen]
@@ -22,10 +21,9 @@ impl JsRating {
     /// Create a new rating
     #[wasm_bindgen(constructor)]
     pub fn new(mean: f64, variance: f64) -> Result<JsRating, JsValue> {
-        validate_finite(mean, "mean")
-            .map_err(|e| e.to_js_value())?;
-        validate_finite_positive(variance, "variance")
-            .map_err(|e| e.to_js_value())?;
+        if variance <= 0.0 {
+            return Err(JsValue::from_str("Variance must be positive"));
+        }
         Ok(Self { mean, variance })
     }
     
@@ -75,10 +73,8 @@ pub struct JsPlayer {
 impl JsPlayer {
     /// Create a new player
     #[wasm_bindgen(constructor)]
-    pub fn new(id: String, name: Option<String>, rating: JsRating) -> Result<JsPlayer, JsValue> {
-        validate_non_empty(&id, "Player ID")
-            .map_err(|e| e.to_js_value())?;
-        Ok(Self { id, name, rating })
+    pub fn new(id: String, name: Option<String>, rating: JsRating) -> Self {
+        Self { id, name, rating }
     }
 
     /// Get player ID
@@ -128,15 +124,15 @@ pub struct JsMatchConfig {
     /// Algorithm to use
     algorithm: String,
     /// Algorithm-specific parameters
-    config: JsValue,
+    params: JsValue,
 }
 
 #[wasm_bindgen]
 impl JsMatchConfig {
     /// Create match configuration
     #[wasm_bindgen(constructor)]
-    pub fn new(algorithm: String, config: JsValue) -> Self {
-        Self { algorithm, config }
+    pub fn new(algorithm: String, params: JsValue) -> Self {
+        Self { algorithm, params }
     }
 
     /// Get algorithm name
@@ -147,8 +143,8 @@ impl JsMatchConfig {
 
     /// Get parameters
     #[wasm_bindgen(getter)]
-    pub fn config(&self) -> JsValue {
-        self.config.clone()
+    pub fn params(&self) -> JsValue {
+        self.params.clone()
     }
 }
 
@@ -166,8 +162,8 @@ pub struct JsMatchResult {
 impl JsMatchResult {
     /// Create match result
     #[wasm_bindgen(constructor)]
-    pub fn new(winner: String, ratings: Vec<JsRating>) -> Self {
-        Self { winner: Some(winner), ratings }
+    pub fn new(winner: Option<String>, ratings: Vec<JsRating>) -> Self {
+        Self { winner, ratings }
     }
 
     /// Get winner ID
@@ -211,26 +207,11 @@ pub struct JsEloConfig {
 impl JsEloConfig {
     /// Create Elo configuration
     #[wasm_bindgen(constructor)]
-    pub fn new(k_factor: f64, initial_rating: f64, initial_variance: f64) -> Result<JsEloConfig, JsValue> {
-        validate_finite_positive(k_factor, "k_factor")
-            .map_err(|e| e.to_js_value())?;
-        validate_finite(initial_rating, "initial_rating")
-            .map_err(|e| e.to_js_value())?;
-        validate_finite_positive(initial_variance, "initial_variance")
-            .map_err(|e| e.to_js_value())?;
-        Ok(Self {
+    pub fn new(k_factor: f64, initial_rating: f64, initial_variance: f64) -> Self {
+        Self {
             k_factor,
             initial_rating,
             initial_variance,
-        })
-    }
-    
-    /// Create default Elo configuration
-    pub fn default() -> Self {
-        Self {
-            k_factor: 32.0,
-            initial_rating: 1500.0,
-            initial_variance: 300.0,
         }
     }
 
@@ -269,18 +250,12 @@ pub struct JsGlickoConfig {
 impl JsGlickoConfig {
     /// Create Glicko configuration
     #[wasm_bindgen(constructor)]
-    pub fn new(initial_rating: f64, initial_deviation: f64, c: f64) -> Result<JsGlickoConfig, JsValue> {
-        validate_finite(initial_rating, "initial_rating")
-            .map_err(|e| e.to_js_value())?;
-        validate_finite_positive(initial_deviation, "initial_deviation")
-            .map_err(|e| e.to_js_value())?;
-        validate_finite_positive(c, "c")
-            .map_err(|e| e.to_js_value())?;
-        Ok(Self {
+    pub fn new(initial_rating: f64, initial_deviation: f64, c: f64) -> Self {
+        Self {
             initial_rating,
             initial_deviation,
             c,
-        })
+        }
     }
 
     /// Get initial rating
@@ -328,27 +303,14 @@ impl JsTrueSkillConfig {
         beta: f64,
         tau: f64,
         draw_probability: f64,
-    ) -> Result<JsTrueSkillConfig, JsValue> {
-        use crate::errors::validate_probability;
-        
-        validate_finite(initial_mean, "initial_mean")
-            .map_err(|e| e.to_js_value())?;
-        validate_finite_positive(initial_std_dev, "initial_std_dev")
-            .map_err(|e| e.to_js_value())?;
-        validate_finite_positive(beta, "beta")
-            .map_err(|e| e.to_js_value())?;
-        validate_finite_positive(tau, "tau")
-            .map_err(|e| e.to_js_value())?;
-        validate_probability(draw_probability, "draw_probability")
-            .map_err(|e| e.to_js_value())?;
-        
-        Ok(Self {
+    ) -> Self {
+        Self {
             initial_mean,
             initial_std_dev,
             beta,
             tau,
             draw_probability,
-        })
+        }
     }
 
     /// Get initial mean
@@ -453,7 +415,7 @@ mod tests {
     #[test]
     fn test_js_player() {
         let rating = JsRating::new_unchecked(1200.0, 100.0);
-        let player = JsPlayer::new("p1".to_string(), Some("Alice".to_string()), rating).unwrap();
+        let player = JsPlayer::new("p1".to_string(), Some("Alice".to_string()), rating);
 
         assert_eq!(player.id(), "p1");
         assert_eq!(player.name(), Some("Alice".to_string()));
@@ -473,7 +435,7 @@ mod tests {
             JsRating::new_unchecked(1480.0, 210.0)
         ];
 
-        let result = JsMatchResult::new("p1".to_string(), ratings);
+        let result = JsMatchResult::new(Some("p1".to_string()), ratings);
 
         assert_eq!(result.winner(), Some("p1".to_string()));
         assert_eq!(result.ratings().len(), 2);
@@ -484,19 +446,26 @@ mod tests {
         let parsed = JsMatchResult::from_json(&json).unwrap();
         assert_eq!(parsed.winner(), result.winner());
         assert_eq!(parsed.ratings().len(), result.ratings().len());
+        
+        // Test draw (None winner)
+        let draw_result = JsMatchResult::new(None, vec![
+            JsRating::new_unchecked(1500.0, 200.0),
+            JsRating::new_unchecked(1500.0, 200.0)
+        ]);
+        assert_eq!(draw_result.winner(), None);
     }
 
     #[test]
     fn test_config_types() {
-        let elo_config = JsEloConfig::new(32.0, 1500.0, 300.0).unwrap();
+        let elo_config = JsEloConfig::new(32.0, 1500.0, 300.0);
         assert_eq!(elo_config.k_factor(), 32.0);
         assert_eq!(elo_config.initial_rating(), 1500.0);
 
-        let glicko_config = JsGlickoConfig::new(1500.0, 350.0, 15.0).unwrap();
+        let glicko_config = JsGlickoConfig::new(1500.0, 350.0, 15.0);
         assert_eq!(glicko_config.initial_rating(), 1500.0);
         assert_eq!(glicko_config.initial_deviation(), 350.0);
 
-        let trueskill_config = JsTrueSkillConfig::new(25.0, 8.333, 4.166, 0.083, 0.1).unwrap();
+        let trueskill_config = JsTrueSkillConfig::new(25.0, 8.333, 4.166, 0.083, 0.1);
         assert_eq!(trueskill_config.initial_mean(), 25.0);
         assert_eq!(trueskill_config.beta(), 4.166);
     }

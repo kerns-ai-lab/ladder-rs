@@ -49,20 +49,9 @@ pub mod types;
 pub mod utils;
 pub mod js_interface;
 pub mod conversions;
-pub mod errors;
-pub mod rating_system;
 
 // Re-export optimized API
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
 
 // Re-export JavaScript interface types
 pub use js_interface::*;
-
-// Re-export error types
-pub use errors::{JsRatingError, ErrorLevel, SafeMatchResult, BatchResult};
-
-// Re-export core types
-pub use types::{JsRating, JsPlayer, JsMatchConfig, JsMatchResult, JsOutcome, JsEloConfig, JsGlickoConfig, JsTrueSkillConfig};
-
-// Re-export rating system
-pub use rating_system::JsRatingSystem;
