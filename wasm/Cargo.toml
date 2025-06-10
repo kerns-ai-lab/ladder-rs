@@ -33,11 +33,11 @@ uuid = { version = "1.0", features = ["v4", "js"], default-features = false }
 wee_alloc = { version = "0.4", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 
-# Core library dependency with all rating systems
+# Core library dependency - start with just Elo for now
 [dependencies.ladder-rs]
 path = "../"
 default-features = false
-features = ["all-algorithms"]  # Include all algorithms
+features = ["elo-only"]  # Start with just Elo
 
 # Essential WASM compatibility
 [dependencies.getrandom]
