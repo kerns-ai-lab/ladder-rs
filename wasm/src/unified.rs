@@ -101,21 +101,21 @@ impl MatchResult {
 
 /// Configuration for creating rating systems
 #[derive(Debug, Deserialize)]
-struct SystemConfig {
-    system: String,
+pub(crate) struct SystemConfig {
+    pub system: String,
     // Elo parameters
-    k_factor: Option<f64>,
+    pub k_factor: Option<f64>,
     // Glicko parameters
-    initial_rating: Option<f64>,
-    initial_deviation: Option<f64>,
-    volatility: Option<f64>,
-    rating_period_duration: Option<u64>,
+    pub initial_rating: Option<f64>,
+    pub initial_deviation: Option<f64>,
+    pub volatility: Option<f64>,
+    pub rating_period_duration: Option<u64>,
     // TrueSkill parameters
-    mu: Option<f64>,
-    sigma: Option<f64>,
-    beta: Option<f64>,
-    tau: Option<f64>,
-    draw_probability: Option<f64>,
+    pub mu: Option<f64>,
+    pub sigma: Option<f64>,
+    pub beta: Option<f64>,
+    pub tau: Option<f64>,
+    pub draw_probability: Option<f64>,
 }
 
 /// Internal rating storage that can hold any rating type
@@ -175,4 +175,4 @@ pub struct UnifiedRatingSystem {
     pub(crate) config: serde_json::Value,
 }
 
-// Main implementation methods are in unified_impl.rs and unified_methods.rs
+// Main implementation methods are in unified_impl.rs, unified_constructor.rs and unified_methods.rs
