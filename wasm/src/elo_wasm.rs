@@ -204,48 +204,31 @@ pub struct EloUtils;
 #[wasm_bindgen]
 impl EloUtils {
     /// Processes multiple matches in batch
-    /// Takes an array of ratings and an array of match data
+    /// Takes JSON strings: ratings array and matches array
     /// Match data format: [[player1_idx, player2_idx, outcome], ...]
-    /// Returns updated ratings array
+    /// Returns updated ratings as JSON string
     pub fn batch_process(
         system: &EloSystem,
-        ratings: &js_sys::Array,
-        matches: &js_sys::Array,
-    ) -> Result<js_sys::Array, JsValue> {
-        // Convert ratings from JS array
-        let mut ratings: Vec<EloRating> = ratings
-            .iter()
-            .map(|val| {
-                val.dyn_into::<EloRating>()
-                    .map(|r| r.clone())
-                    .or_else(|_| {
-                        // Try to parse as object with value property
-                        let obj = js_sys::Object::from(val);
-                        let value = js_sys::Reflect::get(&obj, &"value".into())
-                            .ok()?
-                            .as_f64()?;
-                        Some(EloRating::new(value))
-                    })
-            })
-            .collect::<Option<Vec<_>>>()
-            .ok_or_else(|| JsValue::from_str("Invalid ratings array"))?;
+        ratings_json: &str,
+        matches_json: &str,
+    ) -> Result<String, JsValue> {
+        // Parse ratings from JSON
+        let mut ratings: Vec<EloRating> = serde_json::from_str(ratings_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid ratings JSON: {}", e)))?;
+
+        // Parse matches from JSON
+        let matches: Vec<Vec<i32>> = serde_json::from_str(matches_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid matches JSON: {}", e)))?;
 
         // Process each match
-        for i in 0..matches.length() {
-            let match_data = matches.get(i);
-            let match_array = match_data.dyn_into::<js_sys::Array>()
-                .map_err(|_| JsValue::from_str("Invalid match data"))?;
-
-            if match_array.length() < 3 {
+        for match_data in matches {
+            if match_data.len() < 3 {
                 return Err(JsValue::from_str("Match data must have [idx1, idx2, outcome]"));
             }
 
-            let idx1 = match_array.get(0).as_f64()
-                .ok_or_else(|| JsValue::from_str("Invalid player index"))? as usize;
-            let idx2 = match_array.get(1).as_f64()
-                .ok_or_else(|| JsValue::from_str("Invalid player index"))? as usize;
-            let outcome_num = match_array.get(2).as_f64()
-                .ok_or_else(|| JsValue::from_str("Invalid outcome"))? as i32;
+            let idx1 = match_data[0] as usize;
+            let idx2 = match_data[1] as usize;
+            let outcome_num = match_data[2];
 
             if idx1 >= ratings.len() || idx2 >= ratings.len() {
                 return Err(JsValue::from_str("Player index out of bounds"));
@@ -257,55 +240,66 @@ impl EloUtils {
                 _ => MatchOutcome::Draw,
             };
 
+            // Process the match
             let updated = system.process_1v1(&ratings[idx1], &ratings[idx2], outcome)?;
-            ratings[idx1] = updated.get(0).dyn_into::<EloRating>()
-                .map_err(|_| JsValue::from_str("Failed to update rating"))?
-                .clone();
-            ratings[idx2] = updated.get(1).dyn_into::<EloRating>()
-                .map_err(|_| JsValue::from_str("Failed to update rating"))?
-                .clone();
+            
+            // Extract updated ratings from array
+            let new_rating1_value = updated.get(0).as_f64()
+                .ok_or_else(|| JsValue::from_str("Invalid rating value"))?;
+            let new_rating2_value = updated.get(1).as_f64()
+                .ok_or_else(|| JsValue::from_str("Invalid rating value"))?;
+            
+            ratings[idx1] = EloRating::new(new_rating1_value);
+            ratings[idx2] = EloRating::new(new_rating2_value);
         }
 
-        // Convert back to JS array
-        let result = js_sys::Array::new();
-        for rating in ratings {
-            result.push(&JsValue::from(rating));
-        }
-
-        Ok(result)
+        // Convert back to JSON
+        serde_json::to_string(&ratings)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 
-    /// Creates a leaderboard from ratings
-    /// Returns array of [index, rating] sorted by rating descending
-    pub fn create_leaderboard(ratings: &js_sys::Array) -> Result<js_sys::Array, JsValue> {
-        let mut indexed: Vec<(usize, f64)> = Vec::new();
+    /// Creates a leaderboard from ratings JSON
+    /// Returns JSON array of [index, rating] sorted by rating descending
+    pub fn create_leaderboard(ratings_json: &str) -> Result<String, JsValue> {
+        // Parse ratings
+        let ratings: Vec<EloRating> = serde_json::from_str(ratings_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid ratings JSON: {}", e)))?;
 
-        for i in 0..ratings.length() {
-            let rating = ratings.get(i);
-            let value = if let Ok(elo_rating) = rating.dyn_ref::<EloRating>() {
-                elo_rating.value()
-            } else {
-                // Try to extract value from object
-                let obj = js_sys::Object::from(rating);
-                js_sys::Reflect::get(&obj, &"value".into())
-                    .ok()
-                    .and_then(|v| v.as_f64())
-                    .ok_or_else(|| JsValue::from_str("Invalid rating in array"))?
-            };
-            indexed.push((i as usize, value));
-        }
+        // Create indexed ratings
+        let mut indexed: Vec<(usize, f64)> = ratings
+            .iter()
+            .enumerate()
+            .map(|(idx, rating)| (idx, rating.value))
+            .collect();
 
+        // Sort by rating descending
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        let result = js_sys::Array::new();
-        for (idx, rating) in indexed {
-            let entry = js_sys::Array::new();
-            entry.push(&JsValue::from(idx as u32));
-            entry.push(&JsValue::from(rating));
-            result.push(&entry);
-        }
+        // Convert to array format
+        let result: Vec<Vec<serde_json::Value>> = indexed
+            .into_iter()
+            .map(|(idx, rating)| vec![
+                serde_json::Value::from(idx),
+                serde_json::Value::from(rating),
+            ])
+            .collect();
 
-        Ok(result)
+        // Return as JSON
+        serde_json::to_string(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Helper to create a ratings array from values
+    pub fn create_ratings_from_values(values_json: &str) -> Result<String, JsValue> {
+        let values: Vec<f64> = serde_json::from_str(values_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid values JSON: {}", e)))?;
+
+        let ratings: Vec<EloRating> = values.into_iter()
+            .map(|v| EloRating::new(v))
+            .collect();
+
+        serde_json::to_string(&ratings)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 }
 
@@ -332,5 +326,15 @@ mod tests {
         let serialized = rating.serialize();
         let deserialized = EloRating::deserialize(&serialized).unwrap();
         assert_eq!(deserialized.value(), 1700.0);
+    }
+
+    #[test]
+    fn test_batch_processing() {
+        let system = EloSystem::new();
+        let ratings_json = r#"[{"value":1500},{"value":1500},{"value":1500}]"#;
+        let matches_json = r#"[[0,1,1],[1,2,2]]"#;
+        
+        let result = EloUtils::batch_process(&system, ratings_json, matches_json);
+        assert!(result.is_ok());
     }
 }
