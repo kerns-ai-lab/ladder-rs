@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 use ladder_rs::{
     core::{Rating, RatingSystem as CoreRatingSystem},
     elo::{EloSystem},
-    glicko::{GlickoSystem},
+    glicko::{Glicko},
     trueskill::{TrueSkillSystem},
 };
 
@@ -60,7 +60,7 @@ impl UnifiedRatingSystem {
                 let initial_deviation = system_config.initial_deviation.unwrap_or(350.0);
                 let volatility = system_config.volatility.unwrap_or(0.06);
                 system.system_type = RatingSystemType::Glicko;
-                system.glicko_system = Some(GlickoSystem::new(initial_rating, initial_deviation, volatility));
+                system.glicko_system = Some(Glicko::new(initial_rating, initial_deviation, volatility));
             },
             "trueskill" => {
                 let mu = system_config.mu.unwrap_or(25.0);

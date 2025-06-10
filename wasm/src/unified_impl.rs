@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem as CoreRatingSystem, TeamRating},
     elo::{EloRating, EloSystem, EloTeamRating},
-    glicko::{GlickoRating, GlickoSystem, GlickoTeamRating},
+    glicko::{GlickoRating, Glicko, GlickoTeamRating},
     trueskill::{TrueSkillRating, TrueSkillSystem, TrueSkillTeamRating},
 };
 

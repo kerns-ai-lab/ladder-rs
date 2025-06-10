@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 use ladder_rs::{
     core::{Rating, RatingSystem as CoreRatingSystem},
     elo::{EloRating, EloSystem},
-    glicko::{GlickoRating, GlickoSystem},
+    glicko::{GlickoRating, Glicko},
     trueskill::{TrueSkillRating, TrueSkillSystem},
 };
 
@@ -169,7 +169,7 @@ pub struct UnifiedRatingSystem {
     pub(crate) players: HashMap<String, (RatingStorage, u32)>,
     // Store system-specific data
     pub(crate) elo_system: Option<EloSystem>,
-    pub(crate) glicko_system: Option<GlickoSystem>,
+    pub(crate) glicko_system: Option<Glicko>,
     pub(crate) trueskill_system: Option<TrueSkillSystem>,
     // Configuration for serialization
     pub(crate) config: serde_json::Value,
