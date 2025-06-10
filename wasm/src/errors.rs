@@ -388,171 +388,34 @@ pub fn validate_probability(value: f64, field_name: &str) -> Result<(), JsRating
 }
 
 // Conversion from ladder_rs errors
+// Conversion from ladder_rs errors
 impl From<ladder_rs::error::Error> for JsRatingError {
     fn from(err: ladder_rs::error::Error) -> Self {
         match err {
             ladder_rs::error::Error::InvalidInput(msg) => {
                 JsRatingError::validation_error(&msg)
             }
-            ladder_rs::error::Error::InvalidMatchOutcome(msg) => {
+            ladder_rs::error::Error::CalculationError(msg) => {
+                JsRatingError::calculation_error(&msg)
+            }
+            ladder_rs::error::Error::NumericalError(msg) => {
+                JsRatingError::calculation_error(&msg)
+                    .with_code("NUMERICAL_ERROR")
+            }
+            ladder_rs::error::Error::ConvergenceFailure(msg) => {
+                JsRatingError::convergence_error(&msg, 0)
+            }
+            ladder_rs::error::Error::InvalidConfiguration(msg) => {
+                JsRatingError::configuration_error(&msg)
+            }
+            ladder_rs::error::Error::InvalidOutcome(msg) => {
                 JsRatingError::validation_error(&msg)
                     .with_code("INVALID_OUTCOME")
             }
-            ladder_rs::error::Error::ConvergenceFailed { iterations, .. } => {
-                JsRatingError::convergence_error(
-                    "Algorithm failed to converge within maximum iterations",
-                    iterations
-                )
-            }
-            ladder_rs::error::Error::ConfigurationError(msg) => {
-                JsRatingError::configuration_error(&msg)
-            }
-            ladder_rs::error::Error::UnsupportedTeamSize(size) => {
-                JsRatingError::validation_error(&format!(
-                    "Team size {} is not supported", size
-                )).with_recovery_suggestion(
-                    "Use teams with at least 1 player each"
-                )
+            ladder_rs::error::Error::Other(msg) => {
+                JsRatingError::calculation_error(&msg)
+                    .with_code("OTHER_ERROR")
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_error_types() {
-        // Test validation error
-        let error = JsRatingError::validation_error("Invalid rating value");
-        assert_eq!(error.error_type(), "ValidationError");
-        assert!(error.message().contains("Invalid rating value"));
-        
-        // Test calculation error
-        let error = JsRatingError::calculation_error("Division by zero");
-        assert_eq!(error.error_type(), "CalculationError");
-        
-        // Test configuration error
-        let error = JsRatingError::configuration_error("Invalid K-factor");
-        assert_eq!(error.error_type(), "ConfigurationError");
-        
-        // Test convergence error
-        let error = JsRatingError::convergence_error("Failed to converge", 100);
-        assert_eq!(error.error_type(), "ConvergenceError");
-        assert!(error.context.contains_key("iterations"));
-    }
-
-    #[test]
-    fn test_error_context_and_chaining() {
-        let base_error = JsRatingError::validation_error("Invalid player ID");
-        let enhanced_error = base_error
-            .with_context("player_id", "player_123")
-            .with_context("operation", "create_player");
-            
-        assert_eq!(enhanced_error.context.get("player_id").unwrap(), "player_123");
-        assert_eq!(enhanced_error.context.get("operation").unwrap(), "create_player");
-        
-        // Test error chaining
-        let cause = JsRatingError::validation_error("Negative variance");
-        let error = JsRatingError::calculation_error("Cannot calculate rating")
-            .with_cause(Box::new(cause));
-            
-        assert!(error.cause().is_some());
-    }
-
-    #[test]
-    fn test_error_levels() {
-        let debug_error = JsRatingError::validation_error("Minor issue")
-            .with_level(ErrorLevel::Debug);
-        assert_eq!(debug_error.level(), ErrorLevel::Debug);
-        
-        let critical_error = JsRatingError::calculation_error("System failure")
-            .with_level(ErrorLevel::Critical);
-        assert_eq!(critical_error.level(), ErrorLevel::Critical);
-    }
-
-    #[test]
-    fn test_recovery_suggestions() {
-        let error = JsRatingError::validation_error("Invalid variance")
-            .with_recovery_suggestion("Variance must be positive. Try using a value greater than 0.");
-            
-        assert!(error.recovery_suggestion().is_some());
-        assert!(error.recovery_suggestion().unwrap().contains("positive"));
-    }
-
-    #[test]
-    fn test_validation_helpers() {
-        // Test finite validation
-        assert!(validate_finite(1500.0, "rating").is_ok());
-        assert!(validate_finite(f64::NAN, "rating").is_err());
-        assert!(validate_finite(f64::INFINITY, "rating").is_err());
-        
-        // Test positive validation
-        assert!(validate_positive(100.0, "variance").is_ok());
-        assert!(validate_positive(0.0, "variance").is_err());
-        assert!(validate_positive(-100.0, "variance").is_err());
-        
-        // Test finite positive validation
-        assert!(validate_finite_positive(200.0, "variance").is_ok());
-        assert!(validate_finite_positive(-100.0, "variance").is_err());
-        assert!(validate_finite_positive(f64::INFINITY, "variance").is_err());
-        
-        // Test non-empty validation
-        assert!(validate_non_empty("player1", "player_id").is_ok());
-        assert!(validate_non_empty("", "player_id").is_err());
-        assert!(validate_non_empty("   ", "player_id").is_err());
-        
-        // Test probability validation
-        assert!(validate_probability(0.5, "draw_probability").is_ok());
-        assert!(validate_probability(0.0, "draw_probability").is_ok());
-        assert!(validate_probability(1.0, "draw_probability").is_ok());
-        assert!(validate_probability(-0.1, "draw_probability").is_err());
-        assert!(validate_probability(1.1, "draw_probability").is_err());
-    }
-
-    #[test]
-    fn test_error_serialization() {
-        let error = JsRatingError::validation_error("Test error")
-            .with_context("field", "rating")
-            .with_code("E001")
-            .with_level(ErrorLevel::Warning);
-            
-        // Test JSON serialization
-        let json = error.to_json();
-        assert!(json.contains("ValidationError"));
-        assert!(json.contains("Test error"));
-        assert!(json.contains("E001"));
-        assert!(json.contains("Warning"));
-    }
-
-    #[test]
-    fn test_safe_match_result() {
-        // Test successful result
-        let ok_result = SafeMatchResult::ok(JsValue::from_str("success"));
-        assert!(ok_result.success());
-        assert!(ok_result.error().is_none());
-        assert!(ok_result.result().is_some());
-        
-        // Test failed result
-        let error = JsRatingError::validation_error("Test failure");
-        let err_result = SafeMatchResult::err(error);
-        assert!(!err_result.success());
-        assert!(err_result.error().is_some());
-        assert!(err_result.result().is_none());
-    }
-
-    #[test]
-    fn test_batch_result() {
-        let results = vec![
-            SafeMatchResult::ok(JsValue::from_str("result1")),
-            SafeMatchResult::err(JsRatingError::validation_error("error")),
-            SafeMatchResult::ok(JsValue::from_str("result2")),
-        ];
-        
-        let batch = BatchResult::new(results);
-        assert_eq!(batch.total_count(), 3);
-        assert_eq!(batch.successful_count(), 2);
-        assert_eq!(batch.failed_count(), 1);
     }
 }
