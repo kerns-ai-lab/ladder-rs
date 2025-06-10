@@ -6,7 +6,7 @@
 use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
 use ladder_rs::elo::{EloRating as CoreEloRating, EloSystem as CoreEloSystem, EloTeamRating};
-use ladder_rs::core::{GameOutcome, Rating, RatingSystem, TeamRating};
+use ladder_rs::core::{GameOutcome, RatingSystem, TeamRating};
 
 /// Match outcome for 1v1 games
 #[wasm_bindgen]
@@ -14,15 +14,6 @@ use ladder_rs::core::{GameOutcome, Rating, RatingSystem, TeamRating};
 pub enum MatchOutcome {
     Player1Win,
     Player2Win,
-    Draw,
-}
-
-/// Team match outcome
-#[wasm_bindgen]
-#[derive(Clone, Copy, Debug)]
-pub enum TeamOutcome {
-    Team1Win,
-    Team2Win,
     Draw,
 }
 
@@ -131,12 +122,13 @@ impl EloSystem {
     }
 
     /// Processes a 1v1 match and returns updated ratings
+    /// Returns a JavaScript array with two EloRating objects
     pub fn process_1v1(
         &self,
         player1: &EloRating,
         player2: &EloRating,
         outcome: MatchOutcome,
-    ) -> Result<Vec<EloRating>, JsValue> {
+    ) -> Result<js_sys::Array, JsValue> {
         // Convert to core types
         let team1 = EloTeamRating::new(CoreEloRating::new(player1.value));
         let team2 = EloTeamRating::new(CoreEloRating::new(player2.value));
@@ -153,52 +145,15 @@ impl EloSystem {
             .rate(&[team1, team2], &game_outcome)
             .map_err(|e| JsValue::from_str(&format!("Rating error: {}", e)))?;
 
-        // Extract updated ratings
+        // Extract updated ratings and convert to JS array
         let new_p1 = result[0].player_ratings()[0].rating();
         let new_p2 = result[1].player_ratings()[0].rating();
 
-        Ok(vec![EloRating::new(new_p1), EloRating::new(new_p2)])
-    }
+        let array = js_sys::Array::new();
+        array.push(&JsValue::from(EloRating::new(new_p1)));
+        array.push(&JsValue::from(EloRating::new(new_p2)));
 
-    /// Processes a team match and returns updated ratings
-    pub fn process_team_match(
-        &self,
-        team1: &JsValue,
-        team2: &JsValue,
-        outcome: TeamOutcome,
-    ) -> Result<Vec<Vec<EloRating>>, JsValue> {
-        // Convert JavaScript arrays to Vec<EloRating>
-        let team1_ratings: Vec<EloRating> = team1.into_serde()
-            .map_err(|_| JsValue::from_str("Invalid team1 array"))?;
-        let team2_ratings: Vec<EloRating> = team2.into_serde()
-            .map_err(|_| JsValue::from_str("Invalid team2 array"))?;
-
-        // For Elo, we need exactly one player per team
-        if team1_ratings.len() != 1 || team2_ratings.len() != 1 {
-            return Err(JsValue::from_str("Elo only supports 1v1 matches"));
-        }
-
-        // Convert to core types
-        let core_team1 = EloTeamRating::new(CoreEloRating::new(team1_ratings[0].value));
-        let core_team2 = EloTeamRating::new(CoreEloRating::new(team2_ratings[0].value));
-
-        // Convert outcome
-        let game_outcome = match outcome {
-            TeamOutcome::Team1Win => GameOutcome::win(0, 2),
-            TeamOutcome::Team2Win => GameOutcome::win(1, 2),
-            TeamOutcome::Draw => GameOutcome::draw(2),
-        };
-
-        // Process the match
-        let result = self.inner
-            .rate(&[core_team1, core_team2], &game_outcome)
-            .map_err(|e| JsValue::from_str(&format!("Rating error: {}", e)))?;
-
-        // Extract updated ratings
-        let new_team1 = vec![EloRating::new(result[0].player_ratings()[0].rating())];
-        let new_team2 = vec![EloRating::new(result[1].player_ratings()[0].rating())];
-
-        Ok(vec![new_team1, new_team2])
+        Ok(array)
     }
 
     /// Calculates the win probability for player1
@@ -249,21 +204,51 @@ pub struct EloUtils;
 #[wasm_bindgen]
 impl EloUtils {
     /// Processes multiple matches in batch
-    /// Takes an array of match data: [[player1_idx, player2_idx, outcome], ...]
+    /// Takes an array of ratings and an array of match data
+    /// Match data format: [[player1_idx, player2_idx, outcome], ...]
+    /// Returns updated ratings array
     pub fn batch_process(
         system: &EloSystem,
-        ratings: &JsValue,
-        matches: &JsValue,
-    ) -> Result<Vec<EloRating>, JsValue> {
-        let mut ratings: Vec<EloRating> = ratings.into_serde()
-            .map_err(|_| JsValue::from_str("Invalid ratings array"))?;
+        ratings: &js_sys::Array,
+        matches: &js_sys::Array,
+    ) -> Result<js_sys::Array, JsValue> {
+        // Convert ratings from JS array
+        let mut ratings: Vec<EloRating> = ratings
+            .iter()
+            .map(|val| {
+                val.dyn_into::<EloRating>()
+                    .map(|r| r.clone())
+                    .or_else(|_| {
+                        // Try to parse as object with value property
+                        let obj = js_sys::Object::from(val);
+                        let value = js_sys::Reflect::get(&obj, &"value".into())
+                            .ok()?
+                            .as_f64()?;
+                        Some(EloRating::new(value))
+                    })
+            })
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| JsValue::from_str("Invalid ratings array"))?;
 
-        let matches: Vec<(usize, usize, i32)> = matches.into_serde()
-            .map_err(|_| JsValue::from_str("Invalid matches array"))?;
+        // Process each match
+        for i in 0..matches.length() {
+            let match_data = matches.get(i);
+            let match_array = match_data.dyn_into::<js_sys::Array>()
+                .map_err(|_| JsValue::from_str("Invalid match data"))?;
 
-        for (idx1, idx2, outcome_num) in matches {
+            if match_array.length() < 3 {
+                return Err(JsValue::from_str("Match data must have [idx1, idx2, outcome]"));
+            }
+
+            let idx1 = match_array.get(0).as_f64()
+                .ok_or_else(|| JsValue::from_str("Invalid player index"))? as usize;
+            let idx2 = match_array.get(1).as_f64()
+                .ok_or_else(|| JsValue::from_str("Invalid player index"))? as usize;
+            let outcome_num = match_array.get(2).as_f64()
+                .ok_or_else(|| JsValue::from_str("Invalid outcome"))? as i32;
+
             if idx1 >= ratings.len() || idx2 >= ratings.len() {
-                return Err(JsValue::from_str("Invalid player index"));
+                return Err(JsValue::from_str("Player index out of bounds"));
             }
 
             let outcome = match outcome_num {
@@ -273,36 +258,54 @@ impl EloUtils {
             };
 
             let updated = system.process_1v1(&ratings[idx1], &ratings[idx2], outcome)?;
-            ratings[idx1] = updated[0].clone();
-            ratings[idx2] = updated[1].clone();
+            ratings[idx1] = updated.get(0).dyn_into::<EloRating>()
+                .map_err(|_| JsValue::from_str("Failed to update rating"))?
+                .clone();
+            ratings[idx2] = updated.get(1).dyn_into::<EloRating>()
+                .map_err(|_| JsValue::from_str("Failed to update rating"))?
+                .clone();
         }
 
-        Ok(ratings)
+        // Convert back to JS array
+        let result = js_sys::Array::new();
+        for rating in ratings {
+            result.push(&JsValue::from(rating));
+        }
+
+        Ok(result)
     }
 
     /// Creates a leaderboard from ratings
     /// Returns array of [index, rating] sorted by rating descending
-    pub fn create_leaderboard(ratings: &JsValue) -> Result<Vec<JsValue>, JsValue> {
-        let ratings: Vec<EloRating> = ratings.into_serde()
-            .map_err(|_| JsValue::from_str("Invalid ratings array"))?;
+    pub fn create_leaderboard(ratings: &js_sys::Array) -> Result<js_sys::Array, JsValue> {
+        let mut indexed: Vec<(usize, f64)> = Vec::new();
 
-        let mut indexed: Vec<(usize, f64)> = ratings
-            .iter()
-            .enumerate()
-            .map(|(idx, rating)| (idx, rating.value))
-            .collect();
+        for i in 0..ratings.length() {
+            let rating = ratings.get(i);
+            let value = if let Ok(elo_rating) = rating.dyn_ref::<EloRating>() {
+                elo_rating.value()
+            } else {
+                // Try to extract value from object
+                let obj = js_sys::Object::from(rating);
+                js_sys::Reflect::get(&obj, &"value".into())
+                    .ok()
+                    .and_then(|v| v.as_f64())
+                    .ok_or_else(|| JsValue::from_str("Invalid rating in array"))?
+            };
+            indexed.push((i as usize, value));
+        }
 
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        Ok(indexed
-            .into_iter()
-            .map(|(idx, rating)| {
-                let arr = js_sys::Array::new();
-                arr.push(&JsValue::from(idx as u32));
-                arr.push(&JsValue::from(rating));
-                arr.into()
-            })
-            .collect())
+        let result = js_sys::Array::new();
+        for (idx, rating) in indexed {
+            let entry = js_sys::Array::new();
+            entry.push(&JsValue::from(idx as u32));
+            entry.push(&JsValue::from(rating));
+            result.push(&entry);
+        }
+
+        Ok(result)
     }
 }
 
