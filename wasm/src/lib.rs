@@ -50,18 +50,18 @@ pub mod utils;
 pub mod js_interface;
 pub mod conversions;
 pub mod errors;
-pub mod unified;
 
-// Include implementation modules
-mod unified_impl;
-mod unified_methods;
-mod unified_constructor;
+// Use the simplified unified module for now
+pub mod unified {
+    pub use crate::unified_simple::*;
+}
+mod unified_simple;
 
 // Re-export main API
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
 
 // Re-export unified interface
-pub use unified::{UnifiedRatingSystem, RatingSystemType, PlayerInfo, MatchResult};
+pub use unified_simple::{UnifiedRatingSystem, RatingSystemType, PlayerInfo, MatchResult};
 
 // Re-export JavaScript interface types
 pub use js_interface::*;
