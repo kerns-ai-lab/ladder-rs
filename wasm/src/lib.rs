@@ -50,9 +50,17 @@ pub mod utils;
 pub mod js_interface;
 pub mod conversions;
 pub mod errors;
+pub mod unified;
+
+// Include implementation modules
+mod unified_impl;
+mod unified_methods;
 
 // Re-export main API
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
+
+// Re-export unified interface
+pub use unified::{UnifiedRatingSystem, RatingSystemType, PlayerInfo, MatchResult};
 
 // Re-export JavaScript interface types
 pub use js_interface::*;
