@@ -1,6 +1,6 @@
-//! Optimized WebAssembly bindings for the ladder-rs Elo rating system
+//! WebAssembly bindings for the ladder-rs rating system
 //!
-//! This crate provides a lightweight JavaScript interface for Elo rating calculations,
+//! This crate provides a unified JavaScript interface for all rating systems,
 //! optimized for minimal WASM bundle size.
 
 use wasm_bindgen::prelude::*;
@@ -34,24 +34,28 @@ pub fn wasm_main() {
     #[cfg(feature = "console_error_panic_hook")]
     set_panic_hook();
 
-    console_log!("ladder-rs WASM (Elo-optimized) module initialized");
+    console_log!("ladder-rs WASM module initialized");
 }
 
 // Basic test function
 #[wasm_bindgen]
 pub fn greet(name: &str) {
-    console_log!("Hello, {}! Welcome to ladder-rs Elo WASM.", name);
+    console_log!("Hello, {}! Welcome to ladder-rs WASM.", name);
 }
 
-// Module declarations - minimal set
+// Module declarations
 pub mod api;
 pub mod types;
 pub mod utils;
 pub mod js_interface;
 pub mod conversions;
+pub mod errors;
 
-// Re-export optimized API
+// Re-export main API
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
 
 // Re-export JavaScript interface types
 pub use js_interface::*;
+
+// Re-export error types
+pub use errors::{WasmError, ErrorCode};
