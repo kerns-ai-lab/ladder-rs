@@ -388,26 +388,26 @@ pub fn validate_probability(value: f64, field_name: &str) -> Result<(), JsRating
 }
 
 // Conversion from ladder_rs errors
-impl From<ladder_rs::error::LadderError> for JsRatingError {
-    fn from(err: ladder_rs::error::LadderError) -> Self {
+impl From<ladder_rs::error::Error> for JsRatingError {
+    fn from(err: ladder_rs::error::Error) -> Self {
         match err {
-            ladder_rs::error::LadderError::InvalidInput(msg) => {
+            ladder_rs::error::Error::InvalidInput(msg) => {
                 JsRatingError::validation_error(&msg)
             }
-            ladder_rs::error::LadderError::InvalidMatchOutcome(msg) => {
+            ladder_rs::error::Error::InvalidMatchOutcome(msg) => {
                 JsRatingError::validation_error(&msg)
                     .with_code("INVALID_OUTCOME")
             }
-            ladder_rs::error::LadderError::ConvergenceFailed { iterations, .. } => {
+            ladder_rs::error::Error::ConvergenceFailed { iterations, .. } => {
                 JsRatingError::convergence_error(
                     "Algorithm failed to converge within maximum iterations",
                     iterations
                 )
             }
-            ladder_rs::error::LadderError::ConfigurationError(msg) => {
+            ladder_rs::error::Error::ConfigurationError(msg) => {
                 JsRatingError::configuration_error(&msg)
             }
-            ladder_rs::error::LadderError::UnsupportedTeamSize(size) => {
+            ladder_rs::error::Error::UnsupportedTeamSize(size) => {
                 JsRatingError::validation_error(&format!(
                     "Team size {} is not supported", size
                 )).with_recovery_suggestion(
