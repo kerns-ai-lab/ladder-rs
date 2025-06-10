@@ -58,4 +58,4 @@ pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
 pub use js_interface::*;
 
 // Re-export Elo system
-pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome};
+pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
