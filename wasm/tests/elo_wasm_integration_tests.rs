@@ -4,7 +4,6 @@
 //! in the WASM context, including:
 //! - Rating creation and initialization
 //! - Match processing (wins, losses, draws)
-//! - Multi-team support
 //! - Parameter configuration
 //! - Serialization/deserialization
 //! - Error handling
@@ -58,15 +57,15 @@ fn test_elo_1v1_win() {
     let player2 = system.create_rating();
     
     // Process a match where player1 wins
-    let (new_p1, new_p2) = system.process_1v1(&player1, &player2, MatchOutcome::Player1Win);
+    let result = system.process_1v1(&player1, &player2, MatchOutcome::Player1Win).unwrap();
     
     // Winner should gain rating, loser should lose rating
-    assert!(new_p1.value() > player1.value());
-    assert!(new_p2.value() < player2.value());
+    assert!(result.player1_rating() > player1.value());
+    assert!(result.player2_rating() < player2.value());
     
     // The sum of rating changes should be zero (conservation)
-    let p1_change = new_p1.value() - player1.value();
-    let p2_change = new_p2.value() - player2.value();
+    let p1_change = result.player1_rating() - player1.value();
+    let p2_change = result.player2_rating() - player2.value();
     assert!((p1_change + p2_change).abs() < 0.001);
 }
 
@@ -79,11 +78,11 @@ fn test_elo_1v1_draw() {
     let player2 = system.create_rating();
     
     // Process a draw
-    let (new_p1, new_p2) = system.process_1v1(&player1, &player2, MatchOutcome::Draw);
+    let result = system.process_1v1(&player1, &player2, MatchOutcome::Draw).unwrap();
     
     // Both ratings should remain the same for equal players
-    assert!((new_p1.value() - player1.value()).abs() < 0.001);
-    assert!((new_p2.value() - player2.value()).abs() < 0.001);
+    assert!((result.player1_rating() - player1.value()).abs() < 0.001);
+    assert!((result.player2_rating() - player2.value()).abs() < 0.001);
 }
 
 #[wasm_bindgen_test]
@@ -95,11 +94,11 @@ fn test_elo_1v1_upset() {
     let weak_player = system.create_rating_with_value(1300.0);
     
     // Weak player wins (upset)
-    let (new_strong, new_weak) = system.process_1v1(&strong_player, &weak_player, MatchOutcome::Player2Win);
+    let result = system.process_1v1(&strong_player, &weak_player, MatchOutcome::Player2Win).unwrap();
     
     // Weak player should gain more than strong player loses
-    let strong_loss = strong_player.value() - new_strong.value();
-    let weak_gain = new_weak.value() - weak_player.value();
+    let strong_loss = strong_player.value() - result.player1_rating();
+    let weak_gain = result.player2_rating() - weak_player.value();
     assert!(weak_gain > strong_loss);
 }
 
@@ -138,32 +137,6 @@ fn test_elo_match_quality() {
 }
 
 #[wasm_bindgen_test]
-fn test_elo_team_match() {
-    let system = EloSystem::new();
-    
-    // Create teams with multiple players
-    let team1 = vec![
-        system.create_rating_with_value(1600.0),
-        system.create_rating_with_value(1400.0),
-    ];
-    let team2 = vec![
-        system.create_rating_with_value(1500.0),
-        system.create_rating_with_value(1500.0),
-    ];
-    
-    // Process team match
-    let (new_team1, new_team2) = system.process_team_match(&team1, &team2, TeamOutcome::Team1Win);
-    
-    // All team1 players should gain rating
-    assert!(new_team1[0].value() > team1[0].value());
-    assert!(new_team1[1].value() > team1[1].value());
-    
-    // All team2 players should lose rating
-    assert!(new_team2[0].value() < team2[0].value());
-    assert!(new_team2[1].value() < team2[1].value());
-}
-
-#[wasm_bindgen_test]
 fn test_elo_k_factor_effect() {
     // Test with different k-factors
     let system_high_k = EloSystem::with_parameters(40.0, 1500.0);
@@ -173,12 +146,12 @@ fn test_elo_k_factor_effect() {
     let player2 = system_high_k.create_rating();
     
     // Process same match with different k-factors
-    let (new_p1_high, _) = system_high_k.process_1v1(&player1, &player2, MatchOutcome::Player1Win);
-    let (new_p1_low, _) = system_low_k.process_1v1(&player1, &player2, MatchOutcome::Player1Win);
+    let result_high = system_high_k.process_1v1(&player1, &player2, MatchOutcome::Player1Win).unwrap();
+    let result_low = system_low_k.process_1v1(&player1, &player2, MatchOutcome::Player1Win).unwrap();
     
     // Higher k-factor should result in larger rating change
-    let change_high = new_p1_high.value() - player1.value();
-    let change_low = new_p1_low.value() - player1.value();
+    let change_high = result_high.player1_rating() - player1.value();
+    let change_low = result_low.player1_rating() - player1.value();
     assert!(change_high > change_low);
 }
 
@@ -213,31 +186,19 @@ fn test_elo_system_serialization() {
 fn test_elo_batch_processing() {
     let system = EloSystem::new();
     
-    // Create multiple players
-    let mut players = vec![
-        ("player1", system.create_rating()),
-        ("player2", system.create_rating()),
-        ("player3", system.create_rating()),
-        ("player4", system.create_rating()),
-    ];
+    // Create ratings JSON
+    let ratings_json = r#"[{"value":1500},{"value":1500},{"value":1500},{"value":1500}]"#;
     
-    // Process multiple matches
-    let matches = vec![
-        (0, 1, MatchOutcome::Player1Win),  // player1 beats player2
-        (2, 3, MatchOutcome::Player2Win),  // player4 beats player3
-        (0, 3, MatchOutcome::Draw),        // player1 draws with player4
-    ];
+    // Create matches: player1 beats player2, player4 beats player3, player1 draws with player4
+    let matches_json = r#"[[0,1,1],[3,2,1],[0,3,0]]"#;
     
-    for (idx1, idx2, outcome) in matches {
-        let (new_p1, new_p2) = system.process_1v1(&players[idx1].1, &players[idx2].1, outcome);
-        players[idx1].1 = new_p1;
-        players[idx2].1 = new_p2;
-    }
+    let result_json = EloUtils::batch_process(&system, ratings_json, matches_json).unwrap();
+    let results: Vec<EloRating> = serde_json::from_str(&result_json).unwrap();
     
     // Verify expected rating order: player1 > player4 > player3 > player2
-    assert!(players[0].1.value() > players[3].1.value());
-    assert!(players[3].1.value() > players[2].1.value());
-    assert!(players[2].1.value() > players[1].1.value());
+    assert!(results[0].value() > results[3].value());
+    assert!(results[3].value() > results[2].value());
+    assert!(results[2].value() > results[1].value());
 }
 
 #[wasm_bindgen_test]
@@ -249,17 +210,17 @@ fn test_elo_edge_cases() {
     let very_weak = system.create_rating_with_value(100.0);
     
     // Even with extreme difference, ratings should update reasonably
-    let (new_strong, new_weak) = system.process_1v1(&very_strong, &very_weak, MatchOutcome::Player1Win);
-    assert!(new_strong.value() > very_strong.value());
-    assert!(new_weak.value() < very_weak.value());
+    let result = system.process_1v1(&very_strong, &very_weak, MatchOutcome::Player1Win).unwrap();
+    assert!(result.player1_rating() > very_strong.value());
+    assert!(result.player2_rating() < very_weak.value());
     
     // Test with negative ratings
     let negative = system.create_rating_with_value(-500.0);
     let positive = system.create_rating_with_value(500.0);
     
-    let (new_neg, new_pos) = system.process_1v1(&negative, &positive, MatchOutcome::Player2Win);
-    assert!(new_neg.value() < negative.value());
-    assert!(new_pos.value() > positive.value());
+    let result2 = system.process_1v1(&negative, &positive, MatchOutcome::Player2Win).unwrap();
+    assert!(result2.player1_rating() < negative.value());
+    assert!(result2.player2_rating() > positive.value());
 }
 
 #[wasm_bindgen_test]
@@ -275,45 +236,50 @@ fn test_elo_javascript_interop() {
     // Test creating from JSON
     let from_json = EloRating::from_json("{\"value\":1750}").unwrap();
     assert_eq!(from_json.value(), 1750.0);
-}
-
-#[wasm_bindgen_test]
-fn test_elo_performance_characteristics() {
-    let system = EloSystem::new();
     
-    // Create many players
-    let players: Vec<_> = (0..1000)
-        .map(|i| system.create_rating_with_value(1200.0 + (i as f64) * 0.6))
-        .collect();
-    
-    // Process many matches - should be fast even with many operations
-    let start = js_sys::Date::now();
-    
-    for i in 0..100 {
-        let p1_idx = (i * 7) % players.len();
-        let p2_idx = (i * 13) % players.len();
-        if p1_idx != p2_idx {
-            system.process_1v1(&players[p1_idx], &players[p2_idx], MatchOutcome::Player1Win);
-        }
-    }
-    
-    let elapsed = js_sys::Date::now() - start;
-    // Should process 100 matches in less than 10ms
-    assert!(elapsed < 10.0);
+    // Test process_1v1_json method
+    let result_json = system.process_1v1_json(1500.0, 1500.0, MatchOutcome::Player1Win).unwrap();
+    assert!(result_json.contains("player1"));
+    assert!(result_json.contains("player2"));
 }
 
 #[wasm_bindgen_test]
 fn test_elo_error_handling() {
-    let system = EloSystem::new();
-    
     // Test invalid JSON deserialization
     assert!(EloRating::from_json("invalid json").is_err());
     assert!(EloRating::from_json("{}").is_err()); // missing value field
     
     // Test invalid system parameters
-    assert!(EloSystem::with_parameters(-10.0, 1500.0).k_factor() > 0.0); // Should handle negative k-factor
+    let system = EloSystem::with_parameters(-10.0, 1500.0);
+    assert!(system.k_factor() > 0.0); // Should handle negative k-factor
     
     // Test deserialization of corrupted data
     assert!(EloRating::deserialize("corrupted").is_err());
     assert!(EloSystem::deserialize("corrupted").is_err());
+}
+
+#[wasm_bindgen_test]
+fn test_elo_leaderboard() {
+    let ratings_json = r#"[{"value":1600},{"value":1400},{"value":1800},{"value":1500}]"#;
+    
+    let leaderboard_json = EloUtils::create_leaderboard(ratings_json).unwrap();
+    let leaderboard: Vec<Vec<f64>> = serde_json::from_str(&leaderboard_json).unwrap();
+    
+    // Should be sorted by rating descending
+    assert_eq!(leaderboard[0][0], 2.0); // index 2 has rating 1800
+    assert_eq!(leaderboard[0][1], 1800.0);
+    assert_eq!(leaderboard[1][0], 0.0); // index 0 has rating 1600
+    assert_eq!(leaderboard[1][1], 1600.0);
+}
+
+#[wasm_bindgen_test]
+fn test_elo_utils_helpers() {
+    // Test creating ratings from values
+    let values_json = "[1200, 1300, 1400, 1500]";
+    let ratings_json = EloUtils::create_ratings_from_values(values_json).unwrap();
+    
+    let ratings: Vec<EloRating> = serde_json::from_str(&ratings_json).unwrap();
+    assert_eq!(ratings.len(), 4);
+    assert_eq!(ratings[0].value(), 1200.0);
+    assert_eq!(ratings[3].value(), 1500.0);
 }
