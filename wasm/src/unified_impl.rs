@@ -7,7 +7,7 @@ use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem as CoreRatingSystem, TeamRating},
     elo::{EloRating, EloSystem, EloTeamRating},
     glicko::{GlickoRating, Glicko, GlickoTeamRating},
-    trueskill::{TrueSkillRating, TrueSkill, TrueSkillTeamRating},
+    trueskill::{TrueSkillRating, TrueSkill, TrueSkillTeam},
 };
 
 use crate::unified::{UnifiedRatingSystem, PlayerInfo, RatingStorage};
@@ -156,8 +156,8 @@ impl UnifiedRatingSystem {
             })
             .collect();
         
-        let team1 = TrueSkillTeamRating::from_player_ratings(team1_ratings);
-        let team2 = TrueSkillTeamRating::from_player_ratings(team2_ratings);
+        let team1 = TrueSkillTeam::from_player_ratings(team1_ratings);
+        let team2 = TrueSkillTeam::from_player_ratings(team2_ratings);
         
         // Create outcome
         let outcome = if winner_team == 1 {
