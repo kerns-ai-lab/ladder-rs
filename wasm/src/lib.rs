@@ -55,6 +55,7 @@ pub mod unified;
 // Include implementation modules
 mod unified_impl;
 mod unified_methods;
+mod unified_constructor;
 
 // Re-export main API
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
