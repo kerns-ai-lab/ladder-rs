@@ -10,6 +10,8 @@
 //! - Performance characteristics
 
 use wasm_bindgen_test::*;
+
+// Use the crate itself since we're inside the tests directory
 use ladder_rs_wasm::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
