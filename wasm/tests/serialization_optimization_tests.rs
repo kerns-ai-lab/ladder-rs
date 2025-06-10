@@ -198,7 +198,7 @@ mod compression_tests {
         assert!(compression_ratio > 2.0, 
                 "Binary compression ratio too low: {:.2}x", compression_ratio);
         
-        // Should be exactly 16KB for 1000 ratings (16 bytes each)
+        // Should be exactly 16,000 bytes for 1000 ratings (16 bytes each)
         assert_eq!(total_binary_size, large_count * 16);
     }
 
