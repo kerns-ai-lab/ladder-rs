@@ -271,9 +271,9 @@ mod memory_efficiency_tests {
         assert_eq!(from_binary.variance(), original.variance());
         
         // Binary deserialization should be faster
-        assert!(binary_deserial_time <= json_deserial_time || 
-                binary_deserial_time < Duration::from_micros(100),
-                "Binary deserialization not efficient enough");
+        assert!(binary_deserial_time <= json_deserial_time, 
+                "Binary deserialization should be faster than JSON: {:?} vs {:?}", 
+                binary_deserial_time, json_deserial_time);
     }
 
     #[test]
