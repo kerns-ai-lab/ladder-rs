@@ -60,6 +60,28 @@ impl EloRating {
     }
 }
 
+/// Result of a 1v1 match processing
+#[wasm_bindgen]
+pub struct MatchResult {
+    player1_rating: f64,
+    player2_rating: f64,
+}
+
+#[wasm_bindgen]
+impl MatchResult {
+    /// Gets the updated rating for player 1
+    #[wasm_bindgen(getter)]
+    pub fn player1_rating(&self) -> f64 {
+        self.player1_rating
+    }
+
+    /// Gets the updated rating for player 2
+    #[wasm_bindgen(getter)]
+    pub fn player2_rating(&self) -> f64 {
+        self.player2_rating
+    }
+}
+
 /// WASM-friendly Elo system wrapper
 #[wasm_bindgen]
 pub struct EloSystem {
@@ -122,13 +144,12 @@ impl EloSystem {
     }
 
     /// Processes a 1v1 match and returns updated ratings
-    /// Returns a JavaScript array with two EloRating objects
     pub fn process_1v1(
         &self,
         player1: &EloRating,
         player2: &EloRating,
         outcome: MatchOutcome,
-    ) -> Result<js_sys::Array, JsValue> {
+    ) -> Result<MatchResult, JsValue> {
         // Convert to core types
         let team1 = EloTeamRating::new(CoreEloRating::new(player1.value));
         let team2 = EloTeamRating::new(CoreEloRating::new(player2.value));
@@ -145,15 +166,14 @@ impl EloSystem {
             .rate(&[team1, team2], &game_outcome)
             .map_err(|e| JsValue::from_str(&format!("Rating error: {}", e)))?;
 
-        // Extract updated ratings and convert to JS array
+        // Extract updated ratings
         let new_p1 = result[0].player_ratings()[0].rating();
         let new_p2 = result[1].player_ratings()[0].rating();
 
-        let array = js_sys::Array::new();
-        array.push(&JsValue::from(EloRating::new(new_p1)));
-        array.push(&JsValue::from(EloRating::new(new_p2)));
-
-        Ok(array)
+        Ok(MatchResult {
+            player1_rating: new_p1,
+            player2_rating: new_p2,
+        })
     }
 
     /// Calculates the win probability for player1
@@ -188,6 +208,28 @@ impl EloSystem {
             .map_err(|e| JsValue::from_str(&format!("Deserialization error: {}", e)))?;
 
         Ok(Self::with_parameters(config.k_factor, config.initial_rating))
+    }
+
+    /// Processes a 1v1 match and returns updated ratings as JSON
+    /// Returns: {"player1": 1520, "player2": 1480}
+    pub fn process_1v1_json(
+        &self,
+        player1_rating: f64,
+        player2_rating: f64,
+        outcome: MatchOutcome,
+    ) -> Result<String, JsValue> {
+        let p1 = EloRating::new(player1_rating);
+        let p2 = EloRating::new(player2_rating);
+        
+        let result = self.process_1v1(&p1, &p2, outcome)?;
+        
+        let json_result = serde_json::json!({
+            "player1": result.player1_rating,
+            "player2": result.player2_rating
+        });
+        
+        serde_json::to_string(&json_result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 }
 
@@ -241,16 +283,10 @@ impl EloUtils {
             };
 
             // Process the match
-            let updated = system.process_1v1(&ratings[idx1], &ratings[idx2], outcome)?;
+            let result = system.process_1v1(&ratings[idx1], &ratings[idx2], outcome)?;
             
-            // Extract updated ratings from array
-            let new_rating1_value = updated.get(0).as_f64()
-                .ok_or_else(|| JsValue::from_str("Invalid rating value"))?;
-            let new_rating2_value = updated.get(1).as_f64()
-                .ok_or_else(|| JsValue::from_str("Invalid rating value"))?;
-            
-            ratings[idx1] = EloRating::new(new_rating1_value);
-            ratings[idx2] = EloRating::new(new_rating2_value);
+            ratings[idx1] = EloRating::new(result.player1_rating);
+            ratings[idx2] = EloRating::new(result.player2_rating);
         }
 
         // Convert back to JSON
