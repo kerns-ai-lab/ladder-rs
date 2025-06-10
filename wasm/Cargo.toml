@@ -37,7 +37,7 @@ console_error_panic_hook = { version = "0.1", optional = true }
 [dependencies.ladder-rs]
 path = "../"
 default-features = false
-features = ["all-algorithms", "serde"]  # Include all algorithms and serde support
+features = ["all-algorithms"]  # Include all algorithms
 
 # Essential WASM compatibility
 [dependencies.getrandom]
