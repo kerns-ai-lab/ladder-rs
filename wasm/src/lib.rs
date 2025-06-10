@@ -49,8 +49,6 @@ pub mod types;
 pub mod utils;
 pub mod js_interface;
 pub mod conversions;
-pub mod errors;
-pub mod rating_system;
 
 // Re-export optimized API
 pub use api::{WasmRating, WasmRatingSystem, WasmTeam};
