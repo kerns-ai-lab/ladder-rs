@@ -7,7 +7,7 @@ use ladder_rs::{
     core::{GameOutcome, Rating, RatingSystem as CoreRatingSystem, TeamRating},
     elo::{EloRating, EloSystem, EloTeamRating},
     glicko::{GlickoRating, Glicko, GlickoTeamRating},
-    trueskill::{TrueSkillRating, TrueSkillSystem, TrueSkillTeamRating},
+    trueskill::{TrueSkillRating, TrueSkill, TrueSkillTeamRating},
 };
 
 use crate::unified::{UnifiedRatingSystem, PlayerInfo, RatingStorage};

@@ -7,7 +7,7 @@ use ladder_rs::{
     core::{Rating, RatingSystem as CoreRatingSystem},
     elo::{EloSystem},
     glicko::{Glicko},
-    trueskill::{TrueSkillSystem},
+    trueskill::{TrueSkill},
 };
 
 use crate::unified::{UnifiedRatingSystem, PlayerInfo, MatchResult, RatingSystemType, RatingStorage, SystemConfig};
@@ -69,7 +69,7 @@ impl UnifiedRatingSystem {
                 let tau = system_config.tau.unwrap_or(0.083);
                 let draw_prob = system_config.draw_probability.unwrap_or(0.1);
                 system.system_type = RatingSystemType::TrueSkill;
-                system.trueskill_system = Some(TrueSkillSystem::new(mu, sigma, beta, tau, draw_prob));
+                system.trueskill_system = Some(TrueSkill::new(mu, sigma, beta, tau, draw_prob));
             },
             _ => {
                 return Err(WasmErrorBuilder::new(

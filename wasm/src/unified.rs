@@ -11,7 +11,7 @@ use ladder_rs::{
     core::{Rating, RatingSystem as CoreRatingSystem},
     elo::{EloRating, EloSystem},
     glicko::{GlickoRating, Glicko},
-    trueskill::{TrueSkillRating, TrueSkillSystem},
+    trueskill::{TrueSkillRating, TrueSkill},
 };
 
 use crate::errors::{ErrorCode, WasmErrorBuilder};
@@ -170,7 +170,7 @@ pub struct UnifiedRatingSystem {
     // Store system-specific data
     pub(crate) elo_system: Option<EloSystem>,
     pub(crate) glicko_system: Option<Glicko>,
-    pub(crate) trueskill_system: Option<TrueSkillSystem>,
+    pub(crate) trueskill_system: Option<TrueSkill>,
     // Configuration for serialization
     pub(crate) config: serde_json::Value,
 }
