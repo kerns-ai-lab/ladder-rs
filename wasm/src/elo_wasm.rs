@@ -373,4 +373,19 @@ mod tests {
         let result = EloUtils::batch_process(&system, ratings_json, matches_json);
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_leaderboard_mixed_types() {
+        // Test that leaderboard returns mixed types (index as usize, rating as f64)
+        let ratings_json = r#"[{"value":1600},{"value":1400},{"value":1800},{"value":1500}]"#;
+        
+        let leaderboard_json = EloUtils::create_leaderboard(ratings_json).unwrap();
+        let leaderboard: Vec<Vec<serde_json::Value>> = serde_json::from_str(&leaderboard_json).unwrap();
+        
+        // Should be sorted by rating descending
+        assert_eq!(leaderboard[0][0].as_u64(), Some(2)); // index 2 has rating 1800
+        assert_eq!(leaderboard[0][1].as_f64(), Some(1800.0));
+        assert_eq!(leaderboard[1][0].as_u64(), Some(0)); // index 0 has rating 1600
+        assert_eq!(leaderboard[1][1].as_f64(), Some(1600.0));
+    }
 }
