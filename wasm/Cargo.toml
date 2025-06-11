@@ -17,17 +17,13 @@ name = "ladder_rs_wasm"
 [dependencies]
 # Core WASM bindings - minimal features
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["console"] }  # Only console for logging
+web-sys = { version = "0.3", features = [] }  # Minimal web-sys for tests
 
 # Minimal serialization
 serde = { version = "1.0", features = ["derive"], default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde-wasm-bindgen = "0.6"
-
-# Utilities - minimal features
-uuid = { version = "1.0", features = ["v4", "js"], default-features = false }
 
 # WASM-specific optimizations
 wee_alloc = { version = "0.4", optional = true }
@@ -49,12 +45,8 @@ wasm-bindgen-test = "0.3"
 
 [features]
 default = ["wee_alloc"]
-console_error_panic_hook = ["dep:console_error_panic_hook"]
 wee_alloc = ["dep:wee_alloc"]
-
-# Size optimization features
-minimal = ["wee_alloc"]
-full = ["console_error_panic_hook", "wee_alloc"]
+console_error_panic_hook = ["dep:console_error_panic_hook"]
 
 # Performance profiles optimized for different use cases
 [package.metadata.wasm-pack.profile.dev]

@@ -4,7 +4,6 @@
 //! and JavaScript-friendly WASM types.
 
 use crate::types::*;
-use wasm_bindgen::prelude::*;
 
 // Placeholder for Elo conversions - would require importing EloRating when available
 // For now, we provide the interface definitions
