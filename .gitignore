@@ -7,7 +7,34 @@ wasm/target/
 wasm/pkg/
 wasm/pkg-node/
 wasm/pkg-bundler/
+wasm/dist/
+wasm/.cache/
+wasm/*.log
+wasm/.wasm-pack/
+
+# Node.js dependencies
+wasm/node_modules/
 
 # Coverage reports
 coverage.json
 coverage.lcov
+*.profraw
+*.profdata
+
+# IDE and editor files
+.idea/
+# Keep .vscode/settings.json but ignore other VS Code files
+.vscode/*
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
