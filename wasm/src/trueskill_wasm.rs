@@ -6,7 +6,7 @@
 use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
 use ladder_rs::trueskill::{TrueSkillRating as CoreTrueSkillRating, TrueSkill as CoreTrueSkillSystem, TrueSkillTeam as CoreTrueSkillTeam};
-use ladder_rs::core::{GameOutcome, Outcome, RatingSystem, TeamRating};
+use ladder_rs::core::{GameOutcome, RatingSystem};
 use js_sys;
 
 /// WASM-friendly TrueSkill rating wrapper
@@ -74,7 +74,7 @@ impl TrueSkillRating {
 
 /// WASM-friendly TrueSkill team wrapper
 #[wasm_bindgen]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TrueSkillTeam {
     ratings: Vec<TrueSkillRating>,
     weights: Option<Vec<f64>>,
@@ -201,13 +201,14 @@ impl TrueSkillSystem {
         }
 
         // Build custom TrueSkill system
-        let inner = CoreTrueSkillSystem::builder()
-            .initial_mean(mu)
-            .initial_variance(sigma * sigma)
-            .performance_variance(beta * beta)
-            .dynamics_factor(tau * tau)
-            .draw_probability(draw_probability)
-            .build();
+        let inner = CoreTrueSkillSystem::with_parameters(
+            mu,
+            sigma * sigma,
+            beta * beta,
+            tau * tau,
+            draw_probability,
+            ladder_rs::trueskill::TrueSkillImplementation::Simplified,
+        ).map_err(|e| JsValue::from_str(&format!("Failed to create TrueSkill system: {}", e)))?;
 
         Ok(Self {
             mu,
@@ -251,7 +252,28 @@ impl TrueSkillSystem {
 
     /// Gets the calculated draw margin
     pub fn draw_margin(&self) -> f64 {
-        self.inner.draw_margin()
+        // Calculate draw margin using the formula from TrueSkill paper
+        // For simplicity, we'll use the two-player case as reference
+        let sigma_diff = (2.0 * self.beta * self.beta + 2.0 * self.sigma * self.sigma).sqrt();
+        
+        // Approximate the inverse normal CDF for common draw probabilities
+        // This uses the approximation z ≈ sqrt(2) * erf^(-1)(p)
+        let p = self.draw_probability;
+        let z = if p <= 0.05 {
+            1.645  // 5% draw probability
+        } else if p <= 0.10 {
+            1.282  // 10% draw probability
+        } else if p <= 0.15 {
+            1.036  // 15% draw probability
+        } else if p <= 0.20 {
+            0.842  // 20% draw probability
+        } else if p <= 0.25 {
+            0.674  // 25% draw probability
+        } else {
+            0.5    // Default for higher draw probabilities
+        };
+        
+        z * sigma_diff
     }
 
     /// Creates a new rating with the default values
@@ -280,13 +302,27 @@ impl TrueSkillSystem {
 
         // Process teams
         for i in 0..teams.length() {
-            let team = teams.get(i);
-            let trueskill_team = team.dyn_into::<TrueSkillTeam>()
-                .map_err(|_| JsValue::from_str("Invalid team in array"))?;
+            let team_value = teams.get(i);
+            
+            // Parse the team from JavaScript
+            let team_json = js_sys::JSON::stringify(&team_value)
+                .map_err(|_| JsValue::from_str("Failed to stringify team"))?;
+            let team_str = team_json.as_string()
+                .ok_or_else(|| JsValue::from_str("Failed to convert team to string"))?;
+            
+            #[derive(serde::Deserialize)]
+            struct TeamData {
+                ratings: Vec<TrueSkillRating>,
+                #[allow(dead_code)]
+                weights: Option<Vec<f64>>,
+            }
+            
+            let team_data: TeamData = serde_json::from_str(&team_str)
+                .map_err(|e| JsValue::from_str(&format!("Failed to parse team: {}", e)))?;
             
             // Convert to core team
             let mut core_ratings = Vec::new();
-            for rating in &trueskill_team.ratings {
+            for rating in &team_data.ratings {
                 let core_rating = CoreTrueSkillRating::new(rating.mean, rating.variance)
                     .map_err(|e| JsValue::from_str(&format!("Invalid rating: {}", e)))?;
                 core_ratings.push(core_rating);
@@ -304,8 +340,7 @@ impl TrueSkillSystem {
         }
 
         // Create game outcome
-        let outcome = GameOutcome::from_ranks(&rust_ranks)
-            .map_err(|e| JsValue::from_str(&format!("Invalid ranks: {}", e)))?;
+        let outcome = GameOutcome::new(rust_ranks.into_iter().map(|r| r as usize).collect());
 
         // Process the match
         let results = self.inner
@@ -318,8 +353,8 @@ impl TrueSkillSystem {
             let mut ratings = Vec::new();
             for player_rating in team_result.player_ratings() {
                 ratings.push(TrueSkillRating {
-                    mean: player_rating.mean,
-                    variance: player_rating.variance,
+                    mean: player_rating.mean(),
+                    variance: player_rating.variance(),
                 });
             }
             
@@ -327,7 +362,14 @@ impl TrueSkillSystem {
                 ratings,
                 weights: None, // Weights don't change
             };
-            js_results.push(&JsValue::from(result_team));
+            
+            // Convert to JS value via JSON
+            let team_json = serde_json::to_string(&result_team)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize team: {}", e)))?;
+            let js_team = js_sys::JSON::parse(&team_json)
+                .map_err(|_| JsValue::from_str("Failed to parse team JSON"))?;
+            
+            js_results.push(&js_team);
         }
 
         Ok(js_results)
@@ -339,12 +381,26 @@ impl TrueSkillSystem {
         let mut rust_teams = Vec::new();
         
         for i in 0..teams.length() {
-            let team = teams.get(i);
-            let trueskill_team = team.dyn_into::<TrueSkillTeam>()
-                .map_err(|_| JsValue::from_str("Invalid team in array"))?;
+            let team_value = teams.get(i);
+            
+            // Parse the team from JavaScript
+            let team_json = js_sys::JSON::stringify(&team_value)
+                .map_err(|_| JsValue::from_str("Failed to stringify team"))?;
+            let team_str = team_json.as_string()
+                .ok_or_else(|| JsValue::from_str("Failed to convert team to string"))?;
+            
+            #[derive(serde::Deserialize)]
+            struct TeamData {
+                ratings: Vec<TrueSkillRating>,
+                #[allow(dead_code)]
+                weights: Option<Vec<f64>>,
+            }
+            
+            let team_data: TeamData = serde_json::from_str(&team_str)
+                .map_err(|e| JsValue::from_str(&format!("Failed to parse team: {}", e)))?;
             
             let mut core_ratings = Vec::new();
-            for rating in &trueskill_team.ratings {
+            for rating in &team_data.ratings {
                 let core_rating = CoreTrueSkillRating::new(rating.mean, rating.variance)
                     .map_err(|e| JsValue::from_str(&format!("Invalid rating: {}", e)))?;
                 core_ratings.push(core_rating);
@@ -356,15 +412,15 @@ impl TrueSkillSystem {
 
         // For 2-team matches, calculate win probability
         if rust_teams.len() == 2 {
-            let quality = self.inner.calculate_match_quality(&rust_teams)
+            let _quality = self.inner.calculate_match_quality(&rust_teams)
                 .map_err(|e| JsValue::from_str(&format!("Quality calculation error: {}", e)))?;
             
             // Approximate win probabilities based on team strengths
-            let team1_strength: f64 = rust_teams[0].player_ratings().iter().map(|r| r.mean).sum();
-            let team2_strength: f64 = rust_teams[1].player_ratings().iter().map(|r| r.mean).sum();
+            let team1_strength: f64 = rust_teams[0].player_ratings().iter().map(|r| r.mean()).sum();
+            let team2_strength: f64 = rust_teams[1].player_ratings().iter().map(|r| r.mean()).sum();
             
-            let total_variance: f64 = rust_teams[0].player_ratings().iter().map(|r| r.variance).sum::<f64>()
-                + rust_teams[1].player_ratings().iter().map(|r| r.variance).sum::<f64>()
+            let total_variance: f64 = rust_teams[0].player_ratings().iter().map(|r| r.variance()).sum::<f64>()
+                + rust_teams[1].player_ratings().iter().map(|r| r.variance()).sum::<f64>()
                 + 2.0 * self.beta * self.beta * rust_teams.len() as f64;
             
             let strength_diff = team1_strength - team2_strength;
@@ -392,12 +448,26 @@ impl TrueSkillSystem {
         let mut rust_teams = Vec::new();
         
         for i in 0..teams.length() {
-            let team = teams.get(i);
-            let trueskill_team = team.dyn_into::<TrueSkillTeam>()
-                .map_err(|_| JsValue::from_str("Invalid team in array"))?;
+            let team_value = teams.get(i);
+            
+            // Parse the team from JavaScript
+            let team_json = js_sys::JSON::stringify(&team_value)
+                .map_err(|_| JsValue::from_str("Failed to stringify team"))?;
+            let team_str = team_json.as_string()
+                .ok_or_else(|| JsValue::from_str("Failed to convert team to string"))?;
+            
+            #[derive(serde::Deserialize)]
+            struct TeamData {
+                ratings: Vec<TrueSkillRating>,
+                #[allow(dead_code)]
+                weights: Option<Vec<f64>>,
+            }
+            
+            let team_data: TeamData = serde_json::from_str(&team_str)
+                .map_err(|e| JsValue::from_str(&format!("Failed to parse team: {}", e)))?;
             
             let mut core_ratings = Vec::new();
-            for rating in &trueskill_team.ratings {
+            for rating in &team_data.ratings {
                 let core_rating = CoreTrueSkillRating::new(rating.mean, rating.variance)
                     .map_err(|e| JsValue::from_str(&format!("Invalid rating: {}", e)))?;
                 core_ratings.push(core_rating);
@@ -533,8 +603,7 @@ impl TrueSkillUtils {
             }
 
             // Create game outcome
-            let outcome = GameOutcome::from_ranks(&match_data.ranks)
-                .map_err(|e| JsValue::from_str(&format!("Invalid ranks: {}", e)))?;
+            let outcome = GameOutcome::new(match_data.ranks.into_iter().map(|r| r as usize).collect());
 
             // Process the match
             let results = system.inner
@@ -546,8 +615,8 @@ impl TrueSkillUtils {
                 for (player_idx, player_rating) in team_result.player_ratings().iter().enumerate() {
                     let global_idx = match_data.teams[team_idx][player_idx];
                     ratings[global_idx] = TrueSkillRating {
-                        mean: player_rating.mean,
-                        variance: player_rating.variance,
+                        mean: player_rating.mean(),
+                        variance: player_rating.variance(),
                     };
                 }
             }
@@ -621,9 +690,9 @@ impl TrueSkillUtils {
     /// Simulates a tournament and returns expected results
     /// Takes ratings and number of simulations
     pub fn simulate_tournament(
-        system: &TrueSkillSystem,
+        _system: &TrueSkillSystem,
         teams_json: &str,
-        num_simulations: u32,
+        _num_simulations: u32,
     ) -> Result<String, JsValue> {
         // This is a placeholder for tournament simulation
         // In a real implementation, this would use Monte Carlo simulation
