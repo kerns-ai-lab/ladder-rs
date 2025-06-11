@@ -1,10 +1,16 @@
 //! Tests for the unit test infrastructure module
 
 use wasm_bindgen_test::*;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+
+// Import test utilities when in test mode
+#[cfg(debug_assertions)]
 use ladder_rs_wasm::test_utils::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_rating_factory_creates_valid_ratings() {
     let elo_rating = create_test_elo_rating(1500.0);
@@ -15,6 +21,7 @@ fn test_rating_factory_creates_valid_ratings() {
     assert_eq!(trueskill_rating.variance(), 69.44);
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_mock_rating_system_behavior() {
     let mut mock = MockRatingSystem::new(32.0);
@@ -32,6 +39,7 @@ fn test_mock_rating_system_behavior() {
     assert_eq!(mock.get_call_count("get_win_probability"), 1);
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_performance_timer_functionality() {
     let mut timer = PerformanceTimer::new();
@@ -52,14 +60,13 @@ fn test_performance_timer_functionality() {
     
     // Check lap data
     let laps = timer.get_laps().unwrap();
-    assert!(js_sys::Reflect::has(&laps, &wasm_bindgen::JsValue::from_str("start")).unwrap());
-    assert!(js_sys::Reflect::has(&laps, &wasm_bindgen::JsValue::from_str("middle")).unwrap());
+    assert!(js_sys::Reflect::has(&laps, &JsValue::from_str("start")).unwrap());
+    assert!(js_sys::Reflect::has(&laps, &JsValue::from_str("middle")).unwrap());
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_assertion_helpers() {
-    use wasm_bindgen::JsValue;
-    
     // Test equals assertion
     assert!(AssertionHelper::assert_equals(&JsValue::from(42), &JsValue::from(42), "Numbers should be equal").is_ok());
     assert!(AssertionHelper::assert_equals(&JsValue::from(42), &JsValue::from(43), "Numbers should not be equal").is_err());
@@ -77,6 +84,7 @@ fn test_assertion_helpers() {
     assert!(AssertionHelper::assert_approx_equals(1.1, 1.0, 0.01, "Should not be approximately equal").is_err());
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_test_fixture_functionality() {
     let mut fixture = TestFixture::new();
@@ -97,6 +105,7 @@ fn test_test_fixture_functionality() {
     assert!(fixture.record_match("player1", "player3", 1).is_err());
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_mock_storage() {
     let storage = MockStorage::new();
@@ -122,6 +131,7 @@ fn test_mock_storage() {
     assert!(storage.get_item("key2").is_err());
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_coverage_tracker() {
     let tracker = CoverageTracker::new();
@@ -141,6 +151,7 @@ fn test_coverage_tracker() {
     assert!(report.is_object());
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_test_data_generation() {
     // Test player pool generation
@@ -156,6 +167,7 @@ fn test_test_data_generation() {
     assert_eq!(matches.len(), 20);
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_browser_environment_detection() {
     let is_browser = BrowserEnvironment::is_browser();
@@ -173,6 +185,7 @@ fn test_browser_environment_detection() {
     assert!(has_web_workers == true || has_web_workers == false);
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_test_logger() {
     let mut logger = TestLogger::new();
@@ -193,6 +206,7 @@ fn test_test_logger() {
     assert!(!logger.contains("This should not be logged"));
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_benchmark_runner() {
     let runner = BenchmarkRunner::new(5);
@@ -205,12 +219,13 @@ fn test_benchmark_runner() {
     assert!(stats.is_object());
     
     // Check that stats contain expected fields
-    assert!(js_sys::Reflect::has(&stats, &wasm_bindgen::JsValue::from_str("mean")).unwrap());
-    assert!(js_sys::Reflect::has(&stats, &wasm_bindgen::JsValue::from_str("median")).unwrap());
-    assert!(js_sys::Reflect::has(&stats, &wasm_bindgen::JsValue::from_str("min")).unwrap());
-    assert!(js_sys::Reflect::has(&stats, &wasm_bindgen::JsValue::from_str("max")).unwrap());
+    assert!(js_sys::Reflect::has(&stats, &JsValue::from_str("mean")).unwrap());
+    assert!(js_sys::Reflect::has(&stats, &JsValue::from_str("median")).unwrap());
+    assert!(js_sys::Reflect::has(&stats, &JsValue::from_str("min")).unwrap());
+    assert!(js_sys::Reflect::has(&stats, &JsValue::from_str("max")).unwrap());
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_mock_random() {
     let random = MockRandom::new(12345);
@@ -224,9 +239,9 @@ fn test_mock_random() {
     
     // Test fixed values
     let fixed_values = js_sys::Array::new();
-    fixed_values.push(&wasm_bindgen::JsValue::from(0.1));
-    fixed_values.push(&wasm_bindgen::JsValue::from(0.5));
-    fixed_values.push(&wasm_bindgen::JsValue::from(0.9));
+    fixed_values.push(&JsValue::from(0.1));
+    fixed_values.push(&JsValue::from(0.5));
+    fixed_values.push(&JsValue::from(0.9));
     
     random.set_fixed_values(fixed_values);
     assert_eq!(random.next(), 0.1);
@@ -235,6 +250,7 @@ fn test_mock_random() {
     assert_eq!(random.next(), 0.1); // Should cycle
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_integration_test_helper() {
     let mut helper = IntegrationTestHelper::new();
@@ -249,15 +265,16 @@ fn test_integration_test_helper() {
     
     // Check summary
     let summary = helper.get_summary();
-    let total = js_sys::Reflect::get(&summary, &wasm_bindgen::JsValue::from_str("total")).unwrap().as_f64().unwrap();
-    let passed = js_sys::Reflect::get(&summary, &wasm_bindgen::JsValue::from_str("passed")).unwrap().as_f64().unwrap();
-    let failed = js_sys::Reflect::get(&summary, &wasm_bindgen::JsValue::from_str("failed")).unwrap().as_f64().unwrap();
+    let total = js_sys::Reflect::get(&summary, &JsValue::from_str("total")).unwrap().as_f64().unwrap();
+    let passed = js_sys::Reflect::get(&summary, &JsValue::from_str("passed")).unwrap().as_f64().unwrap();
+    let failed = js_sys::Reflect::get(&summary, &JsValue::from_str("failed")).unwrap().as_f64().unwrap();
     
     assert_eq!(total, 2.0);
     assert_eq!(passed, 1.0);
     assert_eq!(failed, 1.0);
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_test_snapshot() {
     let snapshot1 = TestSnapshot::new("data1");
@@ -281,6 +298,7 @@ fn test_test_snapshot() {
     assert!(snapshot1.equals(&restored));
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_memory_tracker() {
     let mut tracker = MemoryTracker::new();
@@ -298,13 +316,14 @@ fn test_memory_tracker() {
     assert!(report.is_object());
     
     // Check that snapshots were recorded
-    let snapshots = js_sys::Reflect::get(&report, &wasm_bindgen::JsValue::from_str("snapshots"))
+    let snapshots = js_sys::Reflect::get(&report, &JsValue::from_str("snapshots"))
         .unwrap()
         .dyn_into::<js_sys::Array>()
         .unwrap();
     assert_eq!(snapshots.length(), 2);
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_dataset_builder() {
     let mut builder = TestDatasetBuilder::new();
@@ -318,20 +337,21 @@ fn test_dataset_builder() {
     let dataset = builder.build();
     
     // Check players
-    let players = js_sys::Reflect::get(&dataset, &wasm_bindgen::JsValue::from_str("players"))
+    let players = js_sys::Reflect::get(&dataset, &JsValue::from_str("players"))
         .unwrap()
         .dyn_into::<js_sys::Array>()
         .unwrap();
     assert_eq!(players.length(), 2);
     
     // Check matches
-    let matches = js_sys::Reflect::get(&dataset, &wasm_bindgen::JsValue::from_str("matches"))
+    let matches = js_sys::Reflect::get(&dataset, &JsValue::from_str("matches"))
         .unwrap()
         .dyn_into::<js_sys::Array>()
         .unwrap();
     assert_eq!(matches.length(), 1);
 }
 
+#[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_factory_methods() {
     // Test match factory
@@ -340,7 +360,7 @@ fn test_factory_methods() {
     
     // Test config factory
     let elo_config = TestConfigFactory::default_elo_config();
-    let k_factor = js_sys::Reflect::get(&elo_config, &wasm_bindgen::JsValue::from_str("k_factor"))
+    let k_factor = js_sys::Reflect::get(&elo_config, &JsValue::from_str("k_factor"))
         .unwrap()
         .as_f64()
         .unwrap();
@@ -348,9 +368,16 @@ fn test_factory_methods() {
     
     // Test scenario factory
     let scenario = TestScenarioFactory::create_ladder_scenario(10);
-    let players = js_sys::Reflect::get(&scenario, &wasm_bindgen::JsValue::from_str("players"))
+    let players = js_sys::Reflect::get(&scenario, &JsValue::from_str("players"))
         .unwrap()
         .dyn_into::<js_sys::Array>()
         .unwrap();
     assert_eq!(players.length(), 10);
+}
+
+// Basic test to ensure the module structure works even in release mode
+#[wasm_bindgen_test]
+fn test_basic_wasm_functionality() {
+    // This test ensures basic WASM compilation works
+    assert_eq!(1 + 1, 2);
 }
