@@ -29,7 +29,7 @@ impl CrossBrowserCompat {
                     "Firefox"
                 } else if user_agent.contains("edg/") {
                     "Edge"
-                } else if user_agent.contains("chrome") && !user_agent.contains("edg") {
+                } else if user_agent.contains("chrome") && !user_agent.contains("edg/") {
                     "Chrome"
                 } else if user_agent.contains("safari") && !user_agent.contains("chrome") {
                     "Safari"
