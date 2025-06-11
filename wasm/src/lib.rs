@@ -24,6 +24,10 @@ pub mod elo_wasm;
 // pub mod glicko_wasm;
 pub mod trueskill_wasm;
 
+// Test utilities module (only in test/debug builds)
+#[cfg(any(test, debug_assertions))]
+pub mod test_utils;
+
 // Re-export Elo system
 pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
 
@@ -32,3 +36,16 @@ pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
 
 // Re-export TrueSkill system
 pub use trueskill_wasm::{TrueSkillSystem, TrueSkillRating, TrueSkillTeam, TrueSkillUtils};
+
+// Re-export test utilities in test/debug builds
+#[cfg(any(test, debug_assertions))]
+pub use test_utils::{
+    TestLogger, TestContext, TestConfig,
+    AssertionHelper, BrowserEnvironment, IntegrationTestHelper,
+    PerformanceTimer, BenchmarkRunner, MemoryTracker,
+    CoverageTracker, CoverageReport, BranchCoverageTracker,
+    TestFixture, TestSnapshot, FixtureBuilder,
+    MockRatingSystem, MockStorage, MockRandom, MockMatchGenerator,
+    TestPlayer, SkillDistribution, TestDatasetBuilder,
+    TestMatchFactory, TestConfigFactory, TestScenarioFactory,
+};
