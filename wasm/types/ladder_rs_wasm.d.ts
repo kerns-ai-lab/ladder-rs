@@ -183,6 +183,154 @@ export class EloUtils {
   static create_ratings_from_values(values_json: string): string;
 }
 /**
+ * Result of a 1v1 match processing in Glicko
+ */
+export class GlickoMatchResult {
+  private constructor();
+  free(): void;
+  /**
+   * Gets the updated rating for player 1
+   */
+  readonly player1_rating: number;
+  /**
+   * Gets the updated RD for player 1
+   */
+  readonly player1_rd: number;
+  /**
+   * Gets the updated rating for player 2
+   */
+  readonly player2_rating: number;
+  /**
+   * Gets the updated RD for player 2
+   */
+  readonly player2_rd: number;
+}
+/**
+ * WASM-friendly Glicko rating wrapper
+ */
+export class GlickoRating {
+  free(): void;
+  /**
+   * Creates a new Glicko rating with the specified values
+   */
+  constructor(mu: number, rd: number);
+  /**
+   * Gets the conservative rating (μ - 2*RD)
+   */
+  conservative_rating(): number;
+  /**
+   * Serializes the rating to a string
+   */
+  serialize(): string;
+  /**
+   * Deserializes a rating from a string
+   */
+  static deserialize(data: string): GlickoRating;
+  /**
+   * Converts to JSON string for JavaScript interop
+   */
+  to_json(): string;
+  /**
+   * Creates from JSON string
+   */
+  static from_json(json: string): GlickoRating;
+  /**
+   * Gets the rating mean (μ)
+   */
+  readonly mu: number;
+  /**
+   * Gets the rating deviation (RD)
+   */
+  readonly rd: number;
+}
+/**
+ * WASM-friendly Glicko system wrapper
+ */
+export class GlickoSystem {
+  free(): void;
+  /**
+   * Creates a new Glicko system with default parameters
+   * Default: c = 15.8, initial_rating = 1500.0, initial_rd = 350.0
+   */
+  constructor();
+  /**
+   * Creates a new Glicko system with custom parameters
+   */
+  static with_parameters(c: number, initial_rating: number, initial_rd: number): GlickoSystem;
+  /**
+   * Creates a new rating with the default values
+   */
+  create_rating(): GlickoRating;
+  /**
+   * Creates a rating with specific values
+   */
+  create_rating_with_values(mu: number, rd: number): GlickoRating;
+  /**
+   * Processes a 1v1 match and returns updated ratings
+   */
+  process_1v1(player1: GlickoRating, player2: GlickoRating, outcome: MatchOutcome): GlickoMatchResult;
+  /**
+   * Applies rating periods without matches (increases RD)
+   */
+  apply_rating_period(rating: GlickoRating, periods: number): GlickoRating;
+  /**
+   * Calculates the win probability for player1
+   */
+  win_probability(player1: GlickoRating, player2: GlickoRating): number;
+  /**
+   * Calculates match quality (0-1, higher is better)
+   */
+  match_quality(player1: GlickoRating, player2: GlickoRating): number;
+  /**
+   * Serializes the system configuration
+   */
+  serialize(): string;
+  /**
+   * Deserializes system configuration
+   */
+  static deserialize(data: string): GlickoSystem;
+  /**
+   * Processes a 1v1 match and returns updated ratings as JSON
+   * Returns: {"player1": {"mu": 1520, "rd": 180}, "player2": {"mu": 1480, "rd": 190}}
+   */
+  process_1v1_json(player1_mu: number, player1_rd: number, player2_mu: number, player2_rd: number, outcome: MatchOutcome): string;
+  /**
+   * Gets the c parameter
+   */
+  readonly c: number;
+  /**
+   * Gets the initial rating
+   */
+  readonly initial_rating: number;
+  /**
+   * Gets the initial RD
+   */
+  readonly initial_rd: number;
+}
+/**
+ * Utility functions for batch operations with Glicko
+ */
+export class GlickoUtils {
+  private constructor();
+  free(): void;
+  /**
+   * Processes multiple matches in batch
+   * Takes JSON strings: ratings array and matches array
+   * Match data format: [[player1_idx, player2_idx, outcome], ...]
+   * Returns updated ratings as JSON string
+   */
+  static batch_process(system: GlickoSystem, ratings_json: string, matches_json: string): string;
+  /**
+   * Creates a leaderboard from ratings JSON
+   * Returns JSON array of [index, rating, rd] sorted by rating descending
+   */
+  static create_leaderboard(ratings_json: string): string;
+  /**
+   * Helper to create a ratings array from values
+   */
+  static create_ratings_from_values(values_json: string): string;
+}
+/**
  * Configuration for Elo algorithm
  */
 export class JsEloConfig {
@@ -405,8 +553,6 @@ export interface InitOutput {
   readonly __wbg_jsrating_free: (a: number, b: number) => void;
   readonly jsrating_new: (a: number, b: number, c: number) => void;
   readonly jsrating_new_unchecked: (a: number, b: number) => number;
-  readonly jsrating_mean: (a: number) => number;
-  readonly jsrating_variance: (a: number) => number;
   readonly jsrating_toJSON: (a: number, b: number) => void;
   readonly jsrating_fromJSON: (a: number, b: number, c: number) => void;
   readonly __wbg_jsplayer_free: (a: number, b: number) => void;
@@ -431,13 +577,9 @@ export interface InitOutput {
   readonly jseloconfig_kFactor: (a: number) => number;
   readonly jseloconfig_initialRating: (a: number) => number;
   readonly jseloconfig_initialVariance: (a: number) => number;
-  readonly __wbg_jstrueskillconfig_free: (a: number, b: number) => void;
   readonly jstrueskillconfig_new: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly jstrueskillconfig_initialMean: (a: number) => number;
   readonly jstrueskillconfig_initialStdDev: (a: number) => number;
-  readonly jstrueskillconfig_beta: (a: number) => number;
-  readonly jstrueskillconfig_tau: (a: number) => number;
-  readonly jstrueskillconfig_drawProbability: (a: number) => number;
   readonly __wbg_jserror_free: (a: number, b: number) => void;
   readonly jserror_new: (a: number, b: number, c: number, d: number) => number;
   readonly jserror_message: (a: number, b: number) => void;
@@ -448,7 +590,6 @@ export interface InitOutput {
   readonly elorating_value: (a: number) => number;
   readonly elorating_serialize: (a: number, b: number) => void;
   readonly elorating_deserialize: (a: number, b: number, c: number) => void;
-  readonly __wbg_matchresult_free: (a: number, b: number) => void;
   readonly __wbg_elosystem_free: (a: number, b: number) => void;
   readonly elosystem_new: () => number;
   readonly elosystem_with_parameters: (a: number, b: number) => number;
@@ -466,15 +607,55 @@ export interface InitOutput {
   readonly eloutils_batch_process: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
   readonly eloutils_create_leaderboard: (a: number, b: number, c: number) => void;
   readonly eloutils_create_ratings_from_values: (a: number, b: number, c: number) => void;
+  readonly __wbg_glickorating_free: (a: number, b: number) => void;
+  readonly glickorating_new: (a: number, b: number, c: number) => void;
+  readonly glickorating_mu: (a: number) => number;
+  readonly glickorating_rd: (a: number) => number;
+  readonly glickorating_conservative_rating: (a: number) => number;
+  readonly glickorating_serialize: (a: number, b: number) => void;
+  readonly glickorating_deserialize: (a: number, b: number, c: number) => void;
+  readonly __wbg_glickomatchresult_free: (a: number, b: number) => void;
+  readonly glickomatchresult_player1_rating: (a: number) => number;
+  readonly glickomatchresult_player1_rd: (a: number) => number;
+  readonly glickomatchresult_player2_rating: (a: number) => number;
+  readonly glickomatchresult_player2_rd: (a: number) => number;
+  readonly __wbg_glickosystem_free: (a: number, b: number) => void;
+  readonly glickosystem_new: () => number;
+  readonly glickosystem_with_parameters: (a: number, b: number, c: number, d: number) => void;
+  readonly glickosystem_c: (a: number) => number;
+  readonly glickosystem_initial_rating: (a: number) => number;
+  readonly glickosystem_initial_rd: (a: number) => number;
+  readonly glickosystem_create_rating: (a: number) => number;
+  readonly glickosystem_create_rating_with_values: (a: number, b: number, c: number, d: number) => void;
+  readonly glickosystem_process_1v1: (a: number, b: number, c: number, d: number, e: number) => void;
+  readonly glickosystem_apply_rating_period: (a: number, b: number, c: number, d: number) => void;
+  readonly glickosystem_win_probability: (a: number, b: number, c: number) => number;
+  readonly glickosystem_match_quality: (a: number, b: number, c: number) => number;
+  readonly glickosystem_serialize: (a: number, b: number) => void;
+  readonly glickosystem_deserialize: (a: number, b: number, c: number) => void;
+  readonly glickosystem_process_1v1_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+  readonly glickoutils_batch_process: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+  readonly glickoutils_create_leaderboard: (a: number, b: number, c: number) => void;
+  readonly glickoutils_create_ratings_from_values: (a: number, b: number, c: number) => void;
   readonly elorating_from_json: (a: number, b: number, c: number) => void;
+  readonly glickorating_from_json: (a: number, b: number, c: number) => void;
   readonly jsglickoconfig_new: (a: number, b: number, c: number) => number;
   readonly elorating_to_json: (a: number, b: number) => void;
+  readonly glickorating_to_json: (a: number, b: number) => void;
+  readonly __wbg_glickoutils_free: (a: number, b: number) => void;
+  readonly __wbg_matchresult_free: (a: number, b: number) => void;
   readonly __wbg_jsglickoconfig_free: (a: number, b: number) => void;
+  readonly __wbg_jstrueskillconfig_free: (a: number, b: number) => void;
+  readonly jsrating_variance: (a: number) => number;
+  readonly jsrating_mean: (a: number) => number;
+  readonly matchresult_player2_rating: (a: number) => number;
+  readonly matchresult_player1_rating: (a: number) => number;
   readonly jsglickoconfig_c: (a: number) => number;
   readonly jsglickoconfig_initialDeviation: (a: number) => number;
   readonly jsglickoconfig_initialRating: (a: number) => number;
-  readonly matchresult_player2_rating: (a: number) => number;
-  readonly matchresult_player1_rating: (a: number) => number;
+  readonly jstrueskillconfig_drawProbability: (a: number) => number;
+  readonly jstrueskillconfig_tau: (a: number) => number;
+  readonly jstrueskillconfig_beta: (a: number) => number;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_export_0: (a: number, b: number, c: number) => void;
   readonly __wbindgen_export_1: (a: number, b: number) => number;
