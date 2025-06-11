@@ -18,9 +18,13 @@ fn set_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
-// Module declarations - minimal set for Elo
+// Module declarations
 pub mod types;
 pub mod elo_wasm;
+pub mod glicko_wasm;
 
-// Re-export only Elo system
+// Re-export Elo system
 pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
+
+// Re-export Glicko system
+pub use glicko_wasm::{GlickoSystem, GlickoRating, GlickoMatchResult, GlickoUtils};
