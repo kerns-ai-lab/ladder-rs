@@ -24,6 +24,7 @@ pub mod elo_wasm;
 // pub mod glicko_wasm;
 pub mod trueskill_wasm;
 pub mod browser_compat;
+pub mod performance_tracking;
 
 // Re-export Elo system
 pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
