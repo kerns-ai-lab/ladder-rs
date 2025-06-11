@@ -7,6 +7,7 @@ use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
 use ladder_rs::trueskill::{TrueSkillRating as CoreTrueSkillRating, TrueSkill as CoreTrueSkillSystem, TrueSkillTeam as CoreTrueSkillTeam};
 use ladder_rs::core::{GameOutcome, Outcome, RatingSystem, TeamRating};
+use js_sys;
 
 /// WASM-friendly TrueSkill rating wrapper
 #[wasm_bindgen]
@@ -481,5 +482,189 @@ mod tests {
         let deserialized = TrueSkillRating::deserialize(&serialized).unwrap();
         assert_eq!(deserialized.mean(), 30.0);
         assert_eq!(deserialized.variance(), 100.0);
+    }
+}
+
+/// Utility functions for batch operations with TrueSkill
+#[wasm_bindgen]
+pub struct TrueSkillUtils;
+
+#[wasm_bindgen]
+impl TrueSkillUtils {
+    /// Processes multiple matches in batch
+    /// Takes JSON strings: ratings array and matches array
+    /// Match format: {"teams": [[player_indices], ...], "ranks": [1, 2, ...]}
+    /// Returns updated ratings as JSON string
+    pub fn batch_process(
+        system: &TrueSkillSystem,
+        ratings_json: &str,
+        matches_json: &str,
+    ) -> Result<String, JsValue> {
+        // Parse ratings from JSON
+        let mut ratings: Vec<TrueSkillRating> = serde_json::from_str(ratings_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid ratings JSON: {}", e)))?;
+
+        // Parse matches from JSON
+        #[derive(Deserialize)]
+        struct MatchData {
+            teams: Vec<Vec<usize>>,
+            ranks: Vec<u32>,
+        }
+        
+        let matches: Vec<MatchData> = serde_json::from_str(matches_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid matches JSON: {}", e)))?;
+
+        // Process each match
+        for match_data in matches {
+            // Build teams from player indices
+            let mut teams = Vec::new();
+            for team_indices in &match_data.teams {
+                let mut team_ratings = Vec::new();
+                for &idx in team_indices {
+                    if idx >= ratings.len() {
+                        return Err(JsValue::from_str("Player index out of bounds"));
+                    }
+                    team_ratings.push(CoreTrueSkillRating::new(
+                        ratings[idx].mean,
+                        ratings[idx].variance,
+                    ).map_err(|e| JsValue::from_str(&format!("Invalid rating: {}", e)))?);
+                }
+                teams.push(CoreTrueSkillTeam::from_player_ratings(team_ratings));
+            }
+
+            // Create game outcome
+            let outcome = GameOutcome::from_ranks(&match_data.ranks)
+                .map_err(|e| JsValue::from_str(&format!("Invalid ranks: {}", e)))?;
+
+            // Process the match
+            let results = system.inner
+                .rate(&teams, &outcome)
+                .map_err(|e| JsValue::from_str(&format!("Rating error: {}", e)))?;
+
+            // Update ratings
+            for (team_idx, team_result) in results.iter().enumerate() {
+                for (player_idx, player_rating) in team_result.player_ratings().iter().enumerate() {
+                    let global_idx = match_data.teams[team_idx][player_idx];
+                    ratings[global_idx] = TrueSkillRating {
+                        mean: player_rating.mean,
+                        variance: player_rating.variance,
+                    };
+                }
+            }
+        }
+
+        // Convert back to JSON
+        serde_json::to_string(&ratings)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Creates a leaderboard from ratings JSON
+    /// Returns JSON array of [index, mean, variance, conservative_rating] sorted by conservative rating
+    /// If use_conservative is true, sorts by conservative rating; otherwise by mean
+    pub fn create_leaderboard(ratings_json: &str, use_conservative: bool) -> Result<String, JsValue> {
+        // Parse ratings
+        let ratings: Vec<TrueSkillRating> = serde_json::from_str(ratings_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid ratings JSON: {}", e)))?;
+
+        // Create indexed ratings
+        let mut indexed: Vec<(usize, f64, f64, f64)> = ratings
+            .iter()
+            .enumerate()
+            .map(|(idx, rating)| {
+                let conservative = rating.mean - 3.0 * rating.variance.sqrt();
+                (idx, rating.mean, rating.variance, conservative)
+            })
+            .collect();
+
+        // Sort by conservative rating or mean
+        if use_conservative {
+            indexed.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+        } else {
+            indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        }
+
+        // Convert to array format
+        let result: Vec<Vec<serde_json::Value>> = indexed
+            .into_iter()
+            .map(|(idx, mean, variance, conservative)| vec![
+                serde_json::Value::from(idx),
+                serde_json::Value::from(mean),
+                serde_json::Value::from(variance),
+                serde_json::Value::from(conservative),
+            ])
+            .collect();
+
+        // Return as JSON
+        serde_json::to_string(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Helper to create a ratings array from mean/variance pairs
+    pub fn create_ratings_from_values(values_json: &str) -> Result<String, JsValue> {
+        let values: Vec<Vec<f64>> = serde_json::from_str(values_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid values JSON: {}", e)))?;
+
+        let ratings: Vec<TrueSkillRating> = values.into_iter()
+            .map(|v| {
+                if v.len() >= 2 {
+                    TrueSkillRating::new(v[0], v[1])
+                } else {
+                    Err(JsValue::from_str("Each rating must have [mean, variance]"))
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        serde_json::to_string(&ratings)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Simulates a tournament and returns expected results
+    /// Takes ratings and number of simulations
+    pub fn simulate_tournament(
+        system: &TrueSkillSystem,
+        teams_json: &str,
+        num_simulations: u32,
+    ) -> Result<String, JsValue> {
+        // This is a placeholder for tournament simulation
+        // In a real implementation, this would use Monte Carlo simulation
+        // For now, just return win probabilities based on ratings
+        
+        #[derive(Deserialize)]
+        struct TeamData {
+            ratings: Vec<TrueSkillRating>,
+        }
+        
+        let teams: Vec<TeamData> = serde_json::from_str(teams_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid teams JSON: {}", e)))?;
+        
+        // Calculate team strengths
+        let strengths: Vec<f64> = teams.iter()
+            .map(|team| team.ratings.iter().map(|r| r.mean).sum::<f64>())
+            .collect();
+        
+        // Simple win probability based on relative strengths
+        let total_strength: f64 = strengths.iter().sum();
+        let win_probs: Vec<f64> = strengths.iter()
+            .map(|&s| s / total_strength)
+            .collect();
+        
+        #[derive(Serialize)]
+        struct SimulationResult {
+            win_probabilities: Vec<f64>,
+            expected_ranks: Vec<f64>,
+        }
+        
+        // Expected rank is inverse of win probability
+        let expected_ranks: Vec<f64> = win_probs.iter()
+            .map(|&p| teams.len() as f64 * (1.0 - p) + 1.0)
+            .collect();
+        
+        let result = SimulationResult {
+            win_probabilities: win_probs,
+            expected_ranks,
+        };
+        
+        serde_json::to_string(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 }
