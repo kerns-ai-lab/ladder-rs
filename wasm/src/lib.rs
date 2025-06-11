@@ -23,6 +23,7 @@ pub mod types;
 pub mod elo_wasm;
 // pub mod glicko_wasm;
 pub mod trueskill_wasm;
+pub mod browser_compat;
 
 // Re-export Elo system
 pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
@@ -32,3 +33,15 @@ pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
 
 // Re-export TrueSkill system
 pub use trueskill_wasm::{TrueSkillSystem, TrueSkillRating, TrueSkillTeam, TrueSkillUtils};
+
+// Re-export browser compatibility utilities
+pub use browser_compat::{CrossBrowserCompat, EventCompat, PerformanceCompat};
+
+// Initialize browser compatibility on module load
+#[wasm_bindgen(start)]
+pub fn init() {
+    #[cfg(feature = "console_error_panic_hook")]
+    set_panic_hook();
+    
+    CrossBrowserCompat::init();
+}

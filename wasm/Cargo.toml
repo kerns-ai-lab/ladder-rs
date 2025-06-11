@@ -18,7 +18,18 @@ name = "ladder_rs_wasm"
 # Core WASM bindings - minimal features
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 js-sys = "0.3"
-web-sys = { version = "0.3", features = [] }  # Minimal web-sys for tests
+web-sys = { version = "0.3", features = [
+    "console",
+    "Window", 
+    "Navigator",
+    "Storage",
+    "Performance",
+    "CustomEvent",
+    "CustomEventInit",
+    "EventTarget",
+    "Document",
+    "Element"
+] }
 
 # Minimal serialization
 serde = { version = "1.0", features = ["derive"], default-features = false }
