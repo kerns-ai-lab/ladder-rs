@@ -21,10 +21,14 @@ fn set_panic_hook() {
 // Module declarations
 pub mod types;
 pub mod elo_wasm;
-pub mod glicko_wasm;
+// pub mod glicko_wasm;
+pub mod trueskill_wasm;
 
 // Re-export Elo system
 pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
 
 // Re-export Glicko system
-pub use glicko_wasm::{GlickoSystem, GlickoRating, GlickoMatchResult, GlickoUtils};
+// pub use glicko_wasm::{GlickoSystem, GlickoRating, GlickoMatchResult, GlickoUtils};
+
+// Re-export TrueSkill system
+pub use trueskill_wasm::{TrueSkillSystem, TrueSkillRating, TrueSkillTeam, TrueSkillUtils};
