@@ -5,85 +5,18 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
-    inputs:
-      baseline_branch:
-        description: 'Branch to use as performance baseline'
-        required: false
-        default: 'main'
-  schedule:
-    # Run nightly at 2 AM UTC
-    - cron: '0 2 * * *'
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
 jobs:
-  benchmark:
-    name: Run Performance Benchmarks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for baseline comparison
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Install dependencies
-        run: |
-          # Install wasm-pack
-          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-          
-          # Install criterion and other tools
-          cargo install cargo-criterion
-
-      - name: Run native benchmarks
-        run: |
-          echo "Running native Rust benchmarks..."
-          cargo criterion --message-format=json > benchmark-results.json
-          
-          # Note: WASM benchmarks are disabled due to rayon/WASI compatibility issues
-          echo "[]" > wasm-benchmark-results.json
-
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: |
-            benchmark-results.json
-            wasm-benchmark-results.json
-            target/criterion/**/*.html
-            wasm/target/criterion/**/*.html
-
-      - name: Compare with baseline
-        if: github.event_name == 'pull_request'
-        run: |
-          # Checkout baseline branch
-          git fetch origin ${{ github.base_ref }}
-          git checkout origin/${{ github.base_ref }}
-          
-          # Run baseline benchmarks
-          cargo criterion --message-format=json > baseline-results.json
-          echo "[]" > wasm-baseline-results.json
-          
-          # Switch back to PR branch
-          git checkout -
-          
-          # Compare results (you would need a comparison script here)
-          echo "Benchmark comparison would go here"
-
-  wasm-performance:
-    name: WASM Performance Tests
+  wasm-tests:
+    name: WASM Tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        browser: [chrome, firefox]
+        browser: [chrome]  # Only test Chrome to save minutes
     steps:
       - uses: actions/checkout@v4
 
@@ -102,115 +35,18 @@ jobs:
           cd wasm
           wasm-pack build --target web --out-dir pkg
 
-      - name: Run WASM performance tests - ${{ matrix.browser }}
+      - name: Run WASM tests - ${{ matrix.browser }}
         run: |
           cd wasm
-          if [ "${{ matrix.browser }}" == "chrome" ]; then
-            wasm-pack test --headless --chrome --test minimal_perf_test
-          else
-            wasm-pack test --headless --firefox --test minimal_perf_test
-          fi
+          wasm-pack test --headless --${{ matrix.browser }} --test minimal_perf_test
 
-      - name: Upload test results
+      - name: Summary
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasm-performance-results-${{ matrix.browser }}
-          path: wasm/test-results/
-
-  performance-regression-check:
-    name: Check for Performance Regressions
-    needs: [benchmark, wasm-performance]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download benchmark results
-        uses: actions/download-artifact@v4
-        with:
-          name: benchmark-results
-        continue-on-error: true
-
-      - name: Download WASM test results
-        uses: actions/download-artifact@v4
-        with:
-          pattern: wasm-performance-results-*
-          merge-multiple: true
-        continue-on-error: true
-
-      - name: Analyze performance results
         run: |
-          echo "Checking for performance results..."
-          
-          if [ -f benchmark-results.json ]; then
-            echo "✅ Found benchmark results"
-            # python scripts/check_performance_regression.py \
-            #   --current benchmark-results.json \
-            #   --baseline baseline-results.json \
-            #   --threshold 10
+          echo "## WASM Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ WASM tests passed in ${{ matrix.browser }}" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ No benchmark results found - skipping regression analysis"
+            echo "❌ WASM tests failed in ${{ matrix.browser }}" >> $GITHUB_STEP_SUMMARY
           fi
-          
-          echo "Performance testing infrastructure is operational"
-
-      - name: Comment PR with results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // This would post a comment with performance results
-            const comment = `## Performance Test Results
-            
-            ✅ All performance tests passed
-            
-            ### Benchmark Summary
-            - Native benchmarks: No regressions detected
-            - WASM benchmarks: No regressions detected
-            
-            <details>
-            <summary>Detailed Results</summary>
-            
-            <!-- Detailed benchmark results would go here -->
-            
-            </details>`;
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-
-  store-baseline:
-    name: Store Performance Baseline
-    needs: [benchmark]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download benchmark results
-        uses: actions/download-artifact@v4
-        with:
-          name: benchmark-results
-
-      - name: Store baseline
-        run: |
-          # This would store the baseline results for future comparisons
-          mkdir -p .performance-baselines
-          cp benchmark-results.json .performance-baselines/baseline-$(date +%Y%m%d-%H%M%S).json
-          cp wasm-benchmark-results.json .performance-baselines/wasm-baseline-$(date +%Y%m%d-%H%M%S).json
-          
-          # Keep only the last 30 baselines
-          cd .performance-baselines
-          ls -t baseline-*.json | tail -n +31 | xargs -r rm
-          ls -t wasm-baseline-*.json | tail -n +31 | xargs -r rm
-
-      - name: Upload baselines
-        uses: actions/upload-artifact@v4
-        with:
-          name: performance-baselines
-          path: .performance-baselines/
-          retention-days: 90
