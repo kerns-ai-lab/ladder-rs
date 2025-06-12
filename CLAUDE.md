@@ -9,3 +9,5 @@ ALWAYS write tests first to comprehensively exercise the target functionality an
 ALWAYS create PRs on remote origin instead of container-use
 
 ALWAYS create git hooks pre-push to run fmt and tests
+
+DO NOT include benchmarks in GitHub Actions workflows - they consume too many GitHub Action minutes. Benchmarks should only be run locally.
