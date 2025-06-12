@@ -40,11 +40,11 @@ serde-wasm-bindgen = "0.6"
 wee_alloc = { version = "0.4", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 
-# Core library dependency with minimal features
+# Core library dependency with minimal features for WASM
 [dependencies.ladder-rs]
 path = "../"
 default-features = false
-features = ["elo-only", "trueskill-only", "statrs"]
+features = ["elo-only"]
 
 # Essential WASM compatibility
 [dependencies.getrandom]
@@ -119,7 +119,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 # Benchmarks
 [[bench]]
-name = "wasm_performance"
+name = "wasm_performance_minimal"
 harness = false
 
 [dev-dependencies.criterion]

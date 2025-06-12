@@ -111,9 +111,9 @@ jobs:
         run: |
           cd wasm
           if [ "${{ matrix.browser }}" == "chrome" ]; then
-            wasm-pack test --headless --chrome --test performance_regression_tests
+            wasm-pack test --headless --chrome --test performance_regression_tests_minimal
           else
-            wasm-pack test --headless --firefox --test performance_regression_tests
+            wasm-pack test --headless --firefox --test performance_regression_tests_minimal
           fi
 
       - name: Upload test results

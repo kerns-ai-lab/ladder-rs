@@ -22,6 +22,7 @@ fn set_panic_hook() {
 pub mod types;
 pub mod elo_wasm;
 // pub mod glicko_wasm;
+#[cfg(any(feature = "trueskill-only", feature = "all-algorithms"))]
 pub mod trueskill_wasm;
 pub mod browser_compat;
 pub mod performance_tracking;
@@ -32,7 +33,8 @@ pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
 // Re-export Glicko system
 // pub use glicko_wasm::{GlickoSystem, GlickoRating, GlickoMatchResult, GlickoUtils};
 
-// Re-export TrueSkill system
+// Re-export TrueSkill system (if available)
+#[cfg(any(feature = "trueskill-only", feature = "all-algorithms"))]
 pub use trueskill_wasm::{TrueSkillSystem, TrueSkillRating, TrueSkillTeam, TrueSkillUtils};
 
 // Re-export browser compatibility utilities
