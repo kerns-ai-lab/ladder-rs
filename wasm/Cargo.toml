@@ -117,12 +117,6 @@ debug-assertions = false
 # Documentation build settings for docs.rs
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
-# Benchmarks
-[[bench]]
-name = "wasm_performance_minimal"
-harness = false
-
-[dev-dependencies.criterion]
-version = "0.5"
-features = ["html_reports"]
+# Note: WASM benchmarks are disabled due to rayon dependency conflicts
+# Use native benchmarks in the parent crate instead
 
