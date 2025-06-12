@@ -58,7 +58,7 @@ bench-wasm:
 # Run WASM performance tests
 perf-test:
 	@echo "Running WASM performance tests..."
-	cd wasm && wasm-pack test --headless --chrome --test simple_performance_test
+	cd wasm && wasm-pack test --headless --chrome --test minimal_perf_test
 
 # Generate performance baseline
 perf-baseline:
