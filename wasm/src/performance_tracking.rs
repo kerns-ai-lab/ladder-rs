@@ -459,8 +459,14 @@ mod tests {
         let metric = PerformanceMetric::new("op", 100.0, 10)
             .with_metadata("env", "native")
             .with_metadata("version", "1.0");
-        assert_eq!(metric.metadata.get("env").map(|s| s.as_str()), Some("native"));
-        assert_eq!(metric.metadata.get("version").map(|s| s.as_str()), Some("1.0"));
+        assert_eq!(
+            metric.metadata.get("env").map(|s| s.as_str()),
+            Some("native")
+        );
+        assert_eq!(
+            metric.metadata.get("version").map(|s| s.as_str()),
+            Some("1.0")
+        );
     }
 
     #[test]
@@ -543,7 +549,10 @@ mod tests {
     #[test]
     fn test_check_regressions_empty_metrics_returns_true() {
         let tracker = PerformanceTracker::new("env".to_string());
-        assert!(tracker.check_regressions(), "Empty tracker should have no regressions");
+        assert!(
+            tracker.check_regressions(),
+            "Empty tracker should have no regressions"
+        );
     }
 
     #[test]
@@ -580,8 +589,7 @@ mod tests {
         tracker.record_metric("elo_1v1_update", 1000.0, 950);
         assert!(!tracker.check_regressions());
         assert_eq!(tracker.regression_count(), 1);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         assert!(matches!(
             report.regressions[0].severity,
             RegressionSeverity::Minor
@@ -595,8 +603,7 @@ mod tests {
         // 890 iters in 1000 ms = 890 ops/sec, ratio = 0.89
         tracker.record_metric("elo_1v1_update", 1000.0, 890);
         assert!(!tracker.check_regressions());
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         assert!(matches!(
             report.regressions[0].severity,
             RegressionSeverity::Major
@@ -608,8 +615,7 @@ mod tests {
         let mut tracker = PerformanceTracker::new("env".to_string());
         // ratio = 0.51 → Major (just above 0.5)
         tracker.record_metric("elo_1v1_update", 1000.0, 510);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         assert!(matches!(
             report.regressions[0].severity,
             RegressionSeverity::Major
@@ -622,8 +628,7 @@ mod tests {
         // 400 iters in 1000 ms = 400 ops/sec, ratio = 0.4 → Critical
         tracker.record_metric("elo_1v1_update", 1000.0, 400);
         assert!(!tracker.check_regressions());
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         assert!(matches!(
             report.regressions[0].severity,
             RegressionSeverity::Critical
@@ -679,8 +684,7 @@ mod tests {
         // Record: speed OK (huge ops/sec), memory just over limit (1200 > 1000)
         // ratio = 1200/1000 = 1.2 → Minor (< 1.5)
         tracker.record_metric_with_memory("mem_op", 1.0, 1000000, 1200);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         let mem_regressions: Vec<_> = report
             .regressions
             .iter()
@@ -707,8 +711,7 @@ mod tests {
         tracker.import_baselines(baseline_json).unwrap();
         // ratio = 1600/1000 = 1.6 → Major (> 1.5)
         tracker.record_metric_with_memory("mem_op", 1.0, 1000000, 1600);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         let mem_regressions: Vec<_> = report
             .regressions
             .iter()
@@ -734,8 +737,7 @@ mod tests {
         tracker.import_baselines(baseline_json).unwrap();
         // ratio = 2100/1000 = 2.1 → Critical (> 2.0)
         tracker.record_metric_with_memory("mem_op", 1.0, 1000000, 2100);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         let mem_regressions: Vec<_> = report
             .regressions
             .iter()
@@ -776,8 +778,7 @@ mod tests {
         tracker.record_metric("unknown_op", 100.0, 10); // no baseline → ✓
 
         assert_eq!(tracker.regression_count(), 1);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         assert_eq!(report.summary.total_operations, 3);
         // passed = total - regressions
         assert_eq!(report.summary.passed, 2);
@@ -789,11 +790,10 @@ mod tests {
     fn test_multiple_regressions_counted_correctly() {
         let mut tracker = PerformanceTracker::new("env".to_string());
         // Both below baseline
-        tracker.record_metric("elo_1v1_update", 10000.0, 100);   // 10 ops/sec < 1000 → critical
+        tracker.record_metric("elo_1v1_update", 10000.0, 100); // 10 ops/sec < 1000 → critical
         tracker.record_metric("trueskill_1v1_update", 1000.0, 1); // 1 ops/sec < 100 → critical
         assert_eq!(tracker.regression_count(), 2);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         assert_eq!(report.summary.critical_regressions, 2);
     }
 
@@ -906,8 +906,7 @@ mod tests {
         let mut tracker = PerformanceTracker::new("env".to_string());
         tracker.import_baselines("{}").unwrap();
         tracker.record_metric("unknown_op", 100.0, 50);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         assert!((report.summary.average_performance_ratio - 1.0).abs() < f64::EPSILON);
     }
 
@@ -916,8 +915,7 @@ mod tests {
         let mut tracker = PerformanceTracker::new("env".to_string());
         // elo_1v1_update: baseline 1000 ops/sec, record 2000 → ratio 2.0
         tracker.record_metric("elo_1v1_update", 1000.0, 2000);
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         assert!((report.summary.average_performance_ratio - 2.0).abs() < 1e-6);
     }
 
@@ -970,14 +968,20 @@ mod tests {
     fn test_regression_message_contains_expected_and_actual() {
         let mut tracker = PerformanceTracker::new("env".to_string());
         tracker.record_metric("elo_1v1_update", 1000.0, 400); // 400 ops/sec < 1000
-        let report: PerformanceReport =
-            serde_json::from_str(&tracker.generate_report()).unwrap();
+        let report: PerformanceReport = serde_json::from_str(&tracker.generate_report()).unwrap();
         let msg = &report.regressions[0].message;
-        assert!(msg.contains("1000"), "message should mention baseline: {}", msg);
-        assert!(msg.contains("400"), "message should mention actual: {}", msg);
+        assert!(
+            msg.contains("1000"),
+            "message should mention baseline: {}",
+            msg
+        );
+        assert!(
+            msg.contains("400"),
+            "message should mention actual: {}",
+            msg
+        );
     }
 }
-
 
 #[wasm_bindgen]
 pub struct PerformanceReportFormatter;

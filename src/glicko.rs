@@ -759,7 +759,10 @@ mod tests {
             player.rd,
             new_rating.rd
         );
-        assert_eq!(new_rating.mu, player.mu, "Mu should be unchanged with no games");
+        assert_eq!(
+            new_rating.mu, player.mu,
+            "Mu should be unchanged with no games"
+        );
     }
 
     /// Two simultaneous opponents: sequential fold must accumulate both
@@ -772,7 +775,8 @@ mod tests {
         let opp_b = GlickoRating::new(1550.0, 80.0);
 
         // Beat both opponents
-        let result_two = glicko.update_rating(&player, &[(opp_a.clone(), 1.0), (opp_b.clone(), 1.0)]);
+        let result_two =
+            glicko.update_rating(&player, &[(opp_a.clone(), 1.0), (opp_b.clone(), 1.0)]);
         // Beat only one opponent
         let result_one = glicko.update_rating(&player, &[(opp_a.clone(), 1.0)]);
 
@@ -834,7 +838,10 @@ mod tests {
             loser.mu,
             new_loser.mu
         );
-        assert!(new_winner.rd < winner.rd, "Glicko-2 RD should decrease after play");
+        assert!(
+            new_winner.rd < winner.rd,
+            "Glicko-2 RD should decrease after play"
+        );
     }
 
     /// Glicko-2 with no opponents increases phi (RD in scaled units) via volatility.
@@ -860,7 +867,8 @@ mod tests {
         let opp_a = Glicko2Rating::new(1450.0, 100.0, 0.06);
         let opp_b = Glicko2Rating::new(1550.0, 80.0, 0.06);
 
-        let result_two = glicko2.update_rating(&player, &[(opp_a.clone(), 1.0), (opp_b.clone(), 1.0)]);
+        let result_two =
+            glicko2.update_rating(&player, &[(opp_a.clone(), 1.0), (opp_b.clone(), 1.0)]);
         let result_one = glicko2.update_rating(&player, &[(opp_a.clone(), 1.0)]);
 
         assert!(

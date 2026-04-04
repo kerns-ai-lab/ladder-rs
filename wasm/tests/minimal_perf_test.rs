@@ -1,5 +1,5 @@
 //! Minimal performance test for WASM bindings
-//! 
+//!
 //! This is the simplest possible test to ensure the WASM build works.
 
 use wasm_bindgen_test::*;
@@ -17,7 +17,7 @@ fn test_basic_wasm_functionality() {
 #[wasm_bindgen_test]
 fn test_web_sys_available() {
     use web_sys::window;
-    
+
     let win = window().expect("should have window");
     assert!(win.performance().is_some());
 }
