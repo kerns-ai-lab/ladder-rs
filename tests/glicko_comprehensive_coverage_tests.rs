@@ -229,7 +229,7 @@ fn test_glicko_error_conditions() {
 
     // Single team
     let single_outcome = GameOutcome::new(vec![1]);
-    let result = glicko.rate(&[team.clone()], &single_outcome);
+    let result = glicko.rate(std::slice::from_ref(&team), &single_outcome);
     assert!(result.is_err(), "Single team should cause error");
 
     // Three teams
