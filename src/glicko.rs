@@ -1,5 +1,6 @@
 use crate::core::{GameOutcome, Outcome, Rating, RatingSystem, TeamRating};
 use crate::error::Result;
+#[cfg(feature = "full-deps")]
 use rayon::prelude::*;
 use std::f64::consts::PI;
 
@@ -212,6 +213,7 @@ impl Glicko {
             return GlickoRating::new(rating.mu, new_rd);
         }
 
+        #[cfg(feature = "full-deps")]
         let (d_squared_inv_sum, delta_sum) = opponents
             .par_iter()
             .map(|(opponent, score)| {
@@ -224,6 +226,20 @@ impl Glicko {
                 )
             })
             .reduce(|| (0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
+
+        #[cfg(not(feature = "full-deps"))]
+        let (d_squared_inv_sum, delta_sum): (f64, f64) = opponents
+            .iter()
+            .map(|(opponent, score)| {
+                let g_rd = self.g(opponent.rd);
+                let expected = self.expected_score(rating.mu, opponent.mu, opponent.rd);
+
+                (
+                    g_rd * g_rd * expected * (1.0 - expected),
+                    g_rd * (score - expected),
+                )
+            })
+            .fold((0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
 
         let d_squared_inv = d_squared_inv_sum * self.config.q * self.config.q;
 
@@ -396,6 +412,7 @@ impl Glicko2 {
             return Glicko2Rating::from_glicko2_scale(mu, new_phi, sigma);
         }
 
+        #[cfg(feature = "full-deps")]
         let (nu_inv_sum, delta_sum) = opponents
             .par_iter()
             .map(|(opponent, score)| {
@@ -409,6 +426,21 @@ impl Glicko2 {
                 )
             })
             .reduce(|| (0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
+
+        #[cfg(not(feature = "full-deps"))]
+        let (nu_inv_sum, delta_sum): (f64, f64) = opponents
+            .iter()
+            .map(|(opponent, score)| {
+                let (mu_j, phi_j, _) = opponent.to_glicko2_scale();
+                let g_phi = self.g(phi_j);
+                let expected = self.expected_score(mu, mu_j, phi_j);
+
+                (
+                    g_phi * g_phi * expected * (1.0 - expected),
+                    g_phi * (score - expected),
+                )
+            })
+            .fold((0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
 
         let nu = 1.0 / nu_inv_sum;
         let delta = nu * delta_sum;

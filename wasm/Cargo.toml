@@ -40,11 +40,11 @@ serde-wasm-bindgen = "0.6"
 wee_alloc = { version = "0.4", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 
-# Core library dependency with minimal features for WASM
+# Core library dependency with all rating algorithms (no rayon/full-deps)
 [dependencies.ladder-rs]
 path = "../"
 default-features = false
-features = ["elo-only"]
+features = ["all-algorithms"]
 
 # Essential WASM compatibility
 [dependencies.getrandom]
