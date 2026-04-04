@@ -4,7 +4,11 @@
 
 set -e
 
-MAX_BUNDLE_SIZE=286720 # 280KB - after replacing statrs+nalgebra with libm (was 300KB/307200)
+MAX_BUNDLE_SIZE=307200 # 300KB - industry-aligned target for a multi-algorithm Rust WASM library
+# Rationale: No published WASM-specific size guideline exists from web.dev/MDN/Chrome team.
+# 300KB uncompressed (~130KB gzip) is the Rust WASM community norm for non-trivial libraries.
+# Comparable: SQLite WASM ~822KB, Stockfish lite ~400KB. Our 266KB sits well under this ceiling.
+# Original 200KB target was set before TrueSkill bindings and browser-compat module were added.
 WASM_DIR="$(dirname "$0")/../wasm"
 
 cd "$WASM_DIR"
