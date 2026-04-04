@@ -7,6 +7,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
+// --- Regression severity thresholds ---
+// Speed: ratio = actual_ops / baseline_ops (lower is worse)
+const SPEED_CRITICAL_THRESHOLD: f64 = 0.50; // < 50% of baseline => Critical
+const SPEED_MAJOR_THRESHOLD: f64 = 0.90; // < 90% of baseline => Major
+// Memory: ratio = actual_bytes / baseline_bytes (higher is worse)
+const MEMORY_CRITICAL_THRESHOLD: f64 = 2.0; // > 2× baseline => Critical
+const MEMORY_MAJOR_THRESHOLD: f64 = 1.5; // > 1.5× baseline => Major
+
 /// Get the current timestamp in milliseconds, using js_sys::Date in browser WASM
 /// to avoid the panic from SystemTime::now() which requires WASI clock.
 #[cfg(target_arch = "wasm32")]
@@ -67,6 +75,8 @@ impl PerformanceMetric {
 pub struct PerformanceBaseline {
     pub operation: String,
     pub min_ops_per_second: f64,
+    /// Upper bound on acceptable duration. Stored for external tooling / report display;
+    /// regression detection uses `min_ops_per_second` as the authoritative speed signal.
     pub max_duration_ms: f64,
     pub max_memory_bytes: Option<u64>,
 }
@@ -96,6 +106,7 @@ pub struct RegressionResult {
 pub enum RegressionType {
     Speed,
     Memory,
+    /// Reserved for a future combined speed+memory regression; not yet emitted by detect_regressions.
     Both,
 }
 
@@ -289,9 +300,9 @@ impl PerformanceTracker {
                 // Check speed regression
                 if metric.ops_per_second < baseline.min_ops_per_second {
                     let ratio = metric.ops_per_second / baseline.min_ops_per_second;
-                    let severity = if ratio < 0.5 {
+                    let severity = if ratio < SPEED_CRITICAL_THRESHOLD {
                         RegressionSeverity::Critical
-                    } else if ratio < 0.9 {
+                    } else if ratio < SPEED_MAJOR_THRESHOLD {
                         RegressionSeverity::Major
                     } else {
                         RegressionSeverity::Minor
@@ -318,9 +329,9 @@ impl PerformanceTracker {
                 {
                     if actual_mem > baseline_mem {
                         let ratio = actual_mem as f64 / baseline_mem as f64;
-                        let severity = if ratio > 2.0 {
+                        let severity = if ratio > MEMORY_CRITICAL_THRESHOLD {
                             RegressionSeverity::Critical
-                        } else if ratio > 1.5 {
+                        } else if ratio > MEMORY_MAJOR_THRESHOLD {
                             RegressionSeverity::Major
                         } else {
                             RegressionSeverity::Minor
@@ -398,6 +409,14 @@ impl PerformanceTracker {
     }
 }
 
+// Private helpers shared by all PerformanceReportFormatter methods.
+
+fn parse_report(report_json: &str) -> Result<PerformanceReport, JsValue> {
+    serde_json::from_str(report_json)
+        .map_err(|e| JsValue::from_str(&format!("Failed to parse report: {}", e)))
+}
+
+
 /// JavaScript-friendly performance report formatter
 #[wasm_bindgen]
 pub struct PerformanceReportFormatter;
@@ -406,8 +425,7 @@ pub struct PerformanceReportFormatter;
 impl PerformanceReportFormatter {
     /// Format a performance report as HTML
     pub fn format_html(report_json: &str) -> Result<String, JsValue> {
-        let report: PerformanceReport = serde_json::from_str(report_json)
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse report: {}", e)))?;
+        let report = parse_report(report_json)?;
 
         let mut html = String::from(
             r#"
@@ -521,8 +539,7 @@ impl PerformanceReportFormatter {
                 metric.duration_ms,
                 metric.iterations,
                 metric.ops_per_second,
-                metric
-                    .memory_used_bytes
+                metric.memory_used_bytes
                     .map(|b| b.to_string())
                     .unwrap_or_else(|| "N/A".to_string())
             ));
@@ -541,8 +558,7 @@ impl PerformanceReportFormatter {
 
     /// Format a performance report as Markdown
     pub fn format_markdown(report_json: &str) -> Result<String, JsValue> {
-        let report: PerformanceReport = serde_json::from_str(report_json)
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse report: {}", e)))?;
+        let report = parse_report(report_json)?;
 
         let mut md = String::from("# Performance Report\n\n");
 
@@ -586,8 +602,7 @@ impl PerformanceReportFormatter {
                 metric.duration_ms,
                 metric.iterations,
                 metric.ops_per_second,
-                metric
-                    .memory_used_bytes
+                metric.memory_used_bytes
                     .map(|b| format!("{} bytes", b))
                     .unwrap_or_else(|| "N/A".to_string())
             ));

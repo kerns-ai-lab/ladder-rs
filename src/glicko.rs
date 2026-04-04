@@ -1,5 +1,10 @@
 use crate::core::{GameOutcome, Outcome, Rating, RatingSystem, TeamRating};
 use crate::error::Result;
+// rayon is only available when the "full-deps" feature is enabled.
+// The WASM target never enables "full-deps" (rayon's thread-local TLS panics in
+// single-threaded WASM), so each inner loop has two cfg-gated variants:
+//   - par_iter()  when "full-deps" is on  (native, multi-threaded)
+//   - iter()      otherwise               (WASM-safe, single-threaded)
 #[cfg(feature = "full-deps")]
 use rayon::prelude::*;
 use std::f64::consts::PI;
@@ -213,6 +218,8 @@ impl Glicko {
             return GlickoRating::new(rating.mu, new_rd);
         }
 
+        // Parallel fold over opponents when rayon is available (native "full-deps"),
+        // sequential fold otherwise (WASM / no-rayon builds).
         #[cfg(feature = "full-deps")]
         let (d_squared_inv_sum, delta_sum) = opponents
             .par_iter()
@@ -412,6 +419,8 @@ impl Glicko2 {
             return Glicko2Rating::from_glicko2_scale(mu, new_phi, sigma);
         }
 
+        // Parallel fold over opponents when rayon is available (native "full-deps"),
+        // sequential fold otherwise (WASM / no-rayon builds).
         #[cfg(feature = "full-deps")]
         let (nu_inv_sum, delta_sum) = opponents
             .par_iter()
