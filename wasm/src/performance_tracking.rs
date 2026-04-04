@@ -1,12 +1,27 @@
 //! Performance tracking and reporting module
-//! 
+//!
 //! This module provides utilities for tracking performance metrics,
 //! generating reports, and detecting performance regressions.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 use wasm_bindgen::prelude::*;
+
+/// Get the current timestamp in milliseconds, using js_sys::Date in browser WASM
+/// to avoid the panic from SystemTime::now() which requires WASI clock.
+#[cfg(target_arch = "wasm32")]
+fn current_timestamp_ms() -> f64 {
+    js_sys::Date::now()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn current_timestamp_ms() -> f64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as f64
+}
 
 /// Performance metric data point
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,11 +38,8 @@ pub struct PerformanceMetric {
 impl PerformanceMetric {
     pub fn new(operation: &str, duration_ms: f64, iterations: u32) -> Self {
         let ops_per_second = (iterations as f64 * 1000.0) / duration_ms;
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        
+        let timestamp = (current_timestamp_ms() / 1000.0) as u64;
+
         Self {
             operation: operation.to_string(),
             timestamp,
@@ -38,12 +50,12 @@ impl PerformanceMetric {
             metadata: HashMap::new(),
         }
     }
-    
+
     pub fn with_memory(mut self, bytes: u64) -> Self {
         self.memory_used_bytes = Some(bytes);
         self
     }
-    
+
     pub fn with_metadata(mut self, key: &str, value: &str) -> Self {
         self.metadata.insert(key.to_string(), value.to_string());
         self
@@ -122,18 +134,13 @@ impl PerformanceTracker {
             environment,
         }
     }
-    
+
     /// Record a performance metric
-    pub fn record_metric(
-        &mut self,
-        operation: &str,
-        duration_ms: f64,
-        iterations: u32,
-    ) {
+    pub fn record_metric(&mut self, operation: &str, duration_ms: f64, iterations: u32) {
         let metric = PerformanceMetric::new(operation, duration_ms, iterations);
         self.metrics.push(metric);
     }
-    
+
     /// Record a performance metric with memory usage
     pub fn record_metric_with_memory(
         &mut self,
@@ -142,18 +149,13 @@ impl PerformanceTracker {
         iterations: u32,
         memory_bytes: u64,
     ) {
-        let metric = PerformanceMetric::new(operation, duration_ms, iterations)
-            .with_memory(memory_bytes);
+        let metric =
+            PerformanceMetric::new(operation, duration_ms, iterations).with_memory(memory_bytes);
         self.metrics.push(metric);
     }
-    
+
     /// Add or update a performance baseline
-    pub fn set_baseline(
-        &mut self,
-        operation: &str,
-        min_ops_per_second: f64,
-        max_duration_ms: f64,
-    ) {
+    pub fn set_baseline(&mut self, operation: &str, min_ops_per_second: f64, max_duration_ms: f64) {
         self.baselines.insert(
             operation.to_string(),
             PerformanceBaseline {
@@ -164,35 +166,34 @@ impl PerformanceTracker {
             },
         );
     }
-    
+
     /// Generate a performance report
     pub fn generate_report(&self) -> String {
         let report = self.create_report();
         serde_json::to_string_pretty(&report).unwrap()
     }
-    
+
     /// Check for performance regressions
     pub fn check_regressions(&self) -> bool {
         let regressions = self.detect_regressions();
         regressions.is_empty()
     }
-    
+
     /// Get regression count
     pub fn regression_count(&self) -> usize {
         self.detect_regressions().len()
     }
-    
+
     /// Export metrics as JSON
     pub fn export_metrics(&self) -> String {
         serde_json::to_string(&self.metrics).unwrap()
     }
-    
+
     /// Import baselines from JSON
     pub fn import_baselines(&mut self, json: &str) -> Result<(), JsValue> {
-        let baselines: HashMap<String, PerformanceBaseline> = 
-            serde_json::from_str(json)
-                .map_err(|e| JsValue::from_str(&format!("Failed to parse baselines: {}", e)))?;
-        
+        let baselines: HashMap<String, PerformanceBaseline> = serde_json::from_str(json)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse baselines: {}", e)))?;
+
         self.baselines = baselines;
         Ok(())
     }
@@ -202,7 +203,7 @@ impl PerformanceTracker {
 impl PerformanceTracker {
     fn default_baselines() -> HashMap<String, PerformanceBaseline> {
         let mut baselines = HashMap::new();
-        
+
         // System creation baselines
         baselines.insert(
             "create_elo_system".to_string(),
@@ -213,7 +214,7 @@ impl PerformanceTracker {
                 max_memory_bytes: None,
             },
         );
-        
+
         baselines.insert(
             "create_trueskill_system".to_string(),
             PerformanceBaseline {
@@ -223,7 +224,7 @@ impl PerformanceTracker {
                 max_memory_bytes: None,
             },
         );
-        
+
         // Rating update baselines
         baselines.insert(
             "elo_1v1_update".to_string(),
@@ -234,7 +235,7 @@ impl PerformanceTracker {
                 max_memory_bytes: None,
             },
         );
-        
+
         baselines.insert(
             "trueskill_1v1_update".to_string(),
             PerformanceBaseline {
@@ -244,7 +245,7 @@ impl PerformanceTracker {
                 max_memory_bytes: None,
             },
         );
-        
+
         // Serialization baselines
         baselines.insert(
             "serialize_100_players".to_string(),
@@ -255,7 +256,7 @@ impl PerformanceTracker {
                 max_memory_bytes: None,
             },
         );
-        
+
         baselines.insert(
             "deserialize_100_players".to_string(),
             PerformanceBaseline {
@@ -265,7 +266,7 @@ impl PerformanceTracker {
                 max_memory_bytes: None,
             },
         );
-        
+
         // Batch operation baselines
         baselines.insert(
             "batch_100_matches".to_string(),
@@ -276,13 +277,13 @@ impl PerformanceTracker {
                 max_memory_bytes: None,
             },
         );
-        
+
         baselines
     }
-    
+
     fn detect_regressions(&self) -> Vec<RegressionResult> {
         let mut regressions = Vec::new();
-        
+
         for metric in &self.metrics {
             if let Some(baseline) = self.baselines.get(&metric.operation) {
                 // Check speed regression
@@ -295,7 +296,7 @@ impl PerformanceTracker {
                     } else {
                         RegressionSeverity::Minor
                     };
-                    
+
                     regressions.push(RegressionResult {
                         operation: metric.operation.clone(),
                         baseline: baseline.clone(),
@@ -310,10 +311,11 @@ impl PerformanceTracker {
                         ),
                     });
                 }
-                
+
                 // Check memory regression if applicable
-                if let (Some(baseline_mem), Some(actual_mem)) = 
-                    (baseline.max_memory_bytes, metric.memory_used_bytes) {
+                if let (Some(baseline_mem), Some(actual_mem)) =
+                    (baseline.max_memory_bytes, metric.memory_used_bytes)
+                {
                     if actual_mem > baseline_mem {
                         let ratio = actual_mem as f64 / baseline_mem as f64;
                         let severity = if ratio > 2.0 {
@@ -323,7 +325,7 @@ impl PerformanceTracker {
                         } else {
                             RegressionSeverity::Minor
                         };
-                        
+
                         regressions.push(RegressionResult {
                             operation: metric.operation.clone(),
                             baseline: baseline.clone(),
@@ -341,34 +343,36 @@ impl PerformanceTracker {
                 }
             }
         }
-        
+
         regressions
     }
-    
+
     fn create_report(&self) -> PerformanceReport {
         let regressions = self.detect_regressions();
         let critical_count = regressions
             .iter()
             .filter(|r| matches!(r.severity, RegressionSeverity::Critical))
             .count();
-        
+
         let total_ops = self.metrics.len();
         let passed = total_ops - regressions.len();
-        
+
         let avg_ratio = if !self.metrics.is_empty() {
-            let sum: f64 = self.metrics
+            let sum: f64 = self
+                .metrics
                 .iter()
                 .filter_map(|m| {
-                    self.baselines.get(&m.operation).map(|b| {
-                        m.ops_per_second / b.min_ops_per_second
-                    })
+                    self.baselines
+                        .get(&m.operation)
+                        .map(|b| m.ops_per_second / b.min_ops_per_second)
                 })
                 .sum();
-            let count = self.metrics
+            let count = self
+                .metrics
                 .iter()
                 .filter(|m| self.baselines.contains_key(&m.operation))
                 .count();
-            
+
             if count > 0 {
                 sum / count as f64
             } else {
@@ -377,12 +381,9 @@ impl PerformanceTracker {
         } else {
             1.0
         };
-        
+
         PerformanceReport {
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
+            timestamp: (current_timestamp_ms() / 1000.0) as u64,
             environment: self.environment.clone(),
             metrics: self.metrics.clone(),
             regressions,
@@ -407,8 +408,9 @@ impl PerformanceReportFormatter {
     pub fn format_html(report_json: &str) -> Result<String, JsValue> {
         let report: PerformanceReport = serde_json::from_str(report_json)
             .map_err(|e| JsValue::from_str(&format!("Failed to parse report: {}", e)))?;
-        
-        let mut html = String::from(r#"
+
+        let mut html = String::from(
+            r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -429,8 +431,9 @@ impl PerformanceReportFormatter {
 </head>
 <body>
     <h1>Performance Report</h1>
-"#);
-        
+"#,
+        );
+
         // Summary section
         html.push_str(&format!(
             r#"
@@ -445,14 +448,22 @@ impl PerformanceReportFormatter {
 "#,
             report.environment,
             report.summary.total_operations,
-            if report.summary.regressions == 0 { "passed" } else { "failed" },
+            if report.summary.regressions == 0 {
+                "passed"
+            } else {
+                "failed"
+            },
             report.summary.passed,
-            if report.summary.regressions == 0 { "passed" } else { "failed" },
+            if report.summary.regressions == 0 {
+                "passed"
+            } else {
+                "failed"
+            },
             report.summary.regressions,
             report.summary.critical_regressions,
             report.summary.average_performance_ratio
         ));
-        
+
         // Regressions section
         if !report.regressions.is_empty() {
             html.push_str("<h2>Regressions</h2>");
@@ -462,7 +473,7 @@ impl PerformanceReportFormatter {
                     RegressionSeverity::Major => "major",
                     RegressionSeverity::Minor => "minor",
                 };
-                
+
                 html.push_str(&format!(
                     r#"
     <div class="regression {}">
@@ -479,9 +490,10 @@ impl PerformanceReportFormatter {
                 ));
             }
         }
-        
+
         // Metrics table
-        html.push_str(r#"
+        html.push_str(
+            r#"
     <h2>All Metrics</h2>
     <table>
         <tr>
@@ -491,8 +503,9 @@ impl PerformanceReportFormatter {
             <th>Ops/Second</th>
             <th>Memory (bytes)</th>
         </tr>
-"#);
-        
+"#,
+        );
+
         for metric in &report.metrics {
             html.push_str(&format!(
                 r#"
@@ -508,61 +521,64 @@ impl PerformanceReportFormatter {
                 metric.duration_ms,
                 metric.iterations,
                 metric.ops_per_second,
-                metric.memory_used_bytes
+                metric
+                    .memory_used_bytes
                     .map(|b| b.to_string())
                     .unwrap_or_else(|| "N/A".to_string())
             ));
         }
-        
-        html.push_str(r#"
+
+        html.push_str(
+            r#"
     </table>
 </body>
 </html>
-"#);
-        
+"#,
+        );
+
         Ok(html)
     }
-    
+
     /// Format a performance report as Markdown
     pub fn format_markdown(report_json: &str) -> Result<String, JsValue> {
         let report: PerformanceReport = serde_json::from_str(report_json)
             .map_err(|e| JsValue::from_str(&format!("Failed to parse report: {}", e)))?;
-        
+
         let mut md = String::from("# Performance Report\n\n");
-        
+
         // Summary
         md.push_str("## Summary\n\n");
         md.push_str(&format!("- **Environment**: {}\n", report.environment));
-        md.push_str(&format!("- **Total Operations**: {}\n", report.summary.total_operations));
+        md.push_str(&format!(
+            "- **Total Operations**: {}\n",
+            report.summary.total_operations
+        ));
         md.push_str(&format!("- **Passed**: {}\n", report.summary.passed));
         md.push_str(&format!(
             "- **Regressions**: {} (Critical: {})\n",
-            report.summary.regressions,
-            report.summary.critical_regressions
+            report.summary.regressions, report.summary.critical_regressions
         ));
         md.push_str(&format!(
             "- **Average Performance Ratio**: {:.2}x baseline\n\n",
             report.summary.average_performance_ratio
         ));
-        
+
         // Regressions
         if !report.regressions.is_empty() {
             md.push_str("## Regressions\n\n");
             for regression in &report.regressions {
                 md.push_str(&format!(
                     "### {} ({:?})\n\n{}\n\n",
-                    regression.operation,
-                    regression.severity,
-                    regression.message
+                    regression.operation, regression.severity, regression.message
                 ));
             }
         }
-        
+
         // Metrics table
         md.push_str("## All Metrics\n\n");
         md.push_str("| Operation | Duration (ms) | Iterations | Ops/Second | Memory |\n");
         md.push_str("|-----------|---------------|------------|------------|--------|\n");
-        
+
         for metric in &report.metrics {
             md.push_str(&format!(
                 "| {} | {:.2} | {} | {:.0} | {} |\n",
@@ -570,12 +586,13 @@ impl PerformanceReportFormatter {
                 metric.duration_ms,
                 metric.iterations,
                 metric.ops_per_second,
-                metric.memory_used_bytes
+                metric
+                    .memory_used_bytes
                     .map(|b| format!("{} bytes", b))
                     .unwrap_or_else(|| "N/A".to_string())
             ));
         }
-        
+
         Ok(md)
     }
 }

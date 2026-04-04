@@ -117,6 +117,8 @@ debug-assertions = false
 # Documentation build settings for docs.rs
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
-# Note: WASM benchmarks are disabled due to rayon dependency conflicts
-# Use native benchmarks in the parent crate instead
+
+# Note: Native benchmarks are in wasm/benches/wasm_performance.rs covering all algorithms.
+# Run locally with: cargo bench --manifest-path wasm/Cargo.toml
+# Do NOT include benchmarks in GitHub Actions workflows - they consume too many CI minutes.
 
