@@ -2,8 +2,37 @@ use crate::{
     core::{GameOutcome, Rating, RatingSystem, TeamRating},
     error::{Error, Result},
 };
-use statrs::distribution::{Continuous, ContinuousCDF, Normal};
 use std::collections::HashMap;
+
+/// Standard normal CDF: Φ(x) = 0.5 * erfc(-x / sqrt(2))
+/// libm-math takes priority when both features are enabled.
+#[cfg(feature = "libm-math")]
+fn standard_normal_cdf(x: f64) -> f64 {
+    0.5 * libm::erfc(-x / core::f64::consts::SQRT_2)
+}
+
+/// Standard normal PDF: φ(x) = exp(-x²/2) / sqrt(2π)
+/// libm-math takes priority when both features are enabled.
+#[cfg(feature = "libm-math")]
+fn standard_normal_pdf(x: f64) -> f64 {
+    (-0.5 * x * x).exp() / (2.0 * core::f64::consts::PI).sqrt()
+}
+
+/// Standard normal CDF using statrs (heavier, nalgebra dependency).
+/// Only used when libm-math is not enabled.
+#[cfg(all(feature = "statrs-math", not(feature = "libm-math")))]
+fn standard_normal_cdf(x: f64) -> f64 {
+    use statrs::distribution::ContinuousCDF;
+    statrs::distribution::Normal::new(0.0, 1.0).unwrap().cdf(x)
+}
+
+/// Standard normal PDF using statrs (heavier, nalgebra dependency).
+/// Only used when libm-math is not enabled.
+#[cfg(all(feature = "statrs-math", not(feature = "libm-math")))]
+fn standard_normal_pdf(x: f64) -> f64 {
+    use statrs::distribution::Continuous;
+    statrs::distribution::Normal::new(0.0, 1.0).unwrap().pdf(x)
+}
 
 /// Implementation choice for TrueSkill algorithm
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -297,20 +326,18 @@ impl GaussianComparisonFactor {
 
     /// Compute the V function for truncated Gaussian
     fn v_function(t: f64, epsilon: f64) -> f64 {
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        let denom = normal.cdf(t - epsilon);
+        let denom = standard_normal_cdf(t - epsilon);
 
         if denom < 1e-10 {
             -t + epsilon
         } else {
-            normal.pdf(t - epsilon) / denom
+            standard_normal_pdf(t - epsilon) / denom
         }
     }
 
-    /// Compute the W function for truncated Gaussian  
+    /// Compute the W function for truncated Gaussian
     fn w_function(t: f64, epsilon: f64) -> f64 {
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        let denom = normal.cdf(t - epsilon);
+        let denom = standard_normal_cdf(t - epsilon);
 
         if denom < 1e-10 {
             if t < epsilon {
@@ -609,7 +636,6 @@ impl TrueSkill {
         // Using the formula from the TrueSkill paper:
         // draw_probability = Φ(ε/σ_diff) - Φ(-ε/σ_diff)
         // This requires numerical solving, but we can use approximation:
-        let normal = Normal::new(0.0, 1.0).unwrap();
 
         // Binary search to find ε that gives us the desired draw probability
         let mut low = 0.0;
@@ -617,7 +643,8 @@ impl TrueSkill {
 
         for _ in 0..20 {
             let mid = (low + high) / 2.0;
-            let prob = normal.cdf(mid / sigma_diff) - normal.cdf(-mid / sigma_diff);
+            let prob =
+                standard_normal_cdf(mid / sigma_diff) - standard_normal_cdf(-mid / sigma_diff);
 
             if prob < self.draw_probability {
                 low = mid;
@@ -800,21 +827,19 @@ impl TrueSkill {
         // Calculate the difference in team performance
         let mu_diff = mu1 - mu2;
 
-        let normal = Normal::new(0.0, 1.0).unwrap();
-
         // Determine the update based on the outcome
         let (v1, v2, w1, w2) = match ranks[0].cmp(&ranks[1]) {
             std::cmp::Ordering::Less => {
                 // Team 1 wins
                 let t = mu_diff / c;
-                let v = normal.pdf(t) / normal.cdf(t);
+                let v = standard_normal_pdf(t) / standard_normal_cdf(t);
                 let w = v * (v + t);
                 (v, -v, w, w)
             }
             std::cmp::Ordering::Greater => {
                 // Team 2 wins
                 let t = -mu_diff / c;
-                let v = normal.pdf(t) / normal.cdf(t);
+                let v = standard_normal_pdf(t) / standard_normal_cdf(t);
                 let w = v * (v + t);
                 (-v, v, w, w)
             }
@@ -823,10 +848,10 @@ impl TrueSkill {
                 let epsilon = self.draw_margin;
                 let t = mu_diff / c;
 
-                let cdf_plus = normal.cdf((epsilon - t) / c);
-                let cdf_minus = normal.cdf((-epsilon - t) / c);
-                let pdf_plus = normal.pdf((epsilon - t) / c);
-                let pdf_minus = normal.pdf((-epsilon - t) / c);
+                let cdf_plus = standard_normal_cdf((epsilon - t) / c);
+                let cdf_minus = standard_normal_cdf((-epsilon - t) / c);
+                let pdf_plus = standard_normal_pdf((epsilon - t) / c);
+                let pdf_minus = standard_normal_pdf((-epsilon - t) / c);
 
                 let denom = cdf_plus - cdf_minus;
                 let v = if denom > 1e-10 {
@@ -1073,5 +1098,81 @@ mod tests {
         // This should not hang with the improved convergence detection
         let result = ts.rate(&[team1, team2], &outcome);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_standard_normal_cdf_at_zero() {
+        // Φ(0) = 0.5 exactly by symmetry
+        let result = standard_normal_cdf(0.0);
+        assert!(
+            (result - 0.5).abs() < 1e-10,
+            "standard_normal_cdf(0.0) should be 0.5, got {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_standard_normal_cdf_at_1_96() {
+        // Φ(1.96) ≈ 0.975 (classical statistics value)
+        let result = standard_normal_cdf(1.96);
+        assert!(
+            (result - 0.975).abs() < 1e-3,
+            "standard_normal_cdf(1.96) should be ≈0.975, got {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_standard_normal_cdf_symmetry() {
+        // Φ(x) + Φ(-x) = 1 for all x
+        for x in [0.5, 1.0, 1.96, 2.0, 3.0] {
+            let sum = standard_normal_cdf(x) + standard_normal_cdf(-x);
+            assert!(
+                (sum - 1.0).abs() < 1e-10,
+                "CDF symmetry failed for x={}: Φ(x)+Φ(-x) = {}",
+                x,
+                sum
+            );
+        }
+    }
+
+    #[test]
+    fn test_standard_normal_pdf_at_zero() {
+        // φ(0) = 1/sqrt(2π) ≈ 0.3989422804
+        let expected = 1.0 / (2.0 * core::f64::consts::PI).sqrt();
+        let result = standard_normal_pdf(0.0);
+        assert!(
+            (result - expected).abs() < 1e-10,
+            "standard_normal_pdf(0.0) should be ≈0.3989, got {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_standard_normal_pdf_symmetry() {
+        // φ(x) = φ(-x) since PDF of standard normal is symmetric
+        for x in [0.5, 1.0, 1.5, 2.0] {
+            let pos = standard_normal_pdf(x);
+            let neg = standard_normal_pdf(-x);
+            assert!(
+                (pos - neg).abs() < 1e-15,
+                "PDF symmetry failed for x={}: φ(x)={}, φ(-x)={}",
+                x,
+                pos,
+                neg
+            );
+        }
+    }
+
+    #[test]
+    fn test_standard_normal_pdf_positive() {
+        // PDF is always positive
+        for x in [-3.0, -1.0, 0.0, 1.0, 3.0] {
+            assert!(
+                standard_normal_pdf(x) > 0.0,
+                "PDF must be positive at x={}",
+                x
+            );
+        }
     }
 }
