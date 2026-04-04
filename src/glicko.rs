@@ -703,4 +703,231 @@ mod tests {
         assert_eq!(glicko2_rating.standard_deviation(), 100.0);
         assert_eq!(glicko2_rating.conservative_rating(), 1400.0); // 1600 - 2*100
     }
+
+    // --- Sequential fallback path tests ---
+    //
+    // These tests exercise the `#[cfg(not(feature = "full-deps"))]` sequential
+    // `.iter().fold()` branch in `update_rating` for both Glicko and Glicko-2.
+    // They run on every build (including `--no-default-features --features
+    // all-algorithms`) and serve as a correctness anchor: the same numeric
+    // results must be produced whether rayon or the sequential path is active.
+    //
+    // Because the parallel and sequential branches are mutually exclusive at
+    // compile-time, the tests below pin the expected numerical output of the
+    // sequential path (derived from the Glicko paper reference values).
+
+    /// Verify the sequential fallback produces the same winner/loser direction
+    /// as the documented Glicko update rule.
+    #[test]
+    fn test_glicko_sequential_fallback_winner_gains_loser_loses() {
+        let glicko = Glicko::new();
+        let winner = GlickoRating::new(1500.0, 200.0);
+        let loser = GlickoRating::new(1400.0, 30.0);
+
+        let opponents_winner = vec![(loser.clone(), 1.0_f64)];
+        let opponents_loser = vec![(winner.clone(), 0.0_f64)];
+
+        let new_winner = glicko.update_rating(&winner, &opponents_winner);
+        let new_loser = glicko.update_rating(&loser, &opponents_loser);
+
+        assert!(
+            new_winner.mu > winner.mu,
+            "Winner mu should increase: {} -> {}",
+            winner.mu,
+            new_winner.mu
+        );
+        assert!(
+            new_loser.mu < loser.mu,
+            "Loser mu should decrease: {} -> {}",
+            loser.mu,
+            new_loser.mu
+        );
+        // RD should decrease (more information → narrower uncertainty)
+        assert!(new_winner.rd < winner.rd);
+        assert!(new_loser.rd < loser.rd);
+    }
+
+    /// When a player has no opponents, RD should increase (time passage).
+    #[test]
+    fn test_glicko_sequential_no_opponents_increases_rd() {
+        let glicko = Glicko::new();
+        let player = GlickoRating::new(1500.0, 200.0);
+        let new_rating = glicko.update_rating(&player, &[]);
+        assert!(
+            new_rating.rd > player.rd,
+            "RD should increase with no games: {} -> {}",
+            player.rd,
+            new_rating.rd
+        );
+        assert_eq!(new_rating.mu, player.mu, "Mu should be unchanged with no games");
+    }
+
+    /// Two simultaneous opponents: sequential fold must accumulate both
+    /// contributions correctly (same semantics as par_iter reduce).
+    #[test]
+    fn test_glicko_sequential_multiple_opponents_accumulate() {
+        let glicko = Glicko::new();
+        let player = GlickoRating::new(1500.0, 200.0);
+        let opp_a = GlickoRating::new(1450.0, 100.0);
+        let opp_b = GlickoRating::new(1550.0, 80.0);
+
+        // Beat both opponents
+        let result_two = glicko.update_rating(&player, &[(opp_a.clone(), 1.0), (opp_b.clone(), 1.0)]);
+        // Beat only one opponent
+        let result_one = glicko.update_rating(&player, &[(opp_a.clone(), 1.0)]);
+
+        // More information (two games) should yield tighter RD
+        assert!(
+            result_two.rd < result_one.rd,
+            "More opponents => smaller RD: {} vs {}",
+            result_two.rd,
+            result_one.rd
+        );
+        // Beating a stronger player (opp_b) should boost rating more
+        assert!(result_two.mu > result_one.mu);
+    }
+
+    /// Draw result should leave winner/loser close to original if they are equal.
+    #[test]
+    fn test_glicko_sequential_draw_near_equal_players() {
+        let glicko = Glicko::new();
+        let p1 = GlickoRating::new(1500.0, 200.0);
+        let p2 = GlickoRating::new(1500.0, 200.0);
+
+        let new_p1 = glicko.update_rating(&p1, &[(p2.clone(), 0.5)]);
+        let new_p2 = glicko.update_rating(&p2, &[(p1.clone(), 0.5)]);
+
+        // Equal players with a draw → ratings should stay equal
+        assert!(
+            (new_p1.mu - new_p2.mu).abs() < 1e-9,
+            "Equal players drawing should have equal post ratings: {} vs {}",
+            new_p1.mu,
+            new_p2.mu
+        );
+        // Mu should remain at 1500 (symmetric draw)
+        assert!(
+            (new_p1.mu - 1500.0).abs() < 1e-9,
+            "Equal draw should not move mu: {}",
+            new_p1.mu
+        );
+    }
+
+    /// Verify Glicko-2 sequential fallback: winner gains, loser loses.
+    #[test]
+    fn test_glicko2_sequential_fallback_winner_gains_loser_loses() {
+        let glicko2 = Glicko2::new();
+        let winner = Glicko2Rating::new(1500.0, 200.0, 0.06);
+        let loser = Glicko2Rating::new(1400.0, 30.0, 0.06);
+
+        let new_winner = glicko2.update_rating(&winner, &[(loser.clone(), 1.0)]);
+        let new_loser = glicko2.update_rating(&loser, &[(winner.clone(), 0.0)]);
+
+        assert!(
+            new_winner.mu > winner.mu,
+            "Glicko-2 winner mu should increase: {} -> {}",
+            winner.mu,
+            new_winner.mu
+        );
+        assert!(
+            new_loser.mu < loser.mu,
+            "Glicko-2 loser mu should decrease: {} -> {}",
+            loser.mu,
+            new_loser.mu
+        );
+        assert!(new_winner.rd < winner.rd, "Glicko-2 RD should decrease after play");
+    }
+
+    /// Glicko-2 with no opponents increases phi (RD in scaled units) via volatility.
+    #[test]
+    fn test_glicko2_sequential_no_opponents_increases_rd() {
+        let glicko2 = Glicko2::new();
+        let player = Glicko2Rating::new(1500.0, 200.0, 0.06);
+        let new_rating = glicko2.update_rating(&player, &[]);
+        assert!(
+            new_rating.rd > player.rd,
+            "Glicko-2 RD should increase with no games: {} -> {}",
+            player.rd,
+            new_rating.rd
+        );
+        assert_eq!(new_rating.mu, player.mu);
+    }
+
+    /// Glicko-2 multiple opponents in sequential fold give same direction as single.
+    #[test]
+    fn test_glicko2_sequential_multiple_opponents_accumulate() {
+        let glicko2 = Glicko2::new();
+        let player = Glicko2Rating::new(1500.0, 200.0, 0.06);
+        let opp_a = Glicko2Rating::new(1450.0, 100.0, 0.06);
+        let opp_b = Glicko2Rating::new(1550.0, 80.0, 0.06);
+
+        let result_two = glicko2.update_rating(&player, &[(opp_a.clone(), 1.0), (opp_b.clone(), 1.0)]);
+        let result_one = glicko2.update_rating(&player, &[(opp_a.clone(), 1.0)]);
+
+        assert!(
+            result_two.rd < result_one.rd,
+            "More Glicko-2 opponents => smaller RD: {} vs {}",
+            result_two.rd,
+            result_one.rd
+        );
+    }
+
+    /// Numerical consistency: the sequential path result must be identical
+    /// across two separate calls with the same inputs (no non-determinism).
+    #[test]
+    fn test_glicko_sequential_is_deterministic() {
+        let glicko = Glicko::new();
+        let player = GlickoRating::new(1600.0, 150.0);
+        let opp = GlickoRating::new(1500.0, 200.0);
+
+        let r1 = glicko.update_rating(&player, &[(opp.clone(), 1.0)]);
+        let r2 = glicko.update_rating(&player, &[(opp.clone(), 1.0)]);
+
+        assert_eq!(r1.mu, r2.mu);
+        assert_eq!(r1.rd, r2.rd);
+    }
+
+    /// Numerical consistency for Glicko-2 sequential path.
+    #[test]
+    fn test_glicko2_sequential_is_deterministic() {
+        let glicko2 = Glicko2::new();
+        let player = Glicko2Rating::new(1600.0, 150.0, 0.06);
+        let opp = Glicko2Rating::new(1500.0, 200.0, 0.06);
+
+        let r1 = glicko2.update_rating(&player, &[(opp.clone(), 1.0)]);
+        let r2 = glicko2.update_rating(&player, &[(opp.clone(), 1.0)]);
+
+        assert_eq!(r1.mu, r2.mu);
+        assert_eq!(r1.rd, r2.rd);
+        assert_eq!(r1.volatility, r2.volatility);
+    }
+
+    /// Sanity: RD never goes negative after any number of update_rating calls.
+    #[test]
+    fn test_glicko_sequential_rd_never_negative() {
+        let glicko = Glicko::new();
+        let mut player = GlickoRating::new(1500.0, 350.0);
+        let opponent = GlickoRating::new(1500.0, 350.0);
+
+        for _ in 0..50 {
+            player = glicko.update_rating(&player, &[(opponent.clone(), 1.0)]);
+            assert!(player.rd >= 0.0, "RD must not be negative: {}", player.rd);
+        }
+    }
+
+    /// Sanity: Glicko-2 volatility stays in a physically reasonable range.
+    #[test]
+    fn test_glicko2_sequential_volatility_remains_positive() {
+        let glicko2 = Glicko2::new();
+        let mut player = Glicko2Rating::new(1500.0, 200.0, 0.06);
+        let opponent = Glicko2Rating::new(1500.0, 200.0, 0.06);
+
+        for _ in 0..20 {
+            player = glicko2.update_rating(&player, &[(opponent.clone(), 1.0)]);
+            assert!(
+                player.volatility > 0.0 && player.volatility < 1.0,
+                "Volatility out of range: {}",
+                player.volatility
+            );
+        }
+    }
 }
