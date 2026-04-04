@@ -1,0 +1,52 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  wasm-tests:
+    name: WASM Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        browser: [chrome]  # Only test Chrome to save minutes
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM module
+        run: |
+          cd wasm
+          wasm-pack build --target web --out-dir pkg
+
+      - name: Run WASM tests - ${{ matrix.browser }}
+        run: |
+          cd wasm
+          wasm-pack test --headless --${{ matrix.browser }} --test minimal_perf_test
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## WASM Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ WASM tests passed in ${{ matrix.browser }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ WASM tests failed in ${{ matrix.browser }}" >> $GITHUB_STEP_SUMMARY
+          fi

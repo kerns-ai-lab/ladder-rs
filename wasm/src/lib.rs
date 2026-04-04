@@ -19,20 +19,21 @@ fn set_panic_hook() {
 }
 
 // Module declarations
-pub mod types;
 pub mod elo_wasm;
+pub mod types;
 // pub mod glicko_wasm;
-pub mod trueskill_wasm;
 pub mod browser_compat;
+pub mod performance_tracking;
+pub mod trueskill_wasm;
 
 // Re-export Elo system
-pub use elo_wasm::{EloSystem, EloRating, EloUtils, MatchOutcome, MatchResult};
+pub use elo_wasm::{EloRating, EloSystem, EloUtils, MatchOutcome, MatchResult};
 
 // Re-export Glicko system
 // pub use glicko_wasm::{GlickoSystem, GlickoRating, GlickoMatchResult, GlickoUtils};
 
 // Re-export TrueSkill system
-pub use trueskill_wasm::{TrueSkillSystem, TrueSkillRating, TrueSkillTeam, TrueSkillUtils};
+pub use trueskill_wasm::{TrueSkillRating, TrueSkillSystem, TrueSkillTeam, TrueSkillUtils};
 
 // Re-export browser compatibility utilities
 pub use browser_compat::{CrossBrowserCompat, EventCompat, PerformanceCompat};
@@ -42,6 +43,6 @@ pub use browser_compat::{CrossBrowserCompat, EventCompat, PerformanceCompat};
 pub fn init() {
     #[cfg(feature = "console_error_panic_hook")]
     set_panic_hook();
-    
+
     CrossBrowserCompat::init();
 }

@@ -42,3 +42,39 @@ fix: fmt clippy-fix
 # Check everything (quick CI simulation)
 check: fmt clippy test
 	@echo "✅ All checks passed!"
+# Performance testing targets
+.PHONY: bench bench-wasm perf-test perf-baseline perf-compare
+
+# Run all benchmarks
+bench:
+	@echo "Running native benchmarks..."
+	cargo criterion
+
+# WASM benchmarks are disabled due to rayon/WASI compatibility issues
+bench-wasm:
+	@echo "WASM benchmarks are disabled due to rayon dependency conflicts."
+	@echo "Use 'make perf-test' for WASM performance testing instead."
+
+# Run WASM performance tests
+perf-test:
+	@echo "Running WASM performance tests..."
+	cd wasm && wasm-pack test --headless --chrome --test minimal_perf_test
+
+# Generate performance baseline
+perf-baseline:
+	@echo "Generating performance baseline..."
+	cargo criterion --message-format=json > baseline-results.json
+	echo "[]" > wasm-baseline-results.json
+
+# Compare performance against baseline
+perf-compare: bench
+	@echo "Comparing performance against baseline..."
+	@if [ -f baseline-results.json ]; then \
+		python3 scripts/check_performance_regression.py \
+			--current benchmark-results.json \
+			--baseline baseline-results.json \
+			--threshold 10; \
+	else \
+		echo "No baseline found. Run 'make perf-baseline' first."; \
+	fi
+

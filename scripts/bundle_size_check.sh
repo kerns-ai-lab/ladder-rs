@@ -4,7 +4,7 @@
 
 set -e
 
-MAX_BUNDLE_SIZE=204800 # 200KB
+MAX_BUNDLE_SIZE=307200 # 300KB - accommodates all-algorithms WASM build with rlib for tests
 WASM_DIR="$(dirname "$0")/../wasm"
 
 cd "$WASM_DIR"

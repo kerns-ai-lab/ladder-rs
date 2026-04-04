@@ -60,8 +60,7 @@
   "homepage": "https://github.com/kerns-ai-lab/ladder-rs#readme",
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "cargo-watch": "^8.0.0"
+    "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=16.0.0"
