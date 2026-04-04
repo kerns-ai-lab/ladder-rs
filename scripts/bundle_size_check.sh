@@ -4,7 +4,7 @@
 
 set -e
 
-MAX_BUNDLE_SIZE=307200 # 300KB - accommodates all-algorithms WASM build with rlib for tests
+MAX_BUNDLE_SIZE=286720 # 280KB - after replacing statrs+nalgebra with libm (was 300KB/307200)
 WASM_DIR="$(dirname "$0")/../wasm"
 
 cd "$WASM_DIR"
