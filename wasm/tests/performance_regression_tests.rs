@@ -10,6 +10,7 @@
 //! - rayon enters only via ladder-rs's "full-deps" feature (never enabled in WASM)
 //! - The fix was changing to features = ["all-algorithms"] which enables TrueSkill
 
+extern crate ladder_rs_wasm;
 use js_sys::Array;
 use ladder_rs_wasm::{
     EloRating, EloSystem, MatchOutcome, TrueSkillRating, TrueSkillSystem, TrueSkillTeam,

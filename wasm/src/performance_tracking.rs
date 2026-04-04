@@ -845,7 +845,7 @@ mod tests {
 
     #[test]
     fn test_import_baselines_invalid_json_returns_error() {
-        let mut tracker = PerformanceTracker::new("env".to_string());
+        let tracker = PerformanceTracker::new("env".to_string());
         // import_baselines returns Result<(), JsValue>; on non-wasm32 calling
         // JsValue::from_str panics, so we test the serde parse directly.
         // This mirrors what import_baselines does internally:
