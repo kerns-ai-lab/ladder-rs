@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "ladder_rs",
+  "project_id": "99af62af-639a-4a44-96f3-2309bd7adfa8"
+}
