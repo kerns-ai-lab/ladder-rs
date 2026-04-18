@@ -40,7 +40,10 @@ mod swarm_dashboard_scenarios {
         });
 
         // When this endpoint is implemented, it should return this structure
-        assert_eq!(expected_response_structure["buckets"][0]["min_rating"], 1000.0);
+        assert_eq!(
+            expected_response_structure["buckets"][0]["min_rating"],
+            1000.0
+        );
     }
 
     #[test]
@@ -207,7 +210,9 @@ mod swarm_dashboard_scenarios {
         // Bottom agents should be ordered by ascending conservative_rating
         for i in 0..bottom_agents.len() - 1 {
             let rating_i = bottom_agents[i]["conservative_rating"].as_f64().unwrap();
-            let rating_next = bottom_agents[i + 1]["conservative_rating"].as_f64().unwrap();
+            let rating_next = bottom_agents[i + 1]["conservative_rating"]
+                .as_f64()
+                .unwrap();
             assert!(rating_i <= rating_next);
         }
     }

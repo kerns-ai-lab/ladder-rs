@@ -1,20 +1,26 @@
 [package]
 name = "ladder-rs-server"
-version = "0.1.0"
-edition = "2021"
-authors = ["Zanion"]
-license = "MIT"
-description = "Axum HTTP server for ladder-rs platform"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Axum HTTP server for ladder-rs"
 
 [dependencies]
-axum = "0.7"
-tokio = { version = "1.35", features = ["full"] }
-tower = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0"
-uuid = { version = "1.6", features = ["v4", "serde"] }
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+ladder-rs-persistence = { path = "../ladder-rs-persistence" }
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+sqlx.workspace = true
 
 [dev-dependencies]
-tokio = { version = "1.35", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
+sqlx = { workspace = true, features = ["migrate"] }
