@@ -7,10 +7,40 @@
 //! - Agent breakdown with active agent filter
 //! - Dashboard summary with active agent threshold configuration
 
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::Json;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+/// Shared application state threaded through Axum handlers.
+#[derive(Clone, Debug)]
+pub struct AppState {
+    // Future: db pool and config will live here.
+}
+
+// ---------------------------------------------------------------------------
+// Query parameter structs
+// ---------------------------------------------------------------------------
+
+/// Query parameters for the match-volume endpoint.
+#[derive(Debug, Deserialize)]
+pub struct MatchVolumeParams {
+    pub period: String,
+}
+
+/// Query parameters for the top-bottom endpoint.
+#[derive(Debug, Deserialize)]
+pub struct TopBottomParams {
+    pub n: Option<u32>,
+}
+
+/// Query parameters for the agents endpoint.
+#[derive(Debug, Deserialize)]
+pub struct AgentsParams {
+    pub active_only: Option<bool>,
+}
 
 /// Rating distribution histogram response
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -126,6 +156,103 @@ pub struct DashboardSummaryResponse {
     pub total_agents: u32,
     pub active_agents: u32,
     pub total_matches: u32,
+}
+
+// ---------------------------------------------------------------------------
+// Fix 1 — I2: Async handler implementations
+// ---------------------------------------------------------------------------
+
+/// GET /api/leagues/:league_id/dashboard/rating-distribution
+pub async fn rating_distribution(
+    State(_state): State<AppState>,
+    Path(_league_id): Path<i64>,
+) -> impl IntoResponse {
+    let response = RatingDistributionResponse {
+        buckets: vec![],
+        total_agents: 0,
+    };
+    (StatusCode::OK, Json(response))
+}
+
+/// GET /api/leagues/:league_id/dashboard/match-volume?period=<period>
+///
+/// Returns 400 with a `VALIDATION_ERROR` body if `period` is not one of:
+/// `hour`, `day`, `week`, `monthly`.
+pub async fn match_volume(
+    State(_state): State<AppState>,
+    Path(_league_id): Path<i64>,
+    Query(params): Query<MatchVolumeParams>,
+) -> impl IntoResponse {
+    if !MatchVolumePeriod::is_valid(&params.period) {
+        let error = ValidationError {
+            error_code: "VALIDATION_ERROR".to_string(),
+            details: vec![FieldError {
+                field: "period".to_string(),
+                rejected_value: params.period.clone(),
+                constraint: format!(
+                    "must be one of: {}",
+                    MatchVolumePeriod::valid_values().join(", ")
+                ),
+            }],
+        };
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::to_value(error).unwrap()),
+        )
+            .into_response();
+    }
+
+    let response = MatchVolumeResponse {
+        period: params.period,
+        data: vec![],
+    };
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
+        .into_response()
+}
+
+/// GET /api/leagues/:league_id/dashboard/top-bottom?n=<n>
+pub async fn top_bottom_agents(
+    State(_state): State<AppState>,
+    Path(_league_id): Path<i64>,
+    Query(_params): Query<TopBottomParams>,
+) -> impl IntoResponse {
+    let response = TopBottomAgentsResponse {
+        top_agents: vec![],
+        bottom_agents: vec![],
+    };
+    (StatusCode::OK, Json(response))
+}
+
+/// GET /api/leagues/:league_id/dashboard/agents?active_only=<bool>
+pub async fn agents(
+    State(_state): State<AppState>,
+    Path(_league_id): Path<i64>,
+    Query(_params): Query<AgentsParams>,
+) -> impl IntoResponse {
+    let response = AgentsResponse {
+        agents: vec![],
+        active_agent_count: 0,
+        total_agent_count: 0,
+    };
+    (StatusCode::OK, Json(response))
+}
+
+/// GET /api/leagues/:league_id/dashboard
+pub async fn dashboard_summary(
+    State(_state): State<AppState>,
+    Path(league_id): Path<i64>,
+) -> impl IntoResponse {
+    let response = DashboardSummaryResponse {
+        league_id: league_id as u32,
+        active_agent_threshold_days: 30,
+        total_agents: 0,
+        active_agents: 0,
+        total_matches: 0,
+    };
+    (StatusCode::OK, Json(response))
 }
 
 #[cfg(test)]

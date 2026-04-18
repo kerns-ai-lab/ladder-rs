@@ -26,7 +26,7 @@ impl JsRating {
         }
         Ok(Self { mean, variance })
     }
-    
+
     /// Create a new rating (for internal use, not exposed to JS)
     pub fn new_unchecked(mean: f64, variance: f64) -> Self {
         Self { mean, variance }
@@ -400,14 +400,14 @@ mod tests {
         let parsed = JsRating::from_json(&json).unwrap();
         assert_eq!(parsed.mean(), rating.mean());
         assert_eq!(parsed.variance(), rating.variance());
-        
+
         // Test variance validation logic
         let rating_with_negative = JsRating::new_unchecked(1500.0, -100.0);
         assert!(rating_with_negative.variance < 0.0); // Would be invalid
-        
+
         let rating_with_zero = JsRating::new_unchecked(1500.0, 0.0);
         assert_eq!(rating_with_zero.variance, 0.0); // Would be invalid
-        
+
         let rating_valid = JsRating::new_unchecked(1500.0, 0.001);
         assert!(rating_valid.variance > 0.0); // Valid
     }
@@ -431,8 +431,8 @@ mod tests {
     #[test]
     fn test_match_result() {
         let ratings = vec![
-            JsRating::new_unchecked(1520.0, 190.0), 
-            JsRating::new_unchecked(1480.0, 210.0)
+            JsRating::new_unchecked(1520.0, 190.0),
+            JsRating::new_unchecked(1480.0, 210.0),
         ];
 
         let result = JsMatchResult::new(Some("p1".to_string()), ratings);
@@ -446,12 +446,15 @@ mod tests {
         let parsed = JsMatchResult::from_json(&json).unwrap();
         assert_eq!(parsed.winner(), result.winner());
         assert_eq!(parsed.ratings().len(), result.ratings().len());
-        
+
         // Test draw (None winner)
-        let draw_result = JsMatchResult::new(None, vec![
-            JsRating::new_unchecked(1500.0, 200.0),
-            JsRating::new_unchecked(1500.0, 200.0)
-        ]);
+        let draw_result = JsMatchResult::new(
+            None,
+            vec![
+                JsRating::new_unchecked(1500.0, 200.0),
+                JsRating::new_unchecked(1500.0, 200.0),
+            ],
+        );
         assert_eq!(draw_result.winner(), None);
     }
 
@@ -472,7 +475,10 @@ mod tests {
 
     #[test]
     fn test_error_type() {
-        let error = JsError::new("Invalid player ID".to_string(), "ValidationError".to_string());
+        let error = JsError::new(
+            "Invalid player ID".to_string(),
+            "ValidationError".to_string(),
+        );
         assert_eq!(error.message(), "Invalid player ID");
         assert_eq!(error.error_type(), "ValidationError");
         assert_eq!(error.to_string(), "ValidationError: Invalid player ID");

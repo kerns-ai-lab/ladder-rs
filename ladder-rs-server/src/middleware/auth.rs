@@ -1,8 +1,9 @@
 //! Authentication and authorization middleware
 
-use axum::middleware::Next;
-use axum::response::Response;
-use axum::http::Request;
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use std::fmt;
 
 /// Authentication layer for extracting and validating user sessions
@@ -26,6 +27,36 @@ impl fmt::Debug for AuthLayer {
 pub struct UserContext {
     pub user_id: String,
     pub role: UserRole,
+}
+
+/// Fix 2 — C2: FromRequestParts for UserContext
+///
+/// Extracts the authenticated user from the request extensions.  The auth
+/// middleware must have inserted a `UserContext` into `request.extensions`
+/// before this extractor is called.  If no `UserContext` is present the
+/// request is rejected with 401 Unauthorized.
+impl<S> FromRequestParts<S> for UserContext
+where
+    S: Send + Sync,
+{
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        parts
+            .extensions
+            .get::<UserContext>()
+            .cloned()
+            .ok_or_else(|| {
+                (
+                    StatusCode::UNAUTHORIZED,
+                    axum::Json(serde_json::json!({
+                        "error": "Unauthorized",
+                        "error_code": "UNAUTHORIZED",
+                    })),
+                )
+                    .into_response()
+            })
+    }
 }
 
 /// User role for authorization

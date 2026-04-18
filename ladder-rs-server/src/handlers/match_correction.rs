@@ -1,12 +1,7 @@
 //! Handler for PATCH /api/matches/{id} - admin match correction endpoint
 
 use crate::Result;
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
-};
+use axum::{extract::Path, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
