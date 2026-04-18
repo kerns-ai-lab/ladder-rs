@@ -6,9 +6,15 @@ fn test_bundle_size_script_exists() {
     let script_path = Path::new("scripts/bundle_size_check.sh");
     assert!(script_path.exists(), "bundle_size_check.sh must exist");
     let content = fs::read_to_string(script_path).expect("read script");
+    // Governance model (ADR-0001 amendment): soft target warns, hard cap fails.
+    // Both thresholds must be declared for the script to be considered configured.
     assert!(
-        content.contains("MAX_BUNDLE_SIZE="),
-        "script must set size limit"
+        content.contains("SOFT_TARGET="),
+        "script must declare SOFT_TARGET (advisory warning threshold)"
+    );
+    assert!(
+        content.contains("HARD_CAP="),
+        "script must declare HARD_CAP (CI-failing panic threshold)"
     );
 }
 
