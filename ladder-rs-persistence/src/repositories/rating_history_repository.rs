@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use crate::error::{PersistenceError, Result};
+use crate::error::Result;
 
 /// A single rating snapshot entry in the history (after a match)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,19 +69,19 @@ impl RatingHistoryRepository {
     /// Get per-season rating history for a player in a specific season
     pub async fn get_per_season_history(
         &self,
-        player_id: i64,
-        season_id: i64,
+        _player_id: i64,
+        _season_id: i64,
     ) -> Result<RatingHistoryResponse> {
-        Ok(RatingHistoryResponse { entries: vec![] })
+        todo!("SQL not yet implemented: RatingHistoryRepository::get_per_season_history")
     }
 
     /// Get season overview for a player (final rating per season)
-    pub async fn get_season_overview(&self, player_id: i64) -> Result<SeasonOverviewResponse> {
-        Ok(SeasonOverviewResponse { seasons: vec![] })
+    pub async fn get_season_overview(&self, _player_id: i64) -> Result<SeasonOverviewResponse> {
+        todo!("SQL not yet implemented: RatingHistoryRepository::get_season_overview")
     }
 
     /// Check if a player exists (returns true even if soft-deleted)
-    pub async fn player_exists(&self, player_id: i64) -> Result<bool> {
-        Ok(false)
+    pub async fn player_exists(&self, _player_id: i64) -> Result<bool> {
+        todo!("SQL not yet implemented: RatingHistoryRepository::player_exists")
     }
 }

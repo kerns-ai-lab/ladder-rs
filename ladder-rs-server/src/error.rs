@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use ladder_rs_persistence::PersistenceError;
 use serde_json::json;
 use thiserror::Error;
 
@@ -34,20 +35,44 @@ pub enum ServerError {
 
 pub type Result<T> = std::result::Result<T, ServerError>;
 
+impl From<PersistenceError> for ServerError {
+    fn from(err: PersistenceError) -> Self {
+        match err {
+            PersistenceError::NotFound { entity, id } => {
+                ServerError::NotFound(format!("{} with id {} not found", entity, id))
+            }
+            PersistenceError::Conflict(msg) => ServerError::Conflict(msg),
+            PersistenceError::InvalidInput(msg) => ServerError::InvalidInput(msg),
+            PersistenceError::DatabaseError(msg) => ServerError::DatabaseError(msg),
+            PersistenceError::TransactionError(msg) => ServerError::InternalError(msg),
+            PersistenceError::Unknown(msg) => ServerError::InternalError(msg),
+        }
+    }
+}
+
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
-            ServerError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
-            ServerError::Forbidden => (StatusCode::FORBIDDEN, self.to_string()),
-            ServerError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
-            ServerError::Conflict(msg) => (StatusCode::CONFLICT, msg),
-            ServerError::InvalidInput(msg) => (StatusCode::BAD_REQUEST, msg),
-            ServerError::DatabaseError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
-            ServerError::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+        let (status, error_code, message) = match self {
+            ServerError::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                "UNAUTHORIZED",
+                "Unauthorized".to_string(),
+            ),
+            ServerError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", "Forbidden".to_string()),
+            ServerError::NotFound(msg) => (StatusCode::NOT_FOUND, "NOT_FOUND", msg),
+            ServerError::Conflict(msg) => (StatusCode::CONFLICT, "CONFLICT", msg),
+            ServerError::InvalidInput(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
+            ServerError::DatabaseError(msg) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+            }
+            ServerError::InternalError(msg) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+            }
         };
 
         let body = Json(json!({
             "error": message,
+            "error_code": error_code,
         }));
 
         (status, body).into_response()
