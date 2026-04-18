@@ -72,7 +72,6 @@ impl From<PersistenceError> for ServerError {
             PersistenceError::DatabaseError(msg) => ServerError::InternalError(msg),
             PersistenceError::InvalidInput(msg) => ServerError::InvalidInput(msg),
             PersistenceError::TransactionError(msg) => ServerError::InternalError(msg),
-            PersistenceError::QueryFailed(msg) => ServerError::InternalError(msg),
             PersistenceError::Unknown(msg) => ServerError::InternalError(msg),
         }
     }

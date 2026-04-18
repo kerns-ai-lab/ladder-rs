@@ -1,5 +1,6 @@
 //! Authentication and authorization middleware
 
+use async_trait::async_trait;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum::http::StatusCode;
@@ -35,6 +36,7 @@ pub struct UserContext {
 /// middleware must have inserted a `UserContext` into `request.extensions`
 /// before this extractor is called.  If no `UserContext` is present the
 /// request is rejected with 401 Unauthorized.
+#[async_trait]
 impl<S> FromRequestParts<S> for UserContext
 where
     S: Send + Sync,
