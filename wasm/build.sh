@@ -10,9 +10,12 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Bundle size targets (in bytes)
-MAX_BUNDLE_SIZE=204800  # 200KB target
-WARN_BUNDLE_SIZE=153600 # 150KB warning threshold
+# Bundle size thresholds (in bytes)
+# See scripts/bundle_size_check.sh and docs/architecture/decisions/0001-wasm-bundle-size-target.md
+# for the CI-enforced governance model. The values here are kept in sync so
+# local builds surface the same signal engineers will see in PR annotations.
+MAX_BUNDLE_SIZE=512000  # 500KB hard cap (panic threshold)
+WARN_BUNDLE_SIZE=307200 # 300KB soft target (advisory warning)
 
 # Default values
 BUILD_MODE="dev"
@@ -122,13 +125,15 @@ check_bundle_size() {
         
         echo -e "  📦 WASM bundle size: ${BLUE}${size_kb}KB${NC} (${size} bytes)"
         
+        local max_kb=$((MAX_BUNDLE_SIZE / 1024))
+        local warn_kb=$((WARN_BUNDLE_SIZE / 1024))
         if [ "$size" -gt "$MAX_BUNDLE_SIZE" ]; then
-            log_error "Bundle size exceeds 200KB target! ($size_kb KB)"
+            log_error "Bundle size ${size_kb}KB exceeds HARD CAP of ${max_kb}KB"
             return 1
         elif [ "$size" -gt "$WARN_BUNDLE_SIZE" ]; then
-            log_warning "Bundle size approaching 200KB limit ($size_kb KB)"
+            log_warning "Bundle size ${size_kb}KB exceeds soft target of ${warn_kb}KB (hard cap ${max_kb}KB) — see ADR-0001"
         else
-            log_success "Bundle size within target ($size_kb KB < 200KB)"
+            log_success "Bundle size within soft target (${size_kb}KB < ${warn_kb}KB)"
         fi
     else
         log_warning "WASM file not found in $output_dir"
