@@ -282,16 +282,16 @@ mod tests {
             ],
             bottom_agents: vec![
                 AgentInfo {
-                    agent_id: 18,
-                    agent_name: "BottomBot1".to_string(),
-                    conservative_rating: 1200.0,
-                    match_count: 10,
-                },
-                AgentInfo {
                     agent_id: 19,
                     agent_name: "BottomBot2".to_string(),
                     conservative_rating: 1100.0,
                     match_count: 5,
+                },
+                AgentInfo {
+                    agent_id: 18,
+                    agent_name: "BottomBot1".to_string(),
+                    conservative_rating: 1200.0,
+                    match_count: 10,
                 },
             ],
         };
