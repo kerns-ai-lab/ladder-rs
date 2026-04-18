@@ -6,7 +6,10 @@ pub mod middleware;
 
 pub use error::{Result, ServerError};
 
-use axum::{routing::{delete, get, post}, Router};
+use axum::{
+    routing::{delete, get, post},
+    Router,
+};
 use handlers::swarm::{
     agents, dashboard_summary, match_volume, rating_distribution, top_bottom_agents, AppState,
 };
