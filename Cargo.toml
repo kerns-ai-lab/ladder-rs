@@ -14,7 +14,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1.35", features = ["full"] }
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
 axum = "0.7"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["trace", "cors"] }
@@ -38,6 +38,7 @@ categories = ["game-development", "algorithms"]
 
 [dependencies]
 thiserror.workspace = true
+# Conditional dependencies for WASM optimization
 rand = { workspace = true, optional = true }
 statrs = { version = "0.16", optional = true }
 libm = { workspace = true, optional = true }
