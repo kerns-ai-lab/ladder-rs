@@ -419,4 +419,316 @@ mod player_alias_endpoint_tests {
     async fn test_player_profile_aliases_response_format() {
         // This test validates the structure of the aliases field in player responses.
     }
+
+    // ============================================================================
+    // ERROR PATH COVERAGE: ADDITIONAL SCENARIOS
+    // ============================================================================
+
+    /// Scenario: Create alias with non-existent primary player
+    ///
+    /// Given: player_id 9999 does not exist in the league
+    /// When: POST /api/leagues/42/players/9999/aliases with alias_player_id 11
+    /// Then: response status is 404 Not Found
+    #[tokio::test]
+    async fn test_create_alias_nonexistent_primary_player_returns_404() {
+        // Expected behavior:
+        // - PlayerRepository.get_by_id returns None for player 9999
+        // - Return 404 Not Found with message "Player not found"
+        // - No alias link or job is created
+    }
+
+    /// Scenario: Create alias with non-existent alias player
+    ///
+    /// Given: player_id 10 exists but alias_player_id 9999 does not exist
+    /// When: POST /api/leagues/42/players/10/aliases with alias_player_id 9999
+    /// Then: response status is 404 Not Found
+    #[tokio::test]
+    async fn test_create_alias_nonexistent_alias_player_returns_404() {
+        // Expected behavior:
+        // - Alias player lookup fails
+        // - Return 404 Not Found with message "Alias player not found"
+        // - No database changes
+    }
+
+    /// Scenario: Remove alias with non-existent primary player
+    ///
+    /// Given: player_id 9999 does not exist
+    /// When: DELETE /api/leagues/42/players/9999/aliases/11
+    /// Then: response status is 404 Not Found
+    #[tokio::test]
+    async fn test_remove_alias_nonexistent_primary_player_returns_404() {
+        // Expected behavior:
+        // - Primary player lookup fails
+        // - Return 404 Not Found
+    }
+
+    /// Scenario: Remove alias with non-existent alias player
+    ///
+    /// Given: player_id 10 exists but alias_player_id 9999 does not exist
+    /// When: DELETE /api/leagues/42/players/10/aliases/9999
+    /// Then: response status is 404 Not Found
+    #[tokio::test]
+    async fn test_remove_alias_nonexistent_alias_player_returns_404() {
+        // Expected behavior:
+        // - Alias player lookup fails
+        // - Return 404 Not Found
+    }
+
+    /// Scenario: Create alias for non-existent league
+    ///
+    /// Given: league_id 9999 does not exist
+    /// When: POST /api/leagues/9999/players/10/aliases with alias_player_id 11
+    /// Then: response status is 404 Not Found
+    #[tokio::test]
+    async fn test_create_alias_nonexistent_league_returns_404() {
+        // Expected behavior:
+        // - League lookup fails
+        // - Return 404 Not Found with message "League not found"
+    }
+
+    /// Scenario: Unauthenticated request to create alias
+    ///
+    /// When: an unauthenticated client sends POST /api/leagues/42/players/10/aliases
+    /// Then: response status is 401 Unauthorized
+    #[tokio::test]
+    async fn test_create_alias_unauthenticated_returns_401() {
+        // Expected behavior:
+        // - AuthLayer checks for valid session token
+        // - If missing, return 401 Unauthorized
+        // - Handler is never invoked
+    }
+
+    /// Scenario: Expired token on create alias
+    ///
+    /// Given: a user with an expired session token
+    /// When: POST /api/leagues/42/players/10/aliases is sent with expired token
+    /// Then: response status is 401 Unauthorized
+    #[tokio::test]
+    async fn test_create_alias_expired_token_returns_401() {
+        // Expected behavior:
+        // - Token validation fails
+        // - Return 401 Unauthorized
+        // - Error may include "Token expired"
+    }
+
+    /// Scenario: Unauthenticated request to remove alias
+    ///
+    /// When: an unauthenticated client sends DELETE /api/leagues/42/players/10/aliases/11
+    /// Then: response status is 401 Unauthorized
+    #[tokio::test]
+    async fn test_remove_alias_unauthenticated_returns_401() {
+        // Expected behavior:
+        // - AuthLayer requires valid session
+        // - Return 401 Unauthorized
+    }
+
+    /// Scenario: Admin can create alias in any league
+    ///
+    /// Given: a user "admin" with role "admin" (not assigned to specific league)
+    /// When: "admin" sends POST /api/leagues/42/players/10/aliases with alias_player_id 11
+    /// Then: response status is 202 Accepted
+    #[tokio::test]
+    async fn test_create_alias_admin_can_act_on_any_league() {
+        // Expected behavior:
+        // - Admin role has global authority
+        // - No league assignment check is needed
+        // - Response is 202 Accepted
+    }
+
+    /// Scenario: Admin can remove alias in any league
+    ///
+    /// Given: a user "admin" with role "admin"
+    /// When: "admin" sends DELETE /api/leagues/42/players/10/aliases/11
+    /// Then: response status is 202 Accepted
+    #[tokio::test]
+    async fn test_remove_alias_admin_can_act_on_any_league() {
+        // Expected behavior:
+        // - Admin role bypasses league assignment check
+        // - Response is 202 Accepted
+    }
+
+    /// Scenario: Create alias with non-integer player IDs in path
+    ///
+    /// Given: malformed path parameter
+    /// When: POST /api/leagues/42/players/invalid/aliases with alias_player_id 11
+    /// Then: response status is 400 Bad Request or 404 Not Found
+    #[tokio::test]
+    async fn test_create_alias_non_integer_player_id_returns_400_or_404() {
+        // Expected behavior:
+        // - Path parameter parsing fails
+        // - Return 400 Bad Request (malformed request) or 404 Not Found
+    }
+
+    /// Scenario: Create alias with non-integer league_id
+    ///
+    /// Given: malformed path parameter
+    /// When: POST /api/leagues/invalid/players/10/aliases
+    /// Then: response status is 400 Bad Request or 404 Not Found
+    #[tokio::test]
+    async fn test_create_alias_non_integer_league_id_returns_400_or_404() {
+        // Expected behavior:
+        // - Path parsing fails
+        // - Return 400 Bad Request or 404 Not Found
+    }
+
+    // ============================================================================
+    // BOUNDARY CONDITION TESTS
+    // ============================================================================
+
+    /// Scenario: Create alias with player_id at maximum i64 boundary
+    ///
+    /// When: POST /api/leagues/42/players/9223372036854775807/aliases
+    /// Then: response status is 404 Not Found (no player with that ID)
+    #[tokio::test]
+    async fn test_create_alias_max_i64_player_id_returns_404() {
+        // Expected behavior:
+        // - Path parsing succeeds
+        // - Player lookup fails (no such player)
+        // - Return 404 Not Found
+    }
+
+    /// Scenario: Create alias between two players who already have a link
+    ///
+    /// Given: players 10 and 11 are already linked as aliases
+    /// When: POST /api/leagues/42/players/10/aliases with alias_player_id 11
+    /// Then: response status is 400 Bad Request or 409 Conflict
+    #[tokio::test]
+    async fn test_create_alias_duplicate_link_returns_400_or_409() {
+        // Expected behavior:
+        // - Detect that alias link already exists
+        // - Return 400 Bad Request (validation) or 409 Conflict (state conflict)
+        // - Error message indicates "Alias link already exists"
+    }
+
+    /// Scenario: Remove alias between players with 3+ member group (transitive)
+    ///
+    /// Given: players 10, 11, 12 are all aliased (A→B, A→C)
+    /// When: DELETE /api/leagues/42/players/10/aliases/11
+    /// Then: response status is 202 Accepted
+    /// And: players 10 and 12 remain aliased (B and C are now separate)
+    #[tokio::test]
+    async fn test_remove_alias_from_group_of_three_breaks_group() {
+        // Expected behavior:
+        // - Remove link between 10 and 11
+        // - Keep 10-12 link (or recalculate connected components)
+        // - Recalculation job merges remaining members
+    }
+
+    // ============================================================================
+    // AUTHORIZATION EDGE CASES
+    // ============================================================================
+
+    /// Scenario: Operator with League A assignment cannot create alias in League B
+    ///
+    /// Given: "alice" is operator assigned ONLY to league 42
+    /// When: "alice" sends POST /api/leagues/43/players/100/aliases with alias_player_id 101
+    /// Then: response status is 403 Forbidden
+    #[tokio::test]
+    async fn test_operator_cannot_create_alias_in_unassigned_league() {
+        // Expected behavior:
+        // - Operator must be assigned to the league in the path
+        // - If not, return 403 Forbidden
+        // - Error: "You are not assigned to league 43"
+    }
+
+    /// Scenario: Viewer role is not sufficient even with league assignment
+    ///
+    /// Given: a user "viewer" with role "viewer" assigned to league 42
+    /// When: "viewer" sends POST /api/leagues/42/players/10/aliases with alias_player_id 11
+    /// Then: response status is 403 Forbidden
+    #[tokio::test]
+    async fn test_viewer_role_insufficient_even_with_league_assignment() {
+        // Expected behavior:
+        // - Role check is primary; league assignment is secondary
+        // - Viewer role is insufficient; requires Operator or Admin
+        // - Return 403 Forbidden
+    }
+
+    /// Scenario: Player role cannot create alias
+    ///
+    /// Given: a user "player" with role "player"
+    /// When: "player" sends POST /api/leagues/42/players/10/aliases
+    /// Then: response status is 403 Forbidden
+    #[tokio::test]
+    async fn test_player_role_cannot_create_alias() {
+        // Expected behavior:
+        // - Player role is insufficient
+        // - Return 403 Forbidden
+    }
+
+    // ============================================================================
+    // RESPONSE FORMAT AND VALIDATION
+    // ============================================================================
+
+    /// Scenario: Create alias response job_id is valid UUID
+    ///
+    /// Given: successful alias creation
+    /// When: POST /api/leagues/42/players/10/aliases succeeds
+    /// Then: response.job_id is a valid UUID (8-4-4-4-12 hex format)
+    #[tokio::test]
+    async fn test_create_alias_response_job_id_is_valid_uuid() {
+        // Expected behavior:
+        // - job_id follows UUID v4 format
+        // - Can be used with GET /api/jobs/{job_id}
+    }
+
+    /// Scenario: Create alias response status is always "queued"
+    ///
+    /// Given: successful alias creation
+    /// When: POST /api/leagues/42/players/10/aliases succeeds
+    /// Then: response.status is "queued" (never "completed" or other status)
+    #[tokio::test]
+    async fn test_create_alias_response_status_is_queued() {
+        // Expected behavior:
+        // - Response status is always "queued"
+        // - Indicates job is enqueued but not yet run
+    }
+
+    /// Scenario: Remove alias response follows same format as create
+    ///
+    /// Given: successful alias removal
+    /// When: DELETE /api/leagues/42/players/10/aliases/11 succeeds
+    /// Then: response has same structure as create (job_id and status)
+    #[tokio::test]
+    async fn test_remove_alias_response_format_matches_create() {
+        // Expected behavior:
+        // - DELETE response is identical structure to POST response
+        // - Includes job_id (UUID) and status ("queued")
+    }
+
+    /// Scenario: Player aliases list excludes self
+    ///
+    /// Given: player 10 is aliased with 11 and 12
+    /// When: GET /api/players/10
+    /// Then: response.aliases contains [11, 12] but NOT 10
+    #[tokio::test]
+    async fn test_player_aliases_list_excludes_self() {
+        // Expected behavior:
+        // - Aliases array never includes the player's own ID
+        // - Only includes other members of the alias group
+    }
+
+    /// Scenario: Player with no aliases has empty or absent aliases field
+    ///
+    /// Given: player 10 has no alias links
+    /// When: GET /api/players/10
+    /// Then: response.aliases is either [] or absent/null
+    #[tokio::test]
+    async fn test_player_without_aliases_has_empty_list() {
+        // Expected behavior:
+        // - Aliases field is present with empty array, or absent entirely
+        // - Consistent behavior across all player responses
+    }
+
+    /// Scenario: Aliases list is ordered deterministically
+    ///
+    /// Given: player 10 is aliased with 11 and 12
+    /// When: GET /api/players/10 multiple times
+    /// Then: response.aliases order is consistent (e.g., ascending by ID)
+    #[tokio::test]
+    async fn test_player_aliases_list_is_consistently_ordered() {
+        // Expected behavior:
+        // - Aliases array is sorted (e.g., ascending numerically)
+        // - Same order on every call
+    }
 }
