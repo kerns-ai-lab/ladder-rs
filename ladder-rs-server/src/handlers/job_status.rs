@@ -1,19 +1,16 @@
 //! Handler for GET /api/jobs/{id} - job status endpoint
 
 use crate::Result;
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    Json,
-};
+use axum::{extract::Path, http::StatusCode, Json};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use ladder_rs_persistence::JobStatus;
+use serde::Serialize;
 
 /// Response body for job status
 #[derive(Debug, Serialize)]
 pub struct JobStatusResponse {
     pub job_id: String,
-    pub status: String,
+    pub status: JobStatus,
     pub season_id: String,
     pub triggered_by: String,
     pub retry_count: i32,
@@ -35,7 +32,7 @@ pub async fn get_job_status(
         StatusCode::OK,
         Json(JobStatusResponse {
             job_id,
-            status: "queued".to_string(),
+            status: JobStatus::Queued,
             season_id: "season-placeholder".to_string(),
             triggered_by: "match_correction".to_string(),
             retry_count: 0,
