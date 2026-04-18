@@ -1081,6 +1081,7 @@ dependencies = [
 name = "ladder-rs-server"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum",
  "chrono",
  "ladder-rs-persistence",

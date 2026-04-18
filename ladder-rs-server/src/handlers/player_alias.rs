@@ -2,12 +2,10 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::middleware::UserContext;
 use crate::ServerError;
@@ -26,32 +24,18 @@ pub struct AliasResponse {
 /// POST /api/leagues/{league_id}/players/{player_id}/aliases
 pub async fn create_alias(
     State(_state): State<()>,
-    user: UserContext,
+    _user: UserContext,
     Path((_league_id, _player_id)): Path<(i64, i64)>,
     Json(_req): Json<CreateAliasRequest>,
-) -> Result<impl IntoResponse, ServerError> {
-    let job_id = Uuid::new_v4().to_string();
-    Ok((
-        StatusCode::ACCEPTED,
-        Json(AliasResponse {
-            job_id,
-            status: "queued".to_string(),
-        }),
-    ))
+) -> Result<Response, ServerError> {
+    todo!("player alias creation not yet implemented")
 }
 
 /// DELETE /api/leagues/{league_id}/players/{player_id}/aliases/{alias_player_id}
 pub async fn remove_alias(
     State(_state): State<()>,
-    user: UserContext,
+    _user: UserContext,
     Path((_league_id, _player_id, _alias_player_id)): Path<(i64, i64, i64)>,
-) -> Result<impl IntoResponse, ServerError> {
-    let job_id = Uuid::new_v4().to_string();
-    Ok((
-        StatusCode::ACCEPTED,
-        Json(AliasResponse {
-            job_id,
-            status: "queued".to_string(),
-        }),
-    ))
+) -> Result<Response, ServerError> {
+    todo!("player alias removal not yet implemented")
 }

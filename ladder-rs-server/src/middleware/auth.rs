@@ -1,8 +1,9 @@
 //! Authentication and authorization middleware
 
-use axum::middleware::Next;
+use async_trait::async_trait;
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
 use axum::response::Response;
-use axum::http::Request;
 use std::fmt;
 
 /// Authentication layer for extracting and validating user sessions
@@ -40,5 +41,25 @@ impl UserRole {
     /// Check if this role is allowed to perform admin operations
     pub fn is_admin(&self) -> bool {
         *self == UserRole::Admin
+    }
+}
+
+/// Stub `FromRequestParts` implementation for `UserContext`.
+///
+/// TODO: Replace with real session extraction once session infrastructure exists.
+/// For now returns a default admin context so handler signatures compile.
+#[async_trait]
+impl<S> FromRequestParts<S> for UserContext
+where
+    S: Send + Sync,
+{
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let _ = (parts, state);
+        Ok(UserContext {
+            user_id: "stub-admin".to_string(),
+            role: UserRole::Admin,
+        })
     }
 }
