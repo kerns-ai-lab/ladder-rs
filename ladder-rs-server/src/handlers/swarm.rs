@@ -130,7 +130,6 @@ pub struct DashboardSummaryResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::http::StatusCode;
 
     // ============================================================================
     // RATING DISTRIBUTION TESTS

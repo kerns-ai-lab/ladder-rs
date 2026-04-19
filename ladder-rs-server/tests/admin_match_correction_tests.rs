@@ -13,6 +13,7 @@
 use serde_json::json;
 
 /// Helper struct for test database setup
+#[allow(dead_code)]
 struct TestFixture {
     // Database connection pool would go here
     // For now, this represents the test infrastructure
@@ -26,6 +27,7 @@ impl TestFixture {
 }
 
 /// HTTP error response structures used in tests
+#[allow(dead_code)]
 mod error_responses {
     use serde_json::json;
 

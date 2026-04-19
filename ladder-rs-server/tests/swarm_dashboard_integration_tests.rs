@@ -197,8 +197,8 @@ mod swarm_dashboard_scenarios {
         let top_agents = response["top_agents"].as_array().unwrap();
         let bottom_agents = response["bottom_agents"].as_array().unwrap();
 
-        assert!(top_agents.len() > 0);
-        assert!(bottom_agents.len() > 0);
+        assert!(!top_agents.is_empty());
+        assert!(!bottom_agents.is_empty());
 
         // Top agents should be ordered by descending conservative_rating
         for i in 0..top_agents.len() - 1 {
