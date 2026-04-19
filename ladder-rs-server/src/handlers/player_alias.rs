@@ -2,10 +2,12 @@
 
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     response::Response,
     Json,
 };
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::middleware::auth::UserContext;
 use crate::ServerError;
@@ -27,9 +29,15 @@ pub async fn create_alias(
     _user: UserContext,
     Path((_league_id, _player_id)): Path<(i64, i64)>,
     Json(_req): Json<CreateAliasRequest>,
-) -> Result<Response, ServerError> {
-    Err(ServerError::InternalError(
-        "player alias creation not yet implemented".to_string(),
+) -> Result<(StatusCode, Json<AliasResponse>), ServerError> {
+    // TODO(900.2): implement real alias creation and job dispatch
+    let job_id = Uuid::new_v4().to_string();
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(AliasResponse {
+            job_id,
+            status: "queued".to_string(),
+        }),
     ))
 }
 
