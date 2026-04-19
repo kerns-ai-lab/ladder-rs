@@ -39,5 +39,7 @@ pub async fn remove_alias(
     _user: UserContext,
     Path((_league_id, _player_id, _alias_player_id)): Path<(i64, i64, i64)>,
 ) -> Result<Response, ServerError> {
-    todo!("player alias removal not yet implemented")
+    Err(ServerError::InternalError(
+        "player alias removal not yet implemented".to_string(),
+    ))
 }
