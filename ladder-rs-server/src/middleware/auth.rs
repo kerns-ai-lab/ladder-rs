@@ -52,7 +52,7 @@ where
                 (
                     StatusCode::UNAUTHORIZED,
                     axum::Json(serde_json::json!({
-                        "error": "Unauthorized",
+                        "message": "Unauthorized",
                         "error_code": "UNAUTHORIZED",
                     })),
                 )
