@@ -42,3 +42,6 @@ Thumbs.db
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Claude tool metadata (transient session files)
+.claude/
