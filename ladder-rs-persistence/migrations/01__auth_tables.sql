@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     id TEXT NOT NULL PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     attempted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    success INTEGER NOT NULL
+    success INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_login_attempts_user_attempted ON login_attempts(user_id, attempted_at DESC);

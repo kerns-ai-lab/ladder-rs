@@ -521,7 +521,11 @@ async fn test_all_expected_tables_exist() {
     let tables = get_all_tables(&pool).await;
 
     let expected: HashSet<&str> = EXPECTED_TABLES.iter().copied().collect();
-    let actual: HashSet<&str> = tables.iter().map(|s| s.as_str()).collect();
+    let actual: HashSet<&str> = tables
+        .iter()
+        .map(|s| s.as_str())
+        .filter(|s| !s.starts_with("sqlite_") && *s != "_sqlx_migrations")
+        .collect();
 
     let missing: Vec<_> = expected.difference(&actual).collect();
     let extra: Vec<_> = actual.difference(&expected).collect();
