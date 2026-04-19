@@ -259,19 +259,21 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[ignore = "TODO: implement against real handler/router once DB-backed"]
     fn test_rating_distribution_returns_200_with_histogram() {
         // When GET /api/leagues/50/dashboard/rating-distribution is called
         // Then the response status is 200 OK
         // And the response body contains a histogram of current ratings across agents
-        assert_eq!(200, 200);
+        todo!("Implement by invoking the Axum router and asserting on the real response");
     }
 
     #[test]
+    #[ignore = "TODO: implement against real handler/router once DB-backed"]
     fn test_rating_distribution_with_multiple_agents() {
         // Given agents with varying current ratings
         // When dashboard rating distribution is queried
         // Then each histogram bucket contains a rating range and an agent count
-        assert_eq!(true, true);
+        todo!("Implement by invoking the Axum router and asserting on the real response");
     }
 
     #[test]
@@ -292,11 +294,12 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client once auth middleware is wired"]
     fn test_rating_distribution_requires_authentication() {
         // Scenario: Unauthenticated request to swarm dashboard is rejected
         // When an unauthenticated client sends GET /api/leagues/50/dashboard/rating-distribution
         // Then the response status is 401 Unauthorized
-        assert_eq!(401, 401);
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     // ============================================================================
@@ -372,10 +375,11 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client once auth middleware is wired"]
     fn test_match_volume_requires_authentication() {
         // When an unauthenticated client sends GET /api/leagues/50/dashboard/match-volume
         // Then the response status is 401 Unauthorized
-        assert_eq!(401, 401);
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     // ============================================================================
@@ -434,10 +438,11 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client once auth middleware is wired"]
     fn test_top_bottom_agents_requires_authentication() {
         // When an unauthenticated client sends GET /api/leagues/50/dashboard/top-bottom?n=5
         // Then the response status is 401 Unauthorized
-        assert_eq!(401, 401);
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     // ============================================================================
@@ -445,11 +450,12 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[ignore = "TODO: implement against real handler/router once DB-backed"]
     fn test_agents_endpoint_returns_agent_lifecycle_info() {
         // When GET /api/leagues/50/dashboard/agents is sent
         // Then the response status is 200 OK
         // And each agent entry contains start_date, total_matches, last_match, current_status
-        assert_eq!(true, true);
+        todo!("Implement by invoking the Axum router and asserting on the real response");
     }
 
     #[test]
@@ -494,10 +500,11 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "TODO: implement against real handler/router once DB-backed"]
     fn test_active_only_false_returns_all_agents() {
         // When GET /api/leagues/50/dashboard/agents?active_only=false is sent
         // Then the response includes all agents regardless of active status
-        assert_eq!(true, true);
+        todo!("Implement by invoking the Axum router and asserting on the real response");
     }
 
     #[test]
@@ -521,10 +528,11 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client once auth middleware is wired"]
     fn test_agents_requires_authentication() {
         // When an unauthenticated client sends GET /api/leagues/50/dashboard/agents
         // Then the response status is 401 Unauthorized
-        assert_eq!(401, 401);
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     // ============================================================================
@@ -549,10 +557,11 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client once auth middleware is wired"]
     fn test_dashboard_summary_requires_authentication() {
         // When an unauthenticated client sends GET /api/leagues/50/dashboard
         // Then the response status is 401 Unauthorized
-        assert_eq!(401, 401);
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     // ============================================================================
@@ -594,37 +603,28 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[ignore = "TODO: implement using tower::ServiceExt::oneshot to send POST and assert 405"]
     fn test_dashboard_post_returns_404_or_405() {
         // Scenario: Dashboard is entirely read-only - write operations are rejected
         // When POST /api/leagues/50/dashboard/rating-distribution is sent
         // Then the response status is 404 Not Found or 405 Method Not Allowed
-        // And no data is modified
-
-        // POST is not allowed; should return 404 or 405
-        assert!(
-            StatusCode::NOT_FOUND == StatusCode::NOT_FOUND
-                || StatusCode::METHOD_NOT_ALLOWED == StatusCode::METHOD_NOT_ALLOWED
-        );
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     #[test]
+    #[ignore = "TODO: implement using tower::ServiceExt::oneshot to send PUT and assert 405"]
     fn test_dashboard_put_returns_404_or_405() {
         // When PUT /api/leagues/50/dashboard/rating-distribution is sent
         // Then the response status is 404 Not Found or 405 Method Not Allowed
-        assert!(
-            StatusCode::NOT_FOUND == StatusCode::NOT_FOUND
-                || StatusCode::METHOD_NOT_ALLOWED == StatusCode::METHOD_NOT_ALLOWED
-        );
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     #[test]
+    #[ignore = "TODO: implement using tower::ServiceExt::oneshot to send DELETE and assert 405"]
     fn test_dashboard_delete_returns_404_or_405() {
         // When DELETE /api/leagues/50/dashboard/rating-distribution is sent
         // Then the response status is 404 Not Found or 405 Method Not Allowed
-        assert!(
-            StatusCode::NOT_FOUND == StatusCode::NOT_FOUND
-                || StatusCode::METHOD_NOT_ALLOWED == StatusCode::METHOD_NOT_ALLOWED
-        );
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     // ============================================================================
@@ -669,78 +669,101 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_rating_distribution_requires_valid_league_id() {
         // When GET /api/leagues/invalid/dashboard/rating-distribution is sent
         // Then response status is 400 Bad Request or 404 Not Found
-        // (depending on whether league_id is a path parameter or already validated)
+        todo!("When GET /api/leagues/invalid/dashboard/rating-distribution is sent, assert 400 or 404");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_rating_distribution_nonexistent_league_returns_404() {
         // When GET /api/leagues/9999/dashboard/rating-distribution is sent for non-existent league
         // Then response status is 404 Not Found
+        todo!("When GET /api/leagues/9999/dashboard/rating-distribution is sent, assert 404 Not Found");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_match_volume_nonexistent_league_returns_404() {
         // When GET /api/leagues/9999/dashboard/match-volume?period=day is sent
         // Then response status is 404 Not Found
+        todo!("When GET /api/leagues/9999/dashboard/match-volume?period=day is sent, assert 404 Not Found");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_top_bottom_agents_nonexistent_league_returns_404() {
         // When GET /api/leagues/9999/dashboard/top-bottom?n=5 is sent
         // Then response status is 404 Not Found
+        todo!("When GET /api/leagues/9999/dashboard/top-bottom?n=5 is sent, assert 404 Not Found");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_agents_endpoint_nonexistent_league_returns_404() {
         // When GET /api/leagues/9999/dashboard/agents is sent
         // Then response status is 404 Not Found
+        todo!("When GET /api/leagues/9999/dashboard/agents is sent, assert 404 Not Found");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_dashboard_summary_nonexistent_league_returns_404() {
         // When GET /api/leagues/9999/dashboard is sent
         // Then response status is 404 Not Found
+        todo!("When GET /api/leagues/9999/dashboard is sent, assert 404 Not Found");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_match_volume_missing_period_parameter() {
         // When GET /api/leagues/50/dashboard/match-volume is sent without period parameter
         // Then response status is 400 Bad Request (period is required)
+        todo!("When GET /api/leagues/50/dashboard/match-volume is sent without period, assert 400 Bad Request");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_top_bottom_agents_missing_n_parameter() {
         // When GET /api/leagues/50/dashboard/top-bottom is sent without n parameter
         // Then response status may be 400 Bad Request (if n is required) or 200 OK (if n has default)
+        todo!("When GET /api/leagues/50/dashboard/top-bottom is sent without n, assert the intended behavior");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_top_bottom_agents_invalid_n_parameter() {
         // When GET /api/leagues/50/dashboard/top-bottom?n=abc is sent
         // Then response status is 400 Bad Request (n must be integer)
+        todo!("When GET /api/leagues/50/dashboard/top-bottom?n=abc is sent, assert 400 Bad Request");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_top_bottom_agents_n_zero_returns_empty_arrays() {
         // When GET /api/leagues/50/dashboard/top-bottom?n=0 is sent
         // Then response status is 200 OK
         // And top_agents and bottom_agents are both empty arrays
+        todo!("When GET /api/leagues/50/dashboard/top-bottom?n=0 is sent, assert 200 with empty arrays");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_top_bottom_agents_n_exceeds_agent_count() {
         // Given league 50 has 10 agents total
         // When GET /api/leagues/50/dashboard/top-bottom?n=100 is sent
         // Then response returns all 10 agents (or fewer if split between top/bottom)
+        todo!("When GET /api/leagues/50/dashboard/top-bottom?n=100 is sent, assert all agents returned");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_agents_endpoint_with_active_only_not_boolean() {
         // When GET /api/leagues/50/dashboard/agents?active_only=maybe is sent
         // Then response status is 400 Bad Request (active_only must be true/false)
+        todo!("When GET /api/leagues/50/dashboard/agents?active_only=maybe is sent, assert 400 Bad Request");
     }
 
     // ============================================================================
@@ -748,34 +771,42 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_active_agent_threshold_exactly_1_day() {
         // Given league 50 has active_agent_threshold_days = 1
         // And agent has last match exactly 24 hours ago
         // When GET /api/leagues/50/dashboard/agents?active_only=true is sent
         // Then agent is included (matches within 1 day threshold)
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_active_agent_threshold_exactly_365_days() {
         // Given league 50 has active_agent_threshold_days = 365
         // And agent has last match exactly 365 days ago
         // When GET /api/leagues/50/dashboard/agents?active_only=true is sent
         // Then agent is included (at the boundary of threshold)
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_active_agent_threshold_just_beyond_limit() {
         // Given league 50 has active_agent_threshold_days = 30
         // And agent has last match 30.5 days ago
         // When GET /api/leagues/50/dashboard/agents?active_only=true is sent
         // Then agent is NOT included (beyond threshold)
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_active_agent_with_null_last_match_date_is_inactive() {
         // Given agent has never had a match (last_match_date is null)
         // When active_only filter is applied
         // Then agent is NOT included in active list
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     // ============================================================================
@@ -804,10 +835,12 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_match_volume_with_zero_matches_in_period() {
         // When GET /api/leagues/50/dashboard/match-volume?period=hour is sent
         // And no matches occurred in the requested time window
         // Then response is 200 OK with empty data array
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 
     // ============================================================================
@@ -1038,8 +1071,10 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "TODO: implement with an HTTP test client against the router"]
     fn test_match_volume_response_period_string_matches_request() {
         // Test that response.period matches the requested period
         // (This would be validated by comparing request parameter with response field)
+        todo!("Implement using tower::ServiceExt::oneshot against the router");
     }
 }
