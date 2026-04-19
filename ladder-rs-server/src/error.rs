@@ -38,12 +38,12 @@ pub type Result<T> = std::result::Result<T, ServerError>;
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
         let (status, error_code, message) = match self {
-            ServerError::Unauthorized => {
-                (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", "Unauthorized".to_string())
-            }
-            ServerError::Forbidden => {
-                (StatusCode::FORBIDDEN, "FORBIDDEN", "Forbidden".to_string())
-            }
+            ServerError::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                "UNAUTHORIZED",
+                "Unauthorized".to_string(),
+            ),
+            ServerError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", "Forbidden".to_string()),
             err @ ServerError::NotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND", err.to_string()),
             err @ ServerError::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT", err.to_string()),
             err @ ServerError::InvalidInput(_) => {
