@@ -53,14 +53,15 @@ concurrency:
 
 jobs:
   # Always-on diagnostic: echoes each trigger's key context values and the
-  # result of every predicate that gates the `autofix` job. Runs on any
-  # pull_request_review or issue_comment without a guard, so a "skipped"
-  # predicate step is the definitive signal that that clause evaluated false.
+  # result of every predicate that gates the `autofix` job. Runs on review
+  # submissions, and on issue_comment only when the comment is on a PR and
+  # the commenter is trusted, so plain issue comments and untrusted actors
+  # do not consume runners.
   #
   # Cheap (~10s runner) and cannot access secrets meaningfully — steps only
   # echo public event fields. Remove or gate once the trigger is stable.
   diagnose:
-    if: github.event_name == 'pull_request_review' || github.event_name == 'issue_comment'
+    if: github.event_name == 'pull_request_review' || (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     steps:
       - name: Dump event basics
