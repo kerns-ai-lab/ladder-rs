@@ -1087,7 +1087,6 @@ dependencies = [
  "ladder-rs-persistence",
  "serde",
  "serde_json",
- "sqlx",
  "thiserror",
  "tokio",
  "tower",
