@@ -245,14 +245,17 @@ pub async fn dashboard_summary(
     State(_state): State<AppState>,
     Path(league_id): Path<i64>,
 ) -> impl IntoResponse {
+    let Ok(league_id) = u32::try_from(league_id) else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
     let response = DashboardSummaryResponse {
-        league_id: league_id as u32,
+        league_id,
         active_agent_threshold_days: 30,
         total_agents: 0,
         active_agents: 0,
         total_matches: 0,
     };
-    (StatusCode::OK, Json(response))
+    (StatusCode::OK, Json(response)).into_response()
 }
 
 #[cfg(test)]
