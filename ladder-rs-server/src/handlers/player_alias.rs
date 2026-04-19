@@ -1,7 +1,7 @@
 //! Player alias endpoint handlers
 
 use axum::{
-    extract::{Path, State},
+    extract::Path,
     http::StatusCode,
     Json,
 };
@@ -24,7 +24,6 @@ pub struct AliasResponse {
 
 /// POST /api/leagues/{league_id}/players/{player_id}/aliases
 pub async fn create_alias(
-    State(_state): State<()>,
     _user: UserContext,
     Path((_league_id, _player_id)): Path<(i64, i64)>,
     Json(_req): Json<CreateAliasRequest>,
@@ -42,7 +41,6 @@ pub async fn create_alias(
 
 /// DELETE /api/leagues/{league_id}/players/{player_id}/aliases/{alias_player_id}
 pub async fn remove_alias(
-    State(_state): State<()>,
     _user: UserContext,
     Path((_league_id, _player_id, _alias_player_id)): Path<(i64, i64, i64)>,
 ) -> Result<StatusCode, ServerError> {
