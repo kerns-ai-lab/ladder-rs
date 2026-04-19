@@ -204,7 +204,7 @@ jobs:
             echo "---- request payload (redacted PAT) ----" >&2
             jq '.resources[0].authorization_token = "<redacted>"' \
               /tmp/session_req.json >&2
-            echo "---- request payload first/last 16 bytes (hex) ----" >&2
+            echo "---- request payload first/last 16 bytes (chars) ----" >&2
             head -c 16 /tmp/session_req.json | od -c >&2
             tail -c 16 /tmp/session_req.json | od -c >&2
             echo "---- curl verbose trace (secrets redacted) ----" >&2
