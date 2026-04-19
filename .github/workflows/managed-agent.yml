@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install jq
-        run: sudo apt-get update -y && sudo apt-get install -y jq
+        run: command -v jq >/dev/null 2>&1 || (sudo apt-get update -y && sudo apt-get install -y jq)
 
       - name: Fire Managed Agent session
         env:
