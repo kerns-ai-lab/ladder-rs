@@ -32,28 +32,28 @@ mod error_responses {
     use serde_json::json;
 
     pub struct ValidationErrorResponse {
-        pub error: String,
+        pub message: String,
         pub error_code: String,
         pub details: Option<Vec<String>>,
     }
 
     pub fn build_validation_error(error: &str, code: &str) -> serde_json::Value {
         json!({
-            "error": error,
+            "message": error,
             "error_code": code
         })
     }
 
     pub fn build_not_found_error(resource: &str) -> serde_json::Value {
         json!({
-            "error": format!("{} not found", resource),
+            "message": format!("{} not found", resource),
             "error_code": "NOT_FOUND"
         })
     }
 
     pub fn build_conflict_error(reason: &str) -> serde_json::Value {
         json!({
-            "error": reason,
+            "message": reason,
             "error_code": "CONFLICT"
         })
     }
