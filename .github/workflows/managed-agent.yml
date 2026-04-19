@@ -71,6 +71,7 @@ jobs:
       (github.event_name == 'pull_request_review' && github.event.review.state != 'approved' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.review.body != null && github.event.review.body != '' &&
+       (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) || endsWith(github.event.review.user.login, '[bot]')) &&
        !contains(fromJSON(vars.AUTOFIX_SKIP_REVIEW_ACTORS || '[]'), github.event.review.user.login)) ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude autofix') &&
        github.event.issue.pull_request != null &&
