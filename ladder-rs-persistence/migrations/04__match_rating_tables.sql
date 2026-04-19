@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS match_participants (
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE RESTRICT,
     placement INTEGER NOT NULL,
     rating_before TEXT,
-    rating_after TEXT
+    rating_after TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_match_participants_match ON match_participants(match_id);

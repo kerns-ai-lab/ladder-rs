@@ -341,6 +341,13 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
     ("match_participants", "placement", "INTEGER", true, None),
     ("match_participants", "rating_before", "TEXT", false, None),
     ("match_participants", "rating_after", "TEXT", false, None),
+    (
+        "match_participants",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // match_audit_log table
     ("match_audit_log", "id", "TEXT", true, None),
     ("match_audit_log", "match_id", "TEXT", true, None),
