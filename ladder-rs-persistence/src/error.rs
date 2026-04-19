@@ -19,9 +19,6 @@ pub enum PersistenceError {
     #[error("Transaction error: {0}")]
     TransactionError(String),
 
-    #[error("Query error: {0}")]
-    QueryFailed(String),
-
     #[error("Unknown error: {0}")]
     Unknown(String),
 }

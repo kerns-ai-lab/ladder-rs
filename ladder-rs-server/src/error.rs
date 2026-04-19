@@ -38,19 +38,15 @@ pub type Result<T> = std::result::Result<T, ServerError>;
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
         let (status, error_code, message) = match self {
-            ServerError::Unauthorized => (
-                StatusCode::UNAUTHORIZED,
-                "UNAUTHORIZED",
-                "Unauthorized".to_string(),
-            ),
-            ServerError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", "Forbidden".to_string()),
-            err @ ServerError::NotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND", err.to_string()),
-            err @ ServerError::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT", err.to_string()),
-            err @ ServerError::InvalidInput(_) => {
-                (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", err.to_string())
+            ServerError::Unauthorized => {
+                (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", self.to_string())
             }
+            ServerError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", self.to_string()),
+            ServerError::NotFound(msg) => (StatusCode::NOT_FOUND, "NOT_FOUND", msg),
+            ServerError::Conflict(msg) => (StatusCode::CONFLICT, "CONFLICT", msg),
+            ServerError::InvalidInput(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
             ServerError::DatabaseError(msg) => {
-                eprintln!("Database error: {msg}");
+                eprintln!("[ERROR] Database error: {msg}");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "INTERNAL_ERROR",
@@ -58,7 +54,7 @@ impl IntoResponse for ServerError {
                 )
             }
             ServerError::InternalError(msg) => {
-                eprintln!("Internal server error: {msg}");
+                eprintln!("[ERROR] Internal error: {msg}");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "INTERNAL_ERROR",
@@ -87,7 +83,6 @@ impl From<PersistenceError> for ServerError {
             PersistenceError::InvalidInput(msg) => ServerError::InvalidInput(msg),
             PersistenceError::TransactionError(msg) => ServerError::InternalError(msg),
             PersistenceError::Unknown(msg) => ServerError::InternalError(msg),
-            PersistenceError::QueryFailed(msg) => ServerError::InternalError(msg),
         }
     }
 }
