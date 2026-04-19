@@ -382,6 +382,13 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
         true,
         Some("CURRENT_TIMESTAMP"),
     ),
+    (
+        "rating_snapshots",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // recalculation_jobs table
     ("recalculation_jobs", "id", "TEXT", true, None),
     ("recalculation_jobs", "season_id", "TEXT", true, None),

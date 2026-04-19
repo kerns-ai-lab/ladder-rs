@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS rating_snapshots (
     match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE RESTRICT,
     conservative_rating REAL NOT NULL,
     rating_json TEXT NOT NULL,
-    timestamp TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+    timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_rating_snapshots_season_rating ON rating_snapshots(season_id, conservative_rating DESC);
