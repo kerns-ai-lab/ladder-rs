@@ -1,9 +1,9 @@
 //! Handler for PATCH /api/matches/{id} - admin match correction endpoint
 
 use crate::Result;
-use axum::{extract::Path, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::Path, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use uuid::Uuid;
 
 /// Request body for match correction
 #[derive(Debug, Deserialize)]
@@ -33,16 +33,19 @@ pub struct CorrectMatchResponse {
 ///
 /// This endpoint is restricted to authenticated users with Admin role.
 /// Returns 202 Accepted with a job ID for async recalculation.
+///
+/// TODO(900.1.2): Add match existence check (404), closed-season check (409),
+/// participant validation (400/422), and real job dispatch.
 pub async fn correct_match(
     Path(match_id): Path<String>,
     Json(payload): Json<CorrectMatchRequest>,
 ) -> Result<(StatusCode, Json<CorrectMatchResponse>)> {
-    // Implementation will be added in task 900.1.2
-    // For now, return a placeholder response
+    let _ = (match_id, payload);
+    let job_id = Uuid::new_v4().to_string();
     Ok((
         StatusCode::ACCEPTED,
         Json(CorrectMatchResponse {
-            job_id: "job-placeholder".to_string(),
+            job_id,
             status: "queued".to_string(),
             message: "Match correction queued. Recalculation in progress.".to_string(),
         }),

@@ -35,21 +35,6 @@ pub enum ServerError {
 
 pub type Result<T> = std::result::Result<T, ServerError>;
 
-impl From<PersistenceError> for ServerError {
-    fn from(err: PersistenceError) -> Self {
-        match err {
-            PersistenceError::NotFound { entity, id } => {
-                ServerError::NotFound(format!("{} with id {} not found", entity, id))
-            }
-            PersistenceError::Conflict(msg) => ServerError::Conflict(msg),
-            PersistenceError::InvalidInput(msg) => ServerError::InvalidInput(msg),
-            PersistenceError::DatabaseError(msg) => ServerError::DatabaseError(msg),
-            PersistenceError::TransactionError(msg) => ServerError::InternalError(msg),
-            PersistenceError::Unknown(msg) => ServerError::InternalError(msg),
-        }
-    }
-}
-
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
         let (status, error_code, message) = match self {
@@ -59,14 +44,26 @@ impl IntoResponse for ServerError {
                 "Unauthorized".to_string(),
             ),
             ServerError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", "Forbidden".to_string()),
-            ServerError::NotFound(msg) => (StatusCode::NOT_FOUND, "NOT_FOUND", msg),
-            ServerError::Conflict(msg) => (StatusCode::CONFLICT, "CONFLICT", msg),
-            ServerError::InvalidInput(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
+            err @ ServerError::NotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND", err.to_string()),
+            err @ ServerError::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT", err.to_string()),
+            err @ ServerError::InvalidInput(_) => {
+                (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", err.to_string())
+            }
             ServerError::DatabaseError(msg) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+                eprintln!("Database error: {msg}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR",
+                    "An internal server error occurred".to_string(),
+                )
             }
             ServerError::InternalError(msg) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+                eprintln!("Internal server error: {msg}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR",
+                    "An internal server error occurred".to_string(),
+                )
             }
         };
 
@@ -76,5 +73,21 @@ impl IntoResponse for ServerError {
         }));
 
         (status, body).into_response()
+    }
+}
+
+impl From<PersistenceError> for ServerError {
+    fn from(e: PersistenceError) -> Self {
+        match e {
+            PersistenceError::NotFound { entity, id } => {
+                ServerError::NotFound(format!("{entity} with id {id} not found"))
+            }
+            PersistenceError::Conflict(msg) => ServerError::Conflict(msg),
+            PersistenceError::DatabaseError(msg) => ServerError::InternalError(msg),
+            PersistenceError::InvalidInput(msg) => ServerError::InvalidInput(msg),
+            PersistenceError::TransactionError(msg) => ServerError::InternalError(msg),
+            PersistenceError::Unknown(msg) => ServerError::InternalError(msg),
+            PersistenceError::QueryFailed(msg) => ServerError::InternalError(msg),
+        }
     }
 }

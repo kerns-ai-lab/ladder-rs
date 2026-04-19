@@ -17,6 +17,7 @@ pub use repositories::{
     job_repository::JobRepository,
     match_repository::MatchRepository,
     rating_history_repository::{
-        RatingHistoryRepository, RatingHistoryResponse, SeasonOverviewResponse,
+        RatingHistoryEntry, RatingHistoryRepository, RatingHistoryResponse, SeasonOverviewEntry,
+        SeasonOverviewResponse,
     },
 };

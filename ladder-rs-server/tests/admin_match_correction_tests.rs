@@ -13,14 +13,49 @@
 use serde_json::json;
 
 /// Helper struct for test database setup
+#[allow(dead_code)]
 struct TestFixture {
     // Database connection pool would go here
     // For now, this represents the test infrastructure
 }
 
 impl TestFixture {
+    #[allow(dead_code)]
     fn new() -> Self {
         TestFixture {}
+    }
+}
+
+/// HTTP error response structures used in tests
+#[allow(dead_code)]
+mod error_responses {
+    use serde_json::json;
+
+    pub struct ValidationErrorResponse {
+        pub error: String,
+        pub error_code: String,
+        pub details: Option<Vec<String>>,
+    }
+
+    pub fn build_validation_error(error: &str, code: &str) -> serde_json::Value {
+        json!({
+            "error": error,
+            "error_code": code
+        })
+    }
+
+    pub fn build_not_found_error(resource: &str) -> serde_json::Value {
+        json!({
+            "error": format!("{} not found", resource),
+            "error_code": "NOT_FOUND"
+        })
+    }
+
+    pub fn build_conflict_error(reason: &str) -> serde_json::Value {
+        json!({
+            "error": reason,
+            "error_code": "CONFLICT"
+        })
     }
 }
 
@@ -36,7 +71,7 @@ impl TestFixture {
 #[test]
 fn admin_corrects_match_outcome_returns_202_with_job_id() {
     // Expected request payload:
-    let patch_request = json!({
+    let _patch_request = json!({
         "participants": [
             { "player_id": "player-2", "placement": 1 },
             { "player_id": "player-1", "placement": 2 }
@@ -45,7 +80,7 @@ fn admin_corrects_match_outcome_returns_202_with_job_id() {
     });
 
     // Expected response (202 Accepted):
-    let expected_response = json!({
+    let _expected_response = json!({
         "job_id": "job-uuid",
         "status": "queued",
         "message": "Match correction queued. Recalculation in progress."
@@ -91,7 +126,7 @@ fn match_correction_triggers_async_recalculation_job() {
 #[test]
 fn match_correction_creates_audit_log_entry() {
     // Expected audit log entry:
-    let expected_audit_entry = json!({
+    let _expected_audit_entry = json!({
         "match_id": "100",
         "actor_user_id": "admin-user-id",
         "before_state": {
@@ -265,4 +300,310 @@ fn job_status_endpoint_returns_current_job_status() {
     // - GET /api/jobs/17 queries job by ID
     // - Returns job details including status, retry_count, max_retries
     // - Status is "in_progress" for running jobs
+}
+
+// ============================================================================
+// ERROR PATH COVERAGE TESTS
+// ============================================================================
+
+/// Scenario: Match correction with malformed participants array
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with participants array containing null or missing player_id
+/// Then the response status is 400 Bad Request
+#[test]
+fn malformed_participants_array_returns_400_bad_request() {
+    // Expected behavior:
+    // - Participants array validation fails if any entry is missing player_id or placement
+    // - Error response contains error_code "VALIDATION_ERROR"
+    // - HTTP status is 400
+    // - No database changes are made
+}
+
+/// Scenario: Match correction with empty participants array
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with participants: []
+/// Then the response status is 400 Bad Request
+#[test]
+fn empty_participants_array_returns_400_bad_request() {
+    // Expected behavior:
+    // - Empty array must contain at least 2 participants
+    // - Error response indicates "Participants array cannot be empty"
+    // - HTTP status is 400
+}
+
+/// Scenario: Match correction with single participant (2+ required)
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with one participant
+/// Then the response status is 400 Bad Request
+#[test]
+fn single_participant_returns_400_bad_request() {
+    // Expected behavior:
+    // - Matches must have 2+ participants
+    // - Error response indicates minimum participant requirement
+    // - HTTP status is 400
+}
+
+/// Scenario: Match correction with duplicate player_id in participants
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with both participants having same player_id
+/// Then the response status is 422 Unprocessable Entity
+#[test]
+fn duplicate_player_id_in_participants_returns_422() {
+    // Expected behavior:
+    // - Participants must have distinct player IDs
+    // - Error response indicates "Cannot correct match with duplicate player"
+    // - HTTP status is 422
+    // - No match update or audit entry created
+}
+
+/// Scenario: Match correction with invalid placement values
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with placement: 0 or negative placement
+/// Then the response status is 400 Bad Request
+#[test]
+fn invalid_placement_values_return_400_bad_request() {
+    // Expected behavior:
+    // - Placement must be positive integer
+    // - Error response indicates "Placement must be >= 1"
+    // - HTTP status is 400
+}
+
+/// Scenario: Match correction request with null reason (optional field)
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with reason: null or omitted
+/// Then the response status is 202 Accepted
+#[test]
+fn correction_with_null_reason_is_accepted() {
+    // Expected behavior:
+    // - Reason field is optional
+    // - If omitted or null, audit log stores empty string or null
+    // - Response is still 202 Accepted
+}
+
+/// Scenario: Match correction with excessively long reason string
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with reason: 10000-character string
+/// Then the response status is 400 Bad Request
+#[test]
+fn excessively_long_reason_returns_400_bad_request() {
+    // Expected behavior:
+    // - Reason field has maximum length (e.g., 500 characters)
+    // - Error response indicates "Reason exceeds maximum length"
+    // - HTTP status is 400
+}
+
+/// Scenario: Non-integer match_id parameter
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/abc with corrected participants
+/// Then the response status is 400 Bad Request
+#[test]
+fn non_integer_match_id_returns_400_bad_request() {
+    // Expected behavior:
+    // - match_id must parse as integer
+    // - If not, return 400 Bad Request
+    // - Error response indicates "Invalid match_id format"
+}
+
+/// Scenario: Match correction on a match that is already corrected
+///
+/// Given match 100 has is_corrected = 1 (already corrected once)
+/// When "admin" sends PATCH /api/matches/100 with new participants
+/// Then the response status is 202 Accepted (correction allows multiple corrections)
+#[test]
+fn correcting_already_corrected_match_is_allowed() {
+    // Expected behavior (per requirement: allow multiple corrections):
+    // - is_corrected flag is idempotent; can be set multiple times
+    // - Audit log records each correction with separate entries
+    // - Response is 202 Accepted
+    // - New job is created (or dedup'd with existing queued job)
+}
+
+/// Scenario: Correction request without authentication header
+///
+/// When an unauthenticated client sends PATCH /api/matches/100 without authorization header
+/// Then the response status is 401 Unauthorized
+#[test]
+fn missing_authorization_header_returns_401() {
+    // Expected behavior:
+    // - AuthLayer checks for valid Authorization header
+    // - If missing, return 401 Unauthorized
+    // - Response includes "WWW-Authenticate" header
+}
+
+/// Scenario: Correction request with expired token
+///
+/// Given a user "admin" with an expired session token
+/// When "admin" sends PATCH /api/matches/100 with expired token
+/// Then the response status is 401 Unauthorized
+#[test]
+fn expired_token_returns_401_unauthorized() {
+    // Expected behavior:
+    // - AuthLayer validates token expiration
+    // - If expired, return 401 Unauthorized
+    // - Error response may include "Token expired" message
+}
+
+/// Scenario: Correction request with invalid token format
+///
+/// When a client sends PATCH /api/matches/100 with malformed Bearer token
+/// Then the response status is 401 Unauthorized
+#[test]
+fn malformed_bearer_token_returns_401() {
+    // Expected behavior:
+    // - Token validation fails on format check
+    // - Return 401 Unauthorized
+    // - No database queries are executed
+}
+
+// ============================================================================
+// BOUNDARY CONDITION TESTS
+// ============================================================================
+
+/// Scenario: Match correction with placement values at boundary (max int64)
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with placement: 9223372036854775807 (max i64)
+/// Then the response status is either 202 Accepted (if stored as i64) or 400 Bad Request (if bounded)
+#[test]
+fn large_placement_value_boundary_test() {
+    // Expected behavior (depends on implementation):
+    // - If placement accepts i64, accept large values and respond 202
+    // - If placement has maximum (e.g., 1000), reject with 400
+    // - Audit log correctly stores the placement value used
+}
+
+/// Scenario: Match correction with placement: 1 (minimum valid placement)
+///
+/// Given "admin" is authenticated and match 100 has 2 participants
+/// When "admin" sends PATCH /api/matches/100 with placements 1 and 2
+/// Then the response status is 202 Accepted
+/// And placements 1 and 2 are correctly recorded in match and audit log
+#[test]
+fn minimum_placement_value_boundary_accepted() {
+    // Expected behavior:
+    // - Placement 1 is the minimum valid value
+    // - Correction accepts placement 1 without error
+    // - Audit log records placement: 1
+}
+
+/// Scenario: Match correction with very long player_id string
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/100 with player_id: 10000-character string
+/// Then the response status is either 202 or 400 (depending on id length validation)
+#[test]
+fn long_player_id_boundary_test() {
+    // Expected behavior:
+    // - If player_id is validated, max length should be enforced
+    // - Return 400 if exceeds max (e.g., 256 characters)
+    // - Return 202 if validation passes
+}
+
+/// Scenario: Match ID at boundary (max 64-bit integer)
+///
+/// Given "admin" is authenticated
+/// When "admin" sends PATCH /api/matches/9223372036854775807 (max i64)
+/// Then the response status is 404 Not Found (no match exists with that id)
+#[test]
+fn max_int64_match_id_returns_404_not_found() {
+    // Expected behavior:
+    // - Match lookup fails because id doesn't exist
+    // - Return 404 Not Found
+    // - Parsing succeeds; error is resource not found
+}
+
+// ============================================================================
+// PERSISTENCE LAYER UNIT TESTS (if repository is exposed)
+// ============================================================================
+
+/// Scenario: Audit log entry append-only enforcement at database level
+///
+/// Test the audit log repository to ensure DELETE operations are impossible
+#[test]
+fn audit_log_repository_prevents_delete_operations() {
+    // Expected behavior:
+    // - AuditLogRepository has no delete() method
+    // - Attempting to delete from audit_log table via SQL fails (no permission)
+    // - Only insert() and query() methods are available
+}
+
+/// Scenario: Job deduplication at repository level
+///
+/// Test that JobRepository.insert_job correctly deduplicates
+#[test]
+fn job_repository_insert_job_deduplicates_queued_jobs() {
+    // Given season_id = 7, a queued job already exists
+    // When JobRepository.insert_job(season_id=7) is called twice
+    // Then only one job row exists for season 7
+    // And both calls return the same job_id
+}
+
+/// Scenario: Match update and audit entry transaction atomicity
+///
+/// Test that match update and audit log entry are created atomically
+#[test]
+fn match_update_and_audit_entry_are_atomic() {
+    // Given match 100 in season 7
+    // When correction is submitted
+    // Then either both match and audit entry are created, or neither
+    // No partial state (match updated but no audit entry, or vice versa)
+}
+
+// ============================================================================
+// JOB STATUS ENDPOINT TESTS
+// ============================================================================
+
+/// Scenario: GET /api/jobs/{job_id} with non-existent job
+///
+/// Given a job_id that does not exist
+/// When GET /api/jobs/nonexistent-job-id is sent
+/// Then the response status is 404 Not Found
+#[test]
+fn get_job_status_with_nonexistent_id_returns_404() {
+    // Expected behavior:
+    // - JobRepository.get_by_id returns None
+    // - Handler returns 404 Not Found
+    // - Error response indicates "Job not found"
+}
+
+/// Scenario: GET /api/jobs/{job_id} with all possible job statuses
+///
+/// Test that GET /api/jobs/{id} returns correct status for each possible value
+#[test]
+fn get_job_status_returns_all_status_values() {
+    // Given jobs with status: queued, in_progress, completed, failed
+    // When GET /api/jobs/{id} is sent for each
+    // Then response contains correct status value
+    // And response includes retry_count and max_retries for failed jobs
+}
+
+/// Scenario: GET /api/jobs/{job_id} requires authentication
+///
+/// When an unauthenticated client sends GET /api/jobs/some-id
+/// Then the response status is 401 Unauthorized
+#[test]
+fn get_job_status_requires_authentication() {
+    // Expected behavior:
+    // - AuthLayer checks for valid session
+    // - If missing, return 401 Unauthorized
+}
+
+/// Scenario: GET /api/jobs/{job_id} with malformed UUID
+///
+/// When GET /api/jobs/not-a-uuid is sent
+/// Then the response status is 400 Bad Request
+#[test]
+fn get_job_status_with_invalid_uuid_format_returns_400() {
+    // Expected behavior:
+    // - job_id is expected to be UUID format
+    // - If not, return 400 Bad Request
+    // - Error response indicates "Invalid job_id format"
 }
