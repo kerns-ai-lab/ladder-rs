@@ -1,15 +1,17 @@
 //! Handler for GET /api/jobs/{id} - job status endpoint
 
-use crate::Result;
+use crate::{error::ServerError, Result};
 use axum::{extract::Path, http::StatusCode, Json};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use ladder_rs_persistence::JobStatus;
+use serde::Serialize;
+use uuid::Uuid;
 
 /// Response body for job status
 #[derive(Debug, Serialize)]
 pub struct JobStatusResponse {
     pub job_id: String,
-    pub status: String,
+    pub status: JobStatus,
     pub season_id: String,
     pub triggered_by: String,
     pub retry_count: i32,
@@ -21,17 +23,22 @@ pub struct JobStatusResponse {
 
 /// GET /api/jobs/{id} - Get recalculation job status
 ///
-/// Returns the status, retry count, and other details of a recalculation job.
+/// Validates that `job_id` is a well-formed UUID and returns 400 if not.
+///
+/// TODO(900.1.3): Replace with real repository lookup; return 404 for unknown
+/// IDs and 401 when no authenticated session is present.
 pub async fn get_job_status(
     Path(job_id): Path<String>,
 ) -> Result<(StatusCode, Json<JobStatusResponse>)> {
-    // Implementation will be added in task 900.1.3
-    // For now, return a placeholder response
+    // Validate UUID format before touching the database layer.
+    Uuid::parse_str(&job_id)
+        .map_err(|_| ServerError::InvalidInput(format!("Invalid job_id format: '{job_id}'")))?;
+
     Ok((
         StatusCode::OK,
         Json(JobStatusResponse {
             job_id,
-            status: "queued".to_string(),
+            status: JobStatus::Queued,
             season_id: "season-placeholder".to_string(),
             triggered_by: "match_correction".to_string(),
             retry_count: 0,

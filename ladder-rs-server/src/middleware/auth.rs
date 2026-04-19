@@ -1,10 +1,11 @@
 //! Authentication and authorization middleware
 
-use async_trait::async_trait;
-use axum::extract::FromRequestParts;
-use axum::http::request::Parts;
-use axum::response::Response;
 use std::fmt;
+
+use async_trait::async_trait;
+use axum::{extract::FromRequestParts, http::request::Parts};
+
+use crate::error::ServerError;
 
 /// Authentication layer for extracting and validating user sessions
 pub struct AuthLayer;
@@ -44,21 +45,21 @@ impl UserRole {
     }
 }
 
-/// Stub `FromRequestParts` implementation for `UserContext`.
-///
-/// TODO: Replace with real session extraction once session infrastructure exists.
-/// For now returns a default admin context so handler signatures compile.
 #[async_trait]
 impl<S> FromRequestParts<S> for UserContext
 where
     S: Send + Sync,
 {
-    type Rejection = Response;
+    type Rejection = ServerError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let _ = (parts, state);
+    /// Extract user context from request parts.
+    ///
+    /// TODO(900.x): Replace with real session/token extraction once auth
+    /// infrastructure lands. For now, returns a placeholder Admin context so
+    /// handler signatures that accept `UserContext` compile without error.
+    async fn from_request_parts(_parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         Ok(UserContext {
-            user_id: "stub-admin".to_string(),
+            user_id: "placeholder-user-id".to_string(),
             role: UserRole::Admin,
         })
     }

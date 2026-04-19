@@ -2,12 +2,12 @@
 
 use axum::{
     extract::{Path, State},
-    response::{IntoResponse, Response},
+    response::Response,
     Json,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::middleware::UserContext;
+use crate::middleware::auth::UserContext;
 use crate::ServerError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
