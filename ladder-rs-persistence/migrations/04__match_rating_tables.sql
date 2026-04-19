@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS match_participants (
     match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE RESTRICT,
     placement INTEGER NOT NULL,
-    rating_before REAL,
-    rating_after REAL
+    rating_before TEXT,
+    rating_after TEXT
 );
 
 CREATE INDEX idx_match_participants_match ON match_participants(match_id);
@@ -26,12 +26,12 @@ CREATE INDEX idx_match_participants_player_season ON match_participants(player_i
 
 CREATE TABLE IF NOT EXISTS match_audit_log (
     id TEXT NOT NULL PRIMARY KEY,
-    match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+    match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE RESTRICT,
     actor_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     original_data_json TEXT NOT NULL,
     corrected_data_json TEXT NOT NULL,
     reason TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS rating_snapshots (

@@ -302,6 +302,13 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
         true,
         Some("CURRENT_TIMESTAMP"),
     ),
+    (
+        "league_players",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // player_aliases table
     ("player_aliases", "id", "TEXT", true, None),
     ("player_aliases", "primary_player_id", "TEXT", true, None),
@@ -418,7 +425,7 @@ async fn setup_test_database() -> Pool<Sqlite> {
 /// Get all table names from sqlite_master
 async fn get_all_tables(pool: &Pool<Sqlite>) -> HashSet<String> {
     let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != '_sqlx_migrations' ORDER BY name"
     )
     .fetch_all(pool)
     .await
