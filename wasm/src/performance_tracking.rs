@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 // Speed: ratio = actual_ops / baseline_ops (lower is worse)
 const SPEED_CRITICAL_THRESHOLD: f64 = 0.50; // < 50% of baseline => Critical
 const SPEED_MAJOR_THRESHOLD: f64 = 0.90; // < 90% of baseline => Major
-// Memory: ratio = actual_bytes / baseline_bytes (higher is worse)
+                                         // Memory: ratio = actual_bytes / baseline_bytes (higher is worse)
 const MEMORY_CRITICAL_THRESHOLD: f64 = 2.0; // > 2× baseline => Critical
 const MEMORY_MAJOR_THRESHOLD: f64 = 1.5; // > 1.5× baseline => Major
 
@@ -415,7 +415,6 @@ fn parse_report(report_json: &str) -> Result<PerformanceReport, JsValue> {
     serde_json::from_str(report_json)
         .map_err(|e| JsValue::from_str(&format!("Failed to parse report: {}", e)))
 }
-
 
 /// JavaScript-friendly performance report formatter
 // Native unit tests for performance_tracking (runs outside WASM)
@@ -1104,7 +1103,8 @@ impl PerformanceReportFormatter {
                 metric.duration_ms,
                 metric.iterations,
                 metric.ops_per_second,
-                metric.memory_used_bytes
+                metric
+                    .memory_used_bytes
                     .map(|b| b.to_string())
                     .unwrap_or_else(|| "N/A".to_string())
             ));
@@ -1167,7 +1167,8 @@ impl PerformanceReportFormatter {
                 metric.duration_ms,
                 metric.iterations,
                 metric.ops_per_second,
-                metric.memory_used_bytes
+                metric
+                    .memory_used_bytes
                     .map(|b| format!("{} bytes", b))
                     .unwrap_or_else(|| "N/A".to_string())
             ));

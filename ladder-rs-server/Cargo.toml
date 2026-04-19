@@ -1,0 +1,27 @@
+[package]
+name = "ladder-rs-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Axum HTTP server for ladder-rs"
+
+[dependencies]
+ladder-rs-persistence = { path = "../ladder-rs-persistence" }
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+async-trait.workspace = true
+sqlx.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+sqlx = { workspace = true, features = ["migrate"] }
