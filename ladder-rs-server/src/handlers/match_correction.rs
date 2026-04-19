@@ -3,6 +3,7 @@
 use crate::Result;
 use axum::{extract::Path, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Request body for match correction
 #[derive(Debug, Deserialize)]
@@ -36,12 +37,12 @@ pub async fn correct_match(
     Path(_match_id): Path<String>,
     Json(_payload): Json<CorrectMatchRequest>,
 ) -> Result<(StatusCode, Json<CorrectMatchResponse>)> {
-    // Implementation will be added in task 900.1.2
-    // For now, return a placeholder response
+    // TODO(900.1.2): Add match existence check (404), closed-season check (409),
+    // participant validation (400/422), and real job dispatch.
     Ok((
         StatusCode::ACCEPTED,
         Json(CorrectMatchResponse {
-            job_id: "job-placeholder".to_string(),
+            job_id: Uuid::new_v4().to_string(),
             status: "queued".to_string(),
             message: "Match correction queued. Recalculation in progress.".to_string(),
         }),

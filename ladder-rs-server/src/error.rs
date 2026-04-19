@@ -46,10 +46,20 @@ impl IntoResponse for ServerError {
             ServerError::Conflict(msg) => (StatusCode::CONFLICT, "CONFLICT", msg),
             ServerError::InvalidInput(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
             ServerError::DatabaseError(msg) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+                eprintln!("[ERROR] Database error: {msg}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR",
+                    "An internal server error occurred".to_string(),
+                )
             }
             ServerError::InternalError(msg) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+                eprintln!("[ERROR] Internal error: {msg}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR",
+                    "An internal server error occurred".to_string(),
+                )
             }
         };
 
@@ -66,7 +76,7 @@ impl From<PersistenceError> for ServerError {
     fn from(e: PersistenceError) -> Self {
         match e {
             PersistenceError::NotFound { entity, id } => {
-                ServerError::NotFound(format!("{entity} with id {id}"))
+                ServerError::NotFound(format!("{entity} with id {id} not found"))
             }
             PersistenceError::Conflict(msg) => ServerError::Conflict(msg),
             PersistenceError::DatabaseError(msg) => ServerError::InternalError(msg),
