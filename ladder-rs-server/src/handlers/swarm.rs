@@ -195,22 +195,14 @@ pub async fn match_volume(
                 ),
             }],
         };
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::to_value(error).unwrap()),
-        )
-            .into_response();
+        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
     }
 
     let response = MatchVolumeResponse {
         period: params.period,
         data: vec![],
     };
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
-        .into_response()
+    (StatusCode::OK, Json(response)).into_response()
 }
 
 /// GET /api/leagues/:league_id/dashboard/top-bottom?n=<n>
