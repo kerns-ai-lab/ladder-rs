@@ -53,6 +53,9 @@ concurrency:
 
 jobs:
   autofix:
+    # Disabled: set if: false to prevent execution while preserving workflow
+    # history and configuration. Re-enable by removing this line.
+    if: false
     # Trigger policy:
     #   * pull_request_review: non-approval reviews from trusted humans or bots
     #     with a non-empty summary body. Empty body = loop-prevention filter
