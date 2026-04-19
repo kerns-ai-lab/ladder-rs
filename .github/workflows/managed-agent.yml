@@ -114,11 +114,10 @@ jobs:
           )
 
           # 1. Create session with the repo mounted.
-          #
-          # Write the JSON to a file rather than passing via -d "$VAR". This
-          # eliminates any chance of shell-argv mangling (secret chars, CR/LF,
-          # quote edges) between our variable and curl's HTTP body.
-          jq -n \
+          # Use -c compact JSON for byte-parity with the known-working
+          # smoke-test script, and send via --data-binary @file so nothing
+          # in the shell argv can mangle the body.
+          jq -cn \
             --arg agent "$MANAGED_AGENT_ID" \
             --arg env   "$MANAGED_AGENT_ENV_ID" \
             --arg vault "$MANAGED_AGENT_VAULT_ID" \
@@ -139,7 +138,6 @@ jobs:
               }]
             }' > /tmp/session_req.json
 
-          # Validate the file re-parses cleanly (catches any jq weirdness).
           if ! jq empty /tmp/session_req.json 2>/tmp/session_req.err; then
             echo "::error::Built session JSON is not valid JSON"
             cat /tmp/session_req.err >&2
@@ -148,12 +146,15 @@ jobs:
           echo "session payload: $(wc -c < /tmp/session_req.json) bytes"
 
           echo "::group::Creating session"
-          HTTP_STATUS=$(curl -sS -o /tmp/session_resp.json -w "%{http_code}" \
+          # -v writes verbose protocol trace to /tmp/curl.log. We will echo
+          # the redacted trace on failure so we can see the exact request
+          # line, outgoing headers, and the bytes curl says it uploaded.
+          HTTP_STATUS=$(curl -sS -v -o /tmp/session_resp.json -w "%{http_code}" \
             "$API/sessions" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "$VER" -H "$BETA" \
             -H "content-type: application/json" \
-            --data-binary @/tmp/session_req.json)
+            --data-binary @/tmp/session_req.json 2>/tmp/curl.log)
           echo "POST /v1/sessions -> HTTP $HTTP_STATUS"
           SESSION_RESP=$(cat /tmp/session_resp.json)
           if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
@@ -166,6 +167,12 @@ jobs:
             echo "---- request payload first/last 16 bytes (hex) ----" >&2
             head -c 16 /tmp/session_req.json | od -c >&2
             tail -c 16 /tmp/session_req.json | od -c >&2
+            echo "---- curl verbose trace (secrets redacted) ----" >&2
+            # Redact x-api-key and authorization_token values from the trace.
+            sed -E \
+              -e 's/(x-api-key:\s*)\S+/\1<redacted>/I' \
+              -e 's/(authorization_token":")[^"]+/\1<redacted>/' \
+              /tmp/curl.log >&2
             exit 1
           fi
           SID=$(jq -r .id <<<"$SESSION_RESP")
