@@ -11,12 +11,18 @@ name: managed-agent-autofix
 # one of their inline comments.
 #
 # Credentials / wiring (see repo Settings):
-#   secrets.ANTHROPIC_API_KEY   -- API key for the Managed Agents API
-#   vars.MANAGED_AGENT_ID       -- e.g. agent_011Ca7ocCH3E5AoH3byFrcV4
-#   vars.MANAGED_AGENT_ENV_ID   -- e.g. env_01JrMC1r5hYvSax4FDsWQtbb
-#   vars.MANAGED_AGENT_VAULT_ID -- e.g. vlt_011Ca7ohLqs85Fp9ZZEgeToV
-#   secrets.GITHUB_TOKEN        -- auto-provided by Actions; used to clone
-#                                  the repo into the session workspace.
+#   secrets.ANTHROPIC_API_KEY        -- API key for the Managed Agents API
+#   vars.MANAGED_AGENT_ID            -- e.g. agent_011Ca7ocCH3E5AoH3byFrcV4
+#   vars.MANAGED_AGENT_ENV_ID        -- e.g. env_01JrMC1r5hYvSax4FDsWQtbb
+#   vars.MANAGED_AGENT_VAULT_ID      -- e.g. vlt_011Ca7ohLqs85Fp9ZZEgeToV
+#   secrets.MANAGED_AGENT_CLONE_PAT  -- classic PAT (repo scope) or
+#                                       fine-grained PAT with contents:rw
+#                                       on this repo. Used as the
+#                                       authorization_token on the
+#                                       github_repository resource. The
+#                                       ephemeral secrets.GITHUB_TOKEN does
+#                                       NOT work here — Anthropic's API
+#                                       rejects ghs_* installation tokens.
 #
 # The agent replies to GitHub using the PAT stored in its vault, via the
 # GitHub MCP server attached to the agent — that credential is NOT managed
@@ -32,9 +38,12 @@ on:
     types: [created, edited]
 
 permissions:
-  contents: write        # agent pushes fix commits back to the PR branch
-  issues: write          # allow the GITHUB_TOKEN path for thread replies
-  pull-requests: write
+  # The workflow itself only needs read here — pushes and thread replies
+  # happen from within the agent session using MANAGED_AGENT_CLONE_PAT
+  # (and the agent's vault PAT for MCP comments).
+  contents: read
+  issues: read
+  pull-requests: read
 
 # Serialize repeated triggers on the same PR/issue so parallel autofix
 # sessions don't fight over the branch. Queued, not cancelled.
@@ -63,7 +72,7 @@ jobs:
           MANAGED_AGENT_VAULT_ID: ${{ vars.MANAGED_AGENT_VAULT_ID }}
           REPO_URL:               https://github.com/${{ github.repository }}
           REPO_MOUNT:             /workspace/repo
-          REPO_PAT:               ${{ secrets.GITHUB_TOKEN }}
+          REPO_PAT:               ${{ secrets.MANAGED_AGENT_CLONE_PAT }}
           EVENT_NAME:             ${{ github.event_name }}
           # PR / issue number — present on both supported events.
           PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
@@ -82,6 +91,18 @@ jobs:
           API="https://api.anthropic.com/v1"
           BETA="anthropic-beta: managed-agents-2026-04-01"
           VER="anthropic-version: 2023-06-01"
+
+          # Preflight: surface missing-config clearly.
+          missing=()
+          [ -n "${ANTHROPIC_API_KEY:-}" ]      || missing+=("secrets.ANTHROPIC_API_KEY")
+          [ -n "${MANAGED_AGENT_ID:-}" ]       || missing+=("vars.MANAGED_AGENT_ID")
+          [ -n "${MANAGED_AGENT_ENV_ID:-}" ]   || missing+=("vars.MANAGED_AGENT_ENV_ID")
+          [ -n "${MANAGED_AGENT_VAULT_ID:-}" ] || missing+=("vars.MANAGED_AGENT_VAULT_ID")
+          [ -n "${REPO_PAT:-}" ]               || missing+=("secrets.MANAGED_AGENT_CLONE_PAT")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required config: ${missing[*]}"
+            exit 1
+          fi
 
           # Resolve the body from the right event path.
           case "$EVENT_NAME" in
