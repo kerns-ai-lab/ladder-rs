@@ -136,6 +136,23 @@ jobs:
           echo "api key length after trim: ${#ANTHROPIC_API_KEY} chars"
           echo "clone PAT length after trim: ${#REPO_PAT} chars"
 
+          # For issue_comment events the job if: condition can't inspect
+          # pull_request.head.repo (it isn't in the issue_comment payload).
+          # Fetch the PR via the read-only GITHUB_TOKEN and skip early if the
+          # head is from a contributor fork — MANAGED_AGENT_CLONE_PAT cannot
+          # push back to a fork branch.
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            PR_HEAD_REPO=$(curl -sS \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
+              | jq -r '.head.repo.full_name // empty')
+            if [ "${PR_HEAD_REPO:-}" != "$GITHUB_REPOSITORY" ]; then
+              echo "Skipping: PR #${PR_NUMBER} is a fork PR (head=${PR_HEAD_REPO:-unknown}); MANAGED_AGENT_CLONE_PAT cannot push to contributor forks."
+              exit 0
+            fi
+          fi
+
           # Resolve the body from the right event path.
           case "$EVENT_NAME" in
             issue_comment)       BODY="$COMMENT_BODY_ISSUE"  ;;
