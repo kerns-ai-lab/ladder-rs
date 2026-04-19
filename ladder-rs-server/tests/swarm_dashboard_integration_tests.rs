@@ -180,16 +180,16 @@ mod swarm_dashboard_scenarios {
             ],
             "bottom_agents": [
                 {
-                    "agent_id": 18,
-                    "agent_name": "BottomBot1",
-                    "conservative_rating": 1200.0,
-                    "match_count": 10
-                },
-                {
                     "agent_id": 19,
                     "agent_name": "BottomBot2",
                     "conservative_rating": 1100.0,
                     "match_count": 5
+                },
+                {
+                    "agent_id": 18,
+                    "agent_name": "BottomBot1",
+                    "conservative_rating": 1200.0,
+                    "match_count": 10
                 }
             ]
         });
