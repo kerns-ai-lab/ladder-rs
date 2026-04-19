@@ -189,12 +189,21 @@ jobs:
           # -v writes verbose protocol trace to /tmp/curl.log. We will echo
           # the redacted trace on failure so we can see the exact request
           # line, outgoing headers, and the bytes curl says it uploaded.
+          curl_rc=0
           HTTP_STATUS=$(curl -sS -v -o /tmp/session_resp.json -w "%{http_code}" \
             "$API/sessions" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "$VER" -H "$BETA" \
             -H "content-type: application/json" \
-            --data-binary @/tmp/session_req.json 2>/tmp/curl.log)
+            --data-binary @/tmp/session_req.json 2>/tmp/curl.log) || curl_rc=$?
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::curl transport failure (exit $curl_rc) for session creation — DNS/TLS/timeout"
+            sed -E \
+              -e 's/(x-api-key:\s*)\S+/\1<redacted>/I' \
+              -e 's/(authorization_token":")[^"]+/\1<redacted>/' \
+              /tmp/curl.log >&2
+            exit 1
+          fi
           echo "POST /v1/sessions -> HTTP $HTTP_STATUS"
           SESSION_RESP=$(cat /tmp/session_resp.json)
           if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
@@ -232,12 +241,17 @@ jobs:
 
           echo "events payload: $(wc -c < /tmp/events_req.json) bytes"
 
+          curl_rc=0
           HTTP_STATUS=$(curl -sS -o /tmp/events_resp.json -w "%{http_code}" \
             "$API/sessions/$SID/events" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "$VER" -H "$BETA" \
             -H "content-type: application/json" \
-            --data-binary @/tmp/events_req.json)
+            --data-binary @/tmp/events_req.json) || curl_rc=$?
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::curl transport failure (exit $curl_rc) for events request — DNS/TLS/timeout"
+            exit 1
+          fi
           echo "POST /v1/sessions/$SID/events -> HTTP $HTTP_STATUS"
           if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
             echo "::error::event fire failed (HTTP $HTTP_STATUS)"
