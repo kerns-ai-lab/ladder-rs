@@ -2,6 +2,14 @@
 
 use std::fmt;
 
+use async_trait::async_trait;
+use axum::{
+    extract::FromRequestParts,
+    http::request::Parts,
+};
+
+use crate::error::ServerError;
+
 /// Authentication layer for extracting and validating user sessions
 pub struct AuthLayer;
 
@@ -37,5 +45,28 @@ impl UserRole {
     /// Check if this role is allowed to perform admin operations
     pub fn is_admin(&self) -> bool {
         *self == UserRole::Admin
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for UserContext
+where
+    S: Send + Sync,
+{
+    type Rejection = ServerError;
+
+    /// Extract user context from request parts.
+    ///
+    /// TODO(900.x): Replace with real session/token extraction once auth
+    /// infrastructure lands. For now, returns a placeholder Admin context so
+    /// handler signatures that accept `UserContext` compile without error.
+    async fn from_request_parts(
+        _parts: &mut Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(UserContext {
+            user_id: "placeholder-user-id".to_string(),
+            role: UserRole::Admin,
+        })
     }
 }
