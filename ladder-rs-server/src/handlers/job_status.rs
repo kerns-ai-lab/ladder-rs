@@ -1,11 +1,7 @@
 //! Handler for GET /api/jobs/{id} - job status endpoint
 
 use crate::Result;
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    Json,
-};
+use axum::{extract::Path, http::StatusCode, Json};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

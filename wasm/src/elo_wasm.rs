@@ -3,10 +3,10 @@
 //! This module provides JavaScript-friendly wrappers around the core Elo
 //! rating system, with optimizations for WASM usage.
 
-use wasm_bindgen::prelude::*;
-use serde::{Deserialize, Serialize};
-use ladder_rs::elo::{EloRating as CoreEloRating, EloSystem as CoreEloSystem, EloTeamRating};
 use ladder_rs::core::{GameOutcome, RatingSystem, TeamRating};
+use ladder_rs::elo::{EloRating as CoreEloRating, EloSystem as CoreEloSystem, EloTeamRating};
+use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 /// Match outcome for 1v1 games
 #[wasm_bindgen]
@@ -107,12 +107,12 @@ impl EloSystem {
     pub fn with_parameters(k_factor: f64, initial_rating: f64) -> Self {
         // Ensure k_factor is positive
         let k_factor = k_factor.abs().max(1.0);
-        
+
         // Note: The core EloSystem has different parameters
         // We'll use reasonable defaults for alpha and beta_elo
         let alpha = 0.1;
         let beta_elo = 200.0;
-        
+
         Self {
             k_factor,
             initial_rating,
@@ -162,7 +162,8 @@ impl EloSystem {
         };
 
         // Process the match
-        let result = self.inner
+        let result = self
+            .inner
             .rate(&[team1, team2], &game_outcome)
             .map_err(|e| JsValue::from_str(&format!("Rating error: {}", e)))?;
 
@@ -207,7 +208,10 @@ impl EloSystem {
         let config: SystemConfig = serde_json::from_str(data)
             .map_err(|e| JsValue::from_str(&format!("Deserialization error: {}", e)))?;
 
-        Ok(Self::with_parameters(config.k_factor, config.initial_rating))
+        Ok(Self::with_parameters(
+            config.k_factor,
+            config.initial_rating,
+        ))
     }
 
     /// Processes a 1v1 match and returns updated ratings as JSON
@@ -220,14 +224,14 @@ impl EloSystem {
     ) -> Result<String, JsValue> {
         let p1 = EloRating::new(player1_rating);
         let p2 = EloRating::new(player2_rating);
-        
+
         let result = self.process_1v1(&p1, &p2, outcome)?;
-        
+
         let json_result = serde_json::json!({
             "player1": result.player1_rating,
             "player2": result.player2_rating
         });
-        
+
         serde_json::to_string(&json_result)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
@@ -265,7 +269,9 @@ impl EloUtils {
         // Process each match
         for match_data in matches {
             if match_data.len() < 3 {
-                return Err(JsValue::from_str("Match data must have [idx1, idx2, outcome]"));
+                return Err(JsValue::from_str(
+                    "Match data must have [idx1, idx2, outcome]",
+                ));
             }
 
             let idx1 = match_data[0] as usize;
@@ -284,7 +290,7 @@ impl EloUtils {
 
             // Process the match
             let result = system.process_1v1(&ratings[idx1], &ratings[idx2], outcome)?;
-            
+
             ratings[idx1] = EloRating::new(result.player1_rating);
             ratings[idx2] = EloRating::new(result.player2_rating);
         }
@@ -314,10 +320,12 @@ impl EloUtils {
         // Convert to array format
         let result: Vec<Vec<serde_json::Value>> = indexed
             .into_iter()
-            .map(|(idx, rating)| vec![
-                serde_json::Value::from(idx),
-                serde_json::Value::from(rating),
-            ])
+            .map(|(idx, rating)| {
+                vec![
+                    serde_json::Value::from(idx),
+                    serde_json::Value::from(rating),
+                ]
+            })
             .collect();
 
         // Return as JSON
@@ -330,9 +338,7 @@ impl EloUtils {
         let values: Vec<f64> = serde_json::from_str(values_json)
             .map_err(|e| JsValue::from_str(&format!("Invalid values JSON: {}", e)))?;
 
-        let ratings: Vec<EloRating> = values.into_iter()
-            .map(|v| EloRating::new(v))
-            .collect();
+        let ratings: Vec<EloRating> = values.into_iter().map(|v| EloRating::new(v)).collect();
 
         serde_json::to_string(&ratings)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
@@ -369,7 +375,7 @@ mod tests {
         let system = EloSystem::new();
         let ratings_json = r#"[{"value":1500},{"value":1500},{"value":1500}]"#;
         let matches_json = r#"[[0,1,1],[1,2,2]]"#;
-        
+
         let result = EloUtils::batch_process(&system, ratings_json, matches_json);
         assert!(result.is_ok());
     }
@@ -378,10 +384,11 @@ mod tests {
     fn test_leaderboard_mixed_types() {
         // Test that leaderboard returns mixed types (index as usize, rating as f64)
         let ratings_json = r#"[{"value":1600},{"value":1400},{"value":1800},{"value":1500}]"#;
-        
+
         let leaderboard_json = EloUtils::create_leaderboard(ratings_json).unwrap();
-        let leaderboard: Vec<Vec<serde_json::Value>> = serde_json::from_str(&leaderboard_json).unwrap();
-        
+        let leaderboard: Vec<Vec<serde_json::Value>> =
+            serde_json::from_str(&leaderboard_json).unwrap();
+
         // Should be sorted by rating descending
         assert_eq!(leaderboard[0][0].as_u64(), Some(2)); // index 2 has rating 1800
         assert_eq!(leaderboard[0][1].as_f64(), Some(1800.0));

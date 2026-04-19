@@ -14,7 +14,11 @@ impl MatchRepository {
     }
 
     /// Update a match record
-    pub async fn update(pool: &SqlitePool, match_id: &str, participants: Vec<MatchParticipant>) -> Result<()> {
+    pub async fn update(
+        pool: &SqlitePool,
+        match_id: &str,
+        participants: Vec<MatchParticipant>,
+    ) -> Result<()> {
         // Implementation will be added
         Ok(())
     }

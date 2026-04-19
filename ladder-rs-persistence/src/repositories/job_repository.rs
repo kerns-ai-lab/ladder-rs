@@ -1,6 +1,6 @@
 //! Job repository for recalculation job persistence
 
-use crate::{RecalculationJob, JobStatus, Result};
+use crate::{JobStatus, RecalculationJob, Result};
 use chrono::Utc;
 use sqlx::SqlitePool;
 
@@ -31,7 +31,10 @@ impl JobRepository {
     }
 
     /// Get the latest queued job for a season
-    pub async fn get_latest_queued(pool: &SqlitePool, season_id: &str) -> Result<Option<RecalculationJob>> {
+    pub async fn get_latest_queued(
+        pool: &SqlitePool,
+        season_id: &str,
+    ) -> Result<Option<RecalculationJob>> {
         // Implementation will be added
         Ok(None)
     }

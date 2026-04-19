@@ -13,10 +13,10 @@ pub use models::*;
 
 // Re-export commonly used items
 pub use repositories::{
-    match_repository::MatchRepository,
     audit_log_repository::AuditLogRepository,
     job_repository::JobRepository,
+    match_repository::MatchRepository,
     rating_history_repository::{
-        RatingHistoryResponse, SeasonOverviewResponse, RatingHistoryRepository,
+        RatingHistoryRepository, RatingHistoryResponse, SeasonOverviewResponse,
     },
 };
