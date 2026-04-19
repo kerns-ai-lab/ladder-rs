@@ -19,4 +19,5 @@ tracing.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
-sqlx = { workspace = true, features = ["migrate"] }
+sqlx = { workspace = true, features = ["migrate", "runtime-tokio-rustls", "sqlite", "chrono"] }
+futures = "0.3"
