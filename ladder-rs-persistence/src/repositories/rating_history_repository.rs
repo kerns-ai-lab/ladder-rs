@@ -75,6 +75,7 @@ impl RatingHistoryRepository {
         player_id: i64,
         season_id: i64,
     ) -> Result<RatingHistoryResponse> {
+        #[allow(clippy::type_complexity)]
         let rows: Vec<(i64, String, f64, Option<f64>, Option<f64>, f64)> = sqlx::query_as(
             r#"
             SELECT
@@ -121,6 +122,7 @@ impl RatingHistoryRepository {
     ///
     /// Returns all seasons player participated in with final ratings.
     pub async fn get_season_overview(&self, player_id: i64) -> Result<SeasonOverviewResponse> {
+        #[allow(clippy::type_complexity)]
         let rows: Vec<(i64, String, String, Option<String>, f64, f64, i64)> = sqlx::query_as(
             r#"
             SELECT
