@@ -114,7 +114,11 @@ jobs:
           )
 
           # 1. Create session with the repo mounted.
-          SESSION_JSON=$(jq -cn \
+          #
+          # Write the JSON to a file rather than passing via -d "$VAR". This
+          # eliminates any chance of shell-argv mangling (secret chars, CR/LF,
+          # quote edges) between our variable and curl's HTTP body.
+          jq -n \
             --arg agent "$MANAGED_AGENT_ID" \
             --arg env   "$MANAGED_AGENT_ENV_ID" \
             --arg vault "$MANAGED_AGENT_VAULT_ID" \
@@ -133,17 +137,23 @@ jobs:
                 mount_path: $mount,
                 authorization_token: $pat
               }]
-            }')
+            }' > /tmp/session_req.json
+
+          # Validate the file re-parses cleanly (catches any jq weirdness).
+          if ! jq empty /tmp/session_req.json 2>/tmp/session_req.err; then
+            echo "::error::Built session JSON is not valid JSON"
+            cat /tmp/session_req.err >&2
+            exit 1
+          fi
+          echo "session payload: $(wc -c < /tmp/session_req.json) bytes"
 
           echo "::group::Creating session"
-          # Capture both body and status. NOT using -f so we can surface the
-          # actual API error body on non-2xx responses.
           HTTP_STATUS=$(curl -sS -o /tmp/session_resp.json -w "%{http_code}" \
             "$API/sessions" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "$VER" -H "$BETA" \
             -H "content-type: application/json" \
-            -d "$SESSION_JSON")
+            --data-binary @/tmp/session_req.json)
           echo "POST /v1/sessions -> HTTP $HTTP_STATUS"
           SESSION_RESP=$(cat /tmp/session_resp.json)
           if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
@@ -151,7 +161,11 @@ jobs:
             echo "---- response body ----" >&2
             jq . <<<"$SESSION_RESP" >&2 || echo "$SESSION_RESP" >&2
             echo "---- request payload (redacted PAT) ----" >&2
-            jq '.resources[0].authorization_token = "<redacted>"' <<<"$SESSION_JSON" >&2
+            jq '.resources[0].authorization_token = "<redacted>"' \
+              /tmp/session_req.json >&2
+            echo "---- request payload first/last 16 bytes (hex) ----" >&2
+            head -c 16 /tmp/session_req.json | od -c >&2
+            tail -c 16 /tmp/session_req.json | od -c >&2
             exit 1
           fi
           SID=$(jq -r .id <<<"$SESSION_RESP")
@@ -164,16 +178,19 @@ jobs:
           echo "console:  https://console.anthropic.com/managed-agents/sessions/$SID"
           echo "::endgroup::"
 
-          # 2. Fire the user message.
-          EVENTS_JSON=$(jq -cn --arg text "$PROMPT" \
-            '{events:[{type:"user.message",content:[{type:"text",text:$text}]}]}')
+          # 2. Fire the user message (same file-based pattern).
+          jq -n --arg text "$PROMPT" \
+            '{events:[{type:"user.message",content:[{type:"text",text:$text}]}]}' \
+            > /tmp/events_req.json
+
+          echo "events payload: $(wc -c < /tmp/events_req.json) bytes"
 
           HTTP_STATUS=$(curl -sS -o /tmp/events_resp.json -w "%{http_code}" \
             "$API/sessions/$SID/events" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "$VER" -H "$BETA" \
             -H "content-type: application/json" \
-            -d "$EVENTS_JSON")
+            --data-binary @/tmp/events_req.json)
           echo "POST /v1/sessions/$SID/events -> HTTP $HTTP_STATUS"
           if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
             echo "::error::event fire failed (HTTP $HTTP_STATUS)"
