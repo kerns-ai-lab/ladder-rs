@@ -57,7 +57,8 @@ jobs:
     #   * Any review submission except pure approvals (no phrase gate).
     #   * Any conversation comment, only if body contains `@claude autofix`.
     if: |
-      (github.event_name == 'pull_request_review' && github.event.review.state != 'approved') ||
+      (github.event_name == 'pull_request_review' && github.event.review.state != 'approved' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude autofix'))
     runs-on: ubuntu-latest
     steps:
