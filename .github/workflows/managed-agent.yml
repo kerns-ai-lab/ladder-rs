@@ -1,0 +1,306 @@
+name: managed-agent-autofix
+
+# Triggers a Claude Managed Agent session on:
+#   * Any PR review submission that isn't an approval (Copilot or human).
+#   * A PR-conversation / issue comment whose body contains `@claude autofix`
+#     (manual escape hatch).
+#
+# Standalone inline code-review comments are intentionally NOT a trigger — the
+# review-submission event already covers batched review comments, and this
+# avoids double-firing when a reviewer happens to embed `@claude autofix` in
+# one of their inline comments.
+#
+# Credentials / wiring (see repo Settings):
+#   secrets.ANTHROPIC_API_KEY        -- API key for the Managed Agents API
+#   vars.MANAGED_AGENT_ID            -- e.g. agent_011Ca7ocCH3E5AoH3byFrcV4
+#   vars.MANAGED_AGENT_ENV_ID        -- e.g. env_01JrMC1r5hYvSax4FDsWQtbb
+#   vars.MANAGED_AGENT_VAULT_ID      -- e.g. vlt_011Ca7ohLqs85Fp9ZZEgeToV
+#   secrets.MANAGED_AGENT_CLONE_PAT  -- classic PAT (repo scope) or
+#                                       fine-grained PAT with contents:rw
+#                                       on this repo. Used as the
+#                                       authorization_token on the
+#                                       github_repository resource. The
+#                                       ephemeral secrets.GITHUB_TOKEN does
+#                                       NOT work here — Anthropic's API
+#                                       rejects ghs_* installation tokens.
+#
+# The agent replies to GitHub using the PAT stored in its vault, via the
+# GitHub MCP server attached to the agent — that credential is NOT managed
+# here.
+
+on:
+  # Fire on any review submission (Copilot or human) except pure approvals —
+  # nothing to fix if the reviewer is happy.
+  pull_request_review:
+    types: [submitted]
+  # Manual escape hatch on conversation comments.
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  # The workflow itself only needs read here — pushes and thread replies
+  # happen from within the agent session using MANAGED_AGENT_CLONE_PAT
+  # (and the agent's vault PAT for MCP comments).
+  contents: read
+  issues: read
+  pull-requests: read
+
+# Serialize repeated triggers on the same PR/issue so parallel autofix
+# sessions don't fight over the branch. Queued, not cancelled.
+concurrency:
+  group: managed-agent-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  autofix:
+    # Trigger policy:
+    #   * Any review submission except pure approvals (no phrase gate).
+    #   * Any conversation comment, only if body contains `@claude autofix`.
+    #
+    # Loop-prevention guards (pull_request_review branch):
+    #   * Empty-body filter: the agent posts "reply-style" reviews via the
+    #     GitHub MCP — state=commented, no summary body, just inline comments.
+    #     Every real reviewer (Copilot, humans) writes a summary body, so
+    #     `review.body != ''` surgically drops the agent's own submissions
+    #     without affecting legitimate reviews.
+    #   * Optional actor skip: `vars.AUTOFIX_SKIP_REVIEW_ACTORS` is a JSON
+    #     array of review.user.login values to ignore. Unset by default.
+    #     Use this if you provision a dedicated bot account for the vault PAT
+    #     and want an explicit belt-and-suspenders exclusion.
+    if: |
+      (github.event_name == 'pull_request_review' && github.event.review.state != 'approved' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.review.body != null && github.event.review.body != '' &&
+       (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) || endsWith(github.event.review.user.login, '[bot]')) &&
+       !contains(fromJSON(vars.AUTOFIX_SKIP_REVIEW_ACTORS || '[]'), github.event.review.user.login)) ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude autofix') &&
+       github.event.issue.pull_request != null &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install jq
+        run: command -v jq >/dev/null 2>&1 || (sudo apt-get update -y && sudo apt-get install -y jq)
+
+      - name: Fire Managed Agent session
+        env:
+          ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
+          MANAGED_AGENT_ID:       ${{ vars.MANAGED_AGENT_ID }}
+          MANAGED_AGENT_ENV_ID:   ${{ vars.MANAGED_AGENT_ENV_ID }}
+          MANAGED_AGENT_VAULT_ID: ${{ vars.MANAGED_AGENT_VAULT_ID }}
+          REPO_URL:               https://github.com/${{ github.repository }}
+          REPO_MOUNT:             /workspace/repo
+          REPO_PAT:               ${{ secrets.MANAGED_AGENT_CLONE_PAT }}
+          EVENT_NAME:             ${{ github.event_name }}
+          # PR / issue number — present on both supported events.
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          # Body / author / URL — safely injected via env vars, NOT shell-interpolated.
+          COMMENT_BODY_ISSUE:   ${{ github.event.comment.body }}
+          COMMENT_BODY_REVIEW:  ${{ github.event.review.body }}
+          COMMENT_URL:          ${{ github.event.comment.html_url || github.event.review.html_url }}
+          COMMENT_AUTHOR:       ${{ github.event.comment.user.login || github.event.review.user.login }}
+          # Review-submission context: review.id is needed to fetch the inline
+          # comments of that review via the GitHub MCP (they aren't in the
+          # `pull_request_review` event payload).
+          REVIEW_ID:       ${{ github.event.review.id }}
+          REVIEW_STATE:    ${{ github.event.review.state }}
+          # Read-only runner token — used only for the fork-guard API check
+          # in the issue_comment path. Not forwarded to the agent session.
+          GITHUB_TOKEN:    ${{ github.token }}
+        run: |
+          set -euo pipefail
+          API="https://api.anthropic.com/v1"
+          BETA="anthropic-beta: managed-agents-2026-04-01"
+          VER="anthropic-version: 2023-06-01"
+
+          # Strip CR/LF/leading+trailing whitespace from every secret and ID.
+          # A trailing newline pasted into the GitHub secret UI gets stored
+          # verbatim — and if it ends up inside an HTTP/2 header value
+          # (`-H "x-api-key: $KEY"`), the request is malformed per RFC 7540
+          # §8.1.2.6 and the gateway returns a misleading 400 "could not
+          # parse request body as JSON".
+          trim() { printf '%s' "$1" | tr -d '\r\n' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
+          ANTHROPIC_API_KEY=$(trim "${ANTHROPIC_API_KEY:-}")
+          MANAGED_AGENT_ID=$(trim "${MANAGED_AGENT_ID:-}")
+          MANAGED_AGENT_ENV_ID=$(trim "${MANAGED_AGENT_ENV_ID:-}")
+          MANAGED_AGENT_VAULT_ID=$(trim "${MANAGED_AGENT_VAULT_ID:-}")
+          REPO_PAT=$(trim "${REPO_PAT:-}")
+
+          # Preflight: surface missing-config clearly.
+          missing=()
+          [ -n "$ANTHROPIC_API_KEY" ]      || missing+=("secrets.ANTHROPIC_API_KEY")
+          [ -n "$MANAGED_AGENT_ID" ]       || missing+=("vars.MANAGED_AGENT_ID")
+          [ -n "$MANAGED_AGENT_ENV_ID" ]   || missing+=("vars.MANAGED_AGENT_ENV_ID")
+          [ -n "$MANAGED_AGENT_VAULT_ID" ] || missing+=("vars.MANAGED_AGENT_VAULT_ID")
+          [ -n "$REPO_PAT" ]               || missing+=("secrets.MANAGED_AGENT_CLONE_PAT")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required config: ${missing[*]}"
+            exit 1
+          fi
+          # Non-sensitive length confirmation (sk-ant-... keys are ~108 chars).
+          echo "api key length after trim: ${#ANTHROPIC_API_KEY} chars"
+          echo "clone PAT length after trim: ${#REPO_PAT} chars"
+
+          # Fork guard for issue_comment triggers.
+          # The issue_comment event payload does not include head.repo (unlike
+          # pull_request_review), so we can't filter forks in the job `if:`
+          # condition. Fetch the PR via the REST API to verify same-repo before
+          # forwarding MANAGED_AGENT_CLONE_PAT — the agent can't push to a
+          # contributor's fork branch anyway, so starting a session would just
+          # waste time and unnecessarily expose the PAT.
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            PR_API_RESP=""
+            PR_API_RESP=$(curl -sf \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+              2>/dev/null) || true
+            PR_HEAD_REPO=""
+            if [ -n "$PR_API_RESP" ]; then
+              PR_HEAD_REPO=$(jq -r '.head.repo.full_name // ""' <<<"$PR_API_RESP")
+            fi
+            if [ "$PR_HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+              echo "Skipping fork PR #${PR_NUMBER} (head repo: '${PR_HEAD_REPO:-unknown}'); MANAGED_AGENT_CLONE_PAT cannot push to a fork branch."
+              exit 0
+            fi
+          fi
+
+          # Resolve the body from the right event path.
+          case "$EVENT_NAME" in
+            issue_comment)       BODY="$COMMENT_BODY_ISSUE"  ;;
+            pull_request_review) BODY="$COMMENT_BODY_REVIEW" ;;
+            *) echo "unsupported event: $EVENT_NAME" >&2; exit 1 ;;
+          esac
+
+          # Just the facts — the agent's own system prompt handles how to act.
+          # Heredoc + env-var expansion keeps user text off the shell argv;
+          # jq --arg handles JSON escaping downstream.
+          PROMPT=$(cat <<PROMPT_EOF
+          Triggered by GitHub event \`${EVENT_NAME}\` on ${GITHUB_REPOSITORY}.
+
+          Repo mount:   ${REPO_MOUNT} (default branch — PR head not yet checked out)
+          Event:        ${EVENT_NAME}
+          PR number:    ${PR_NUMBER}
+          Comment URL:  ${COMMENT_URL}
+          Author:       ${COMMENT_AUTHOR}
+          Review id:    ${REVIEW_ID:-<n/a>}   (inline comments not inlined below — fetch via GitHub MCP if present)
+          Review state: ${REVIEW_STATE:-<n/a>}
+
+          Comment body:
+          ---
+          ${BODY}
+          ---
+
+          Check out the PR branch and get started.
+          PROMPT_EOF
+          )
+
+          # 1. Create session with the repo mounted.
+          # Use -c compact JSON for byte-parity with the known-working
+          # smoke-test script, and send via --data-binary @file so nothing
+          # in the shell argv can mangle the body.
+          jq -cn \
+            --arg agent "$MANAGED_AGENT_ID" \
+            --arg env   "$MANAGED_AGENT_ENV_ID" \
+            --arg vault "$MANAGED_AGENT_VAULT_ID" \
+            --arg repo  "$REPO_URL" \
+            --arg mount "$REPO_MOUNT" \
+            --arg pat   "$REPO_PAT" \
+            --arg title "autofix PR #${PR_NUMBER}" \
+            '{
+              agent: $agent,
+              environment_id: $env,
+              vault_ids: [$vault],
+              title: $title,
+              resources: [{
+                type: "github_repository",
+                url: $repo,
+                mount_path: $mount,
+                authorization_token: $pat
+              }]
+            }' > /tmp/session_req.json
+
+          if ! jq empty /tmp/session_req.json 2>/tmp/session_req.err; then
+            echo "::error::Built session JSON is not valid JSON"
+            cat /tmp/session_req.err >&2
+            exit 1
+          fi
+          echo "session payload: $(wc -c < /tmp/session_req.json) bytes"
+
+          echo "::group::Creating session"
+          # -v writes verbose protocol trace to /tmp/curl.log. We will echo
+          # the redacted trace on failure so we can see the exact request
+          # line, outgoing headers, and the bytes curl says it uploaded.
+          curl_rc=0
+          HTTP_STATUS=$(curl -sS -v -o /tmp/session_resp.json -w "%{http_code}" \
+            "$API/sessions" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "$VER" -H "$BETA" \
+            -H "content-type: application/json" \
+            --data-binary @/tmp/session_req.json 2>/tmp/curl.log) || curl_rc=$?
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::curl transport failure (exit $curl_rc) for session creation — DNS/TLS/timeout"
+            sed -E \
+              -e 's/(x-api-key:\s*)\S+/\1<redacted>/I' \
+              -e 's/(authorization_token":")[^"]+/\1<redacted>/' \
+              /tmp/curl.log >&2
+            exit 1
+          fi
+          echo "POST /v1/sessions -> HTTP $HTTP_STATUS"
+          SESSION_RESP=$(cat /tmp/session_resp.json)
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::session creation failed (HTTP $HTTP_STATUS)"
+            echo "---- response body ----" >&2
+            jq . <<<"$SESSION_RESP" >&2 || echo "$SESSION_RESP" >&2
+            echo "---- request payload (redacted PAT) ----" >&2
+            jq '.resources[0].authorization_token = "<redacted>"' \
+              /tmp/session_req.json >&2
+            echo "---- request payload first/last 16 bytes (chars, PAT redacted) ----" >&2
+            jq '.resources[0].authorization_token = "<redacted>"' \
+              /tmp/session_req.json > /tmp/session_req_redacted.json
+            head -c 16 /tmp/session_req_redacted.json | od -c >&2
+            tail -c 16 /tmp/session_req_redacted.json | od -c >&2
+            echo "---- curl verbose trace (secrets redacted) ----" >&2
+            # Redact x-api-key and authorization_token values from the trace.
+            sed -E \
+              -e 's/(x-api-key:\s*)\S+/\1<redacted>/I' \
+              -e 's/(authorization_token":")[^"]+/\1<redacted>/' \
+              /tmp/curl.log >&2
+            exit 1
+          fi
+          SID=$(jq -r .id <<<"$SESSION_RESP")
+          if [ -z "$SID" ] || [ "$SID" = "null" ]; then
+            echo "::error::session creation returned 2xx but no id"
+            jq . <<<"$SESSION_RESP" >&2
+            exit 1
+          fi
+          echo "session:  $SID"
+          echo "console:  https://console.anthropic.com/managed-agents/sessions/$SID"
+          echo "::endgroup::"
+
+          # 2. Fire the user message (same file-based pattern).
+          jq -n --arg text "$PROMPT" \
+            '{events:[{type:"user.message",content:[{type:"text",text:$text}]}]}' \
+            > /tmp/events_req.json
+
+          echo "events payload: $(wc -c < /tmp/events_req.json) bytes"
+
+          curl_rc=0
+          HTTP_STATUS=$(curl -sS -o /tmp/events_resp.json -w "%{http_code}" \
+            "$API/sessions/$SID/events" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "$VER" -H "$BETA" \
+            -H "content-type: application/json" \
+            --data-binary @/tmp/events_req.json) || curl_rc=$?
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::curl transport failure (exit $curl_rc) for events request — DNS/TLS/timeout"
+            exit 1
+          fi
+          echo "POST /v1/sessions/$SID/events -> HTTP $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::event fire failed (HTTP $HTTP_STATUS)"
+            jq . /tmp/events_resp.json >&2 || cat /tmp/events_resp.json >&2
+            exit 1
+          fi
+
+          echo "session fired. The agent will reply to the comment thread when done."
+          echo "session_id=$SID" >> "$GITHUB_OUTPUT"
