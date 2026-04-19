@@ -73,4 +73,11 @@ Feature: Atomic Match Recording
     Then Alice's rating is still 1000
     And Bob's rating is still 1000
     And no orphaned match record exists without associated rating snapshots
+
+  Scenario: Schema indexes support efficient duplicate match detection
+    Given the database schema is fully migrated
+    When the indexes on the matches table are inspected
+    Then an index exists on (season_id, recorded_at) to support duplicate detection queries
+    When the indexes on the match_participants table are inspected
+    Then an index exists on (match_id) to support participant lookup for duplicate checks
 ```

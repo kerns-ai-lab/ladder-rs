@@ -72,4 +72,11 @@ Feature: Match Timestamp Ordering
     And season 7 has matches at T1, T2, T3(corrected), T4, T5
     When recalculation completes
     Then the rating history for all players reflects ratings computed in strictly T1 < T2 < T3 < T4 < T5 order
+
+  Scenario: Schema does not default recorded_at to CURRENT_TIMESTAMP
+    Given the matches table schema is inspected
+    When the column definition for recorded_at is examined
+    Then recorded_at has no DEFAULT constraint
+    And recorded_at is NOT NULL
+    And the application must explicitly supply the timestamp on every INSERT
 ```

@@ -124,4 +124,19 @@ Feature: Player Invite Linking
     And user-alice POSTs to /invite/claim with the previously valid token
     Then the HTTP response status is 400
     And the response message indicates the invite is no longer valid
+
+  Scenario: Schema enforces UNIQUE(player_id) and UNIQUE(user_id) on player_account_links
+    Given the database schema is fully migrated
+    When the indexes on player_account_links are inspected
+    Then a UNIQUE constraint exists on player_id
+    And a UNIQUE constraint exists on user_id
+    And no partial index condition exists (constraints apply to all rows regardless of soft-delete status)
+
+  Scenario: Concurrent invite claims for the same user are resolved by UNIQUE constraint
+    Given an invite token exists for player-001
+    And user-alice is not yet linked to any player
+    When two concurrent claim attempts by user-alice execute simultaneously
+    Then exactly one succeeds with HTTP 200
+    And the other fails with a UNIQUE constraint violation (translated to 409 Conflict)
+    And exactly one player_account_links row exists for user-alice
 ```

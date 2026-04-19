@@ -73,4 +73,19 @@ Feature: Season Write Protection
     Then the function returns Ok(leaderboard) with the historical rankings
     When get_rating_history(pool, player_id: 1, season_id: 6) is called
     Then the function returns Ok(history) with all 10 match history entries for player 1
+
+  Scenario: Schema enforces FK RESTRICT on league → seasons relationship
+    Given the database schema is fully migrated
+    And league 1 has associated seasons
+    When DELETE FROM leagues WHERE id = 1 is executed directly
+    Then the database rejects the delete with a foreign key constraint violation
+    And all seasons for league 1 remain intact
+
+  Scenario: Schema enforces FK CASCADE on match → match_participants relationship
+    Given the database schema is fully migrated
+    And match 100 has 4 associated match_participants rows
+    When DELETE FROM matches WHERE id = 100 is executed directly
+    Then the match record is deleted
+    And all 4 match_participants rows are automatically deleted
+    And no orphaned match_participants rows remain
 ```

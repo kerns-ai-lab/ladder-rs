@@ -116,4 +116,46 @@ Feature: Library Persistence API
     Then "sqlx" does not appear in the direct dependencies of ladder-rs-server
     And "ladder-rs-wasm" does not appear in the direct dependencies of ladder-rs-server
     And "ladder-rs-persistence" appears as the sole persistence-layer dependency
+
+  Scenario: Migration files execute transactionally — partial failure rolls back entire file
+    Given a migration file contains CREATE TABLE followed by CREATE INDEX
+    And the CREATE INDEX statement is designed to fail (syntax error)
+    When the migration system applies the file
+    Then the entire migration file is rolled back
+    And the CREATE TABLE from that file does not persist in the schema
+    And the _sqlx_migrations table does not record the migration as applied
+
+  Scenario: Schema enforces hybrid FK cascade strategy
+    Given the database schema is fully migrated
+    When a match record is deleted
+    Then all associated match_participants rows are automatically deleted (CASCADE)
+    When a league record is deleted
+    Then the delete is blocked because seasons still reference it (RESTRICT)
+    When a user record is deleted
+    Then associated login_attempts and sessions are deleted (CASCADE)
+    But associated player_account_links are blocked (RESTRICT)
+
+  Scenario: Schema enforces UNIQUE constraints on player_account_links
+    Given user-alice is linked to player-001
+    When a concurrent claim attempt tries to link user-alice to player-002
+    Then the database rejects the insert with a UNIQUE constraint violation on user_id
+    When a concurrent claim attempt tries to link user-bob to player-001
+    Then the database rejects the insert with a UNIQUE constraint violation on player_id
+
+  Scenario: Schema column defaults produce correct initial state
+    Given a new league is inserted with only required fields (name, algorithm)
+    When the row is queried
+    Then is_active = 1, is_archived = 0, visibility = 'public', created_at is within 1 second of now
+    Given a new recalculation job is inserted with only season_id
+    When the row is queried
+    Then status = 'queued' and created_at is within 1 second of now
+    Given a new player is inserted with only name
+    When the row is queried
+    Then player_type = 'human' and is_active = 1
+
+  Scenario: Match recorded_at is never defaulted by the database
+    Given the matches table schema
+    When the schema is inspected for the recorded_at column
+    Then no DEFAULT constraint exists on recorded_at
+    And recorded_at is NOT NULL (application must always supply it)
 ```

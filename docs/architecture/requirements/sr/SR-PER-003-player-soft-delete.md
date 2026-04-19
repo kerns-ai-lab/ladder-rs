@@ -76,4 +76,11 @@ Feature: Player Soft-Delete
     Given player 99 does not belong to league 1
     When remove_player(pool, league_id: 1, player_id: 99) is called
     Then the function returns Err(PersistenceError::NotFound { entity: "league_player", ... })
+
+  Scenario: Schema enforces FK RESTRICT on players → match_participants relationship
+    Given the database schema is fully migrated
+    And player 3 has match_participants rows
+    When DELETE FROM players WHERE id = 3 is executed directly
+    Then the database rejects the delete with a foreign key constraint violation
+    And the player record remains intact (soft-delete is the only valid removal path)
 ```

@@ -37,16 +37,52 @@ const EXPECTED_TABLES: &[&str] = &[
 /// Expected indexes with their columns
 /// Format: (table_name, index_name, columns)
 const EXPECTED_INDEXES: &[(&str, &str, &[&str])] = &[
-    ("rating_snapshots", "idx_rating_snapshots_season_rating", &["season_id", "conservative_rating"]),
-    ("rating_snapshots", "idx_rating_snapshots_player_season_ts", &["player_id", "season_id", "timestamp"]),
-    ("match_participants", "idx_match_participants_player_season", &["player_id", "season_id"]),
-    ("match_participants", "idx_match_participants_match_id", &["match_id"]),
-    ("matches", "idx_matches_season_recorded", &["season_id", "recorded_at"]),
-    ("recalculation_jobs", "idx_recalc_jobs_status_created", &["status", "created_at"]),
+    (
+        "rating_snapshots",
+        "idx_rating_snapshots_season_rating",
+        &["season_id", "conservative_rating"],
+    ),
+    (
+        "rating_snapshots",
+        "idx_rating_snapshots_player_season_ts",
+        &["player_id", "season_id", "timestamp"],
+    ),
+    (
+        "match_participants",
+        "idx_match_participants_player_season",
+        &["player_id", "season_id"],
+    ),
+    (
+        "match_participants",
+        "idx_match_participants_match_id",
+        &["match_id"],
+    ),
+    (
+        "matches",
+        "idx_matches_season_recorded",
+        &["season_id", "recorded_at"],
+    ),
+    (
+        "recalculation_jobs",
+        "idx_recalc_jobs_status_created",
+        &["status", "created_at"],
+    ),
     ("players", "idx_players_name", &["name"]),
-    ("league_operators", "idx_league_operators_league_user", &["league_id", "user_id"]),
-    ("leagues", "idx_leagues_visibility_archived", &["visibility", "is_archived"]),
-    ("login_attempts", "idx_login_attempts_user_attempted", &["user_id", "attempted_at"]),
+    (
+        "league_operators",
+        "idx_league_operators_league_user",
+        &["league_id", "user_id"],
+    ),
+    (
+        "leagues",
+        "idx_leagues_visibility_archived",
+        &["visibility", "is_archived"],
+    ),
+    (
+        "login_attempts",
+        "idx_login_attempts_user_attempted",
+        &["user_id", "attempted_at"],
+    ),
 ];
 
 /// Expected FK constraints
@@ -57,7 +93,13 @@ const EXPECTED_FK_CONSTRAINTS: &[(&str, &str, &str, &str, &str)] = &[
     ("sessions", "user_id", "users", "id", "CASCADE"),
     ("invite_tokens", "user_id", "users", "id", "CASCADE"),
     ("player_account_links", "user_id", "users", "id", "RESTRICT"),
-    ("player_account_links", "player_id", "players", "id", "RESTRICT"),
+    (
+        "player_account_links",
+        "player_id",
+        "players",
+        "id",
+        "RESTRICT",
+    ),
     // League FKs
     ("league_operators", "league_id", "leagues", "id", "RESTRICT"),
     ("league_operators", "user_id", "users", "id", "RESTRICT"),
@@ -65,19 +107,49 @@ const EXPECTED_FK_CONSTRAINTS: &[(&str, &str, &str, &str, &str)] = &[
     // Player FKs
     ("league_players", "league_id", "leagues", "id", "RESTRICT"),
     ("league_players", "player_id", "players", "id", "RESTRICT"),
-    ("player_aliases", "primary_player_id", "players", "id", "RESTRICT"),
-    ("player_aliases", "alias_player_id", "players", "id", "RESTRICT"),
+    (
+        "player_aliases",
+        "primary_player_id",
+        "players",
+        "id",
+        "RESTRICT",
+    ),
+    (
+        "player_aliases",
+        "alias_player_id",
+        "players",
+        "id",
+        "RESTRICT",
+    ),
     ("player_aliases", "created_by", "users", "id", "RESTRICT"),
     // Match FKs
     ("matches", "season_id", "seasons", "id", "RESTRICT"),
     ("match_participants", "match_id", "matches", "id", "CASCADE"),
-    ("match_participants", "player_id", "players", "id", "RESTRICT"),
+    (
+        "match_participants",
+        "player_id",
+        "players",
+        "id",
+        "RESTRICT",
+    ),
     ("match_audit_log", "match_id", "matches", "id", "RESTRICT"),
-    ("match_audit_log", "actor_user_id", "users", "id", "RESTRICT"),
+    (
+        "match_audit_log",
+        "actor_user_id",
+        "users",
+        "id",
+        "RESTRICT",
+    ),
     ("rating_snapshots", "season_id", "seasons", "id", "RESTRICT"),
     ("rating_snapshots", "player_id", "players", "id", "RESTRICT"),
     ("rating_snapshots", "match_id", "matches", "id", "RESTRICT"),
-    ("recalculation_jobs", "season_id", "seasons", "id", "RESTRICT"),
+    (
+        "recalculation_jobs",
+        "season_id",
+        "seasons",
+        "id",
+        "RESTRICT",
+    ),
 ];
 
 /// Expected column definitions per table
@@ -90,31 +162,67 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
     ("users", "password_hash", "TEXT", true, None),
     ("users", "role", "TEXT", true, None),
     ("users", "force_password_change", "INTEGER", true, Some("0")),
-    ("users", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
-    ("users", "updated_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "users",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
+    (
+        "users",
+        "updated_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // login_attempts table
     ("login_attempts", "id", "TEXT", true, None),
     ("login_attempts", "user_id", "TEXT", true, None),
-    ("login_attempts", "attempted_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "login_attempts",
+        "attempted_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     ("login_attempts", "success", "INTEGER", true, None),
     // sessions table
     ("sessions", "id", "TEXT", true, None),
     ("sessions", "user_id", "TEXT", true, None),
     ("sessions", "token", "TEXT", true, None),
     ("sessions", "expires_at", "TEXT", true, None),
-    ("sessions", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "sessions",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // invite_tokens table
     ("invite_tokens", "id", "TEXT", true, None),
     ("invite_tokens", "user_id", "TEXT", true, None),
     ("invite_tokens", "token", "TEXT", true, None),
     ("invite_tokens", "expires_at", "TEXT", true, None),
     ("invite_tokens", "used_at", "TEXT", false, None),
-    ("invite_tokens", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "invite_tokens",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // player_account_links table
     ("player_account_links", "id", "TEXT", true, None),
     ("player_account_links", "player_id", "TEXT", true, None),
     ("player_account_links", "user_id", "TEXT", true, None),
-    ("player_account_links", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "player_account_links",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // leagues table
     ("leagues", "id", "TEXT", true, None),
     ("leagues", "name", "TEXT", true, None),
@@ -123,13 +231,31 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
     ("leagues", "visibility", "TEXT", true, None),
     ("leagues", "is_active", "INTEGER", true, Some("1")),
     ("leagues", "is_archived", "INTEGER", true, Some("0")),
-    ("leagues", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
-    ("leagues", "updated_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "leagues",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
+    (
+        "leagues",
+        "updated_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // league_operators table
     ("league_operators", "id", "TEXT", true, None),
     ("league_operators", "league_id", "TEXT", true, None),
     ("league_operators", "user_id", "TEXT", true, None),
-    ("league_operators", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "league_operators",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // seasons table
     ("seasons", "id", "TEXT", true, None),
     ("seasons", "league_id", "TEXT", true, None),
@@ -137,34 +263,70 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
     ("seasons", "params_json", "TEXT", false, None),
     ("seasons", "start_date", "TEXT", true, None),
     ("seasons", "end_date", "TEXT", false, None),
-    ("seasons", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "seasons",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // players table
     ("players", "id", "TEXT", true, None),
     ("players", "name", "TEXT", true, None),
     ("players", "nickname", "TEXT", false, None),
     ("players", "player_type", "TEXT", true, Some("'human'")),
     ("players", "is_active", "INTEGER", true, Some("1")),
-    ("players", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
-    ("players", "updated_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "players",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
+    (
+        "players",
+        "updated_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // league_players table
     ("league_players", "id", "TEXT", true, None),
     ("league_players", "league_id", "TEXT", true, None),
     ("league_players", "player_id", "TEXT", true, None),
     ("league_players", "is_active", "INTEGER", true, Some("1")),
-    ("league_players", "joined_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "league_players",
+        "joined_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // player_aliases table
     ("player_aliases", "id", "TEXT", true, None),
     ("player_aliases", "primary_player_id", "TEXT", true, None),
     ("player_aliases", "alias_player_id", "TEXT", true, None),
     ("player_aliases", "created_by", "TEXT", true, None),
-    ("player_aliases", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "player_aliases",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // matches table
     ("matches", "id", "TEXT", true, None),
     ("matches", "season_id", "TEXT", true, None),
     ("matches", "recorded_at", "TEXT", true, None), // NO DEFAULT, NOT NULL
     ("matches", "score_metadata_json", "TEXT", false, None),
     ("matches", "is_corrected", "INTEGER", true, Some("0")),
-    ("matches", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "matches",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // match_participants table
     ("match_participants", "id", "TEXT", true, None),
     ("match_participants", "match_id", "TEXT", true, None),
@@ -179,21 +341,51 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
     ("match_audit_log", "original_data_json", "TEXT", true, None),
     ("match_audit_log", "corrected_data_json", "TEXT", true, None),
     ("match_audit_log", "reason", "TEXT", false, None),
-    ("match_audit_log", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "match_audit_log",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // rating_snapshots table
     ("rating_snapshots", "id", "TEXT", true, None),
     ("rating_snapshots", "season_id", "TEXT", true, None),
     ("rating_snapshots", "player_id", "TEXT", true, None),
     ("rating_snapshots", "match_id", "TEXT", false, None),
-    ("rating_snapshots", "conservative_rating", "REAL", true, None),
+    (
+        "rating_snapshots",
+        "conservative_rating",
+        "REAL",
+        true,
+        None,
+    ),
     ("rating_snapshots", "rating_json", "TEXT", true, None),
-    ("rating_snapshots", "timestamp", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "rating_snapshots",
+        "timestamp",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     // recalculation_jobs table
     ("recalculation_jobs", "id", "TEXT", true, None),
     ("recalculation_jobs", "season_id", "TEXT", true, None),
     ("recalculation_jobs", "job_type", "TEXT", true, None),
-    ("recalculation_jobs", "status", "TEXT", true, Some("'queued'")),
-    ("recalculation_jobs", "created_at", "TEXT", true, Some("CURRENT_TIMESTAMP")),
+    (
+        "recalculation_jobs",
+        "status",
+        "TEXT",
+        true,
+        Some("'queued'"),
+    ),
+    (
+        "recalculation_jobs",
+        "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
     ("recalculation_jobs", "completed_at", "TEXT", false, None),
 ];
 
@@ -212,10 +404,7 @@ async fn setup_test_database() -> Pool<Sqlite> {
             .await
             .expect("Failed to create migrator");
 
-        migrator
-            .run(&pool)
-            .await
-            .expect("Failed to run migrations");
+        migrator.run(&pool).await.expect("Failed to run migrations");
     } else {
         panic!(
             "Migrations directory not found at {}. Migration tasks (907.2.2-907.2.5) must create migration files first.",
@@ -254,12 +443,14 @@ async fn get_table_columns(pool: &Pool<Sqlite>, table: &str) -> Vec<ColumnInfo> 
         .unwrap_or_else(|e| panic!("Failed to get columns for table '{}': {}", table, e));
 
     rows.into_iter()
-        .map(|(_, name, col_type, not_null, default_value, _)| ColumnInfo {
-            name,
-            col_type,
-            not_null,
-            default_value,
-        })
+        .map(
+            |(_, name, col_type, not_null, default_value, _)| ColumnInfo {
+                name,
+                col_type,
+                not_null,
+                default_value,
+            },
+        )
         .collect()
 }
 
@@ -347,7 +538,10 @@ async fn test_all_expected_tables_exist() {
     }
 
     if !extra.is_empty() {
-        println!("Note: Extra tables found (not in expected list): {:?}", extra);
+        println!(
+            "Note: Extra tables found (not in expected list): {:?}",
+            extra
+        );
     }
 
     assert_eq!(
@@ -365,7 +559,13 @@ async fn test_auth_tables_exist() {
     let pool = setup_test_database().await;
     let tables = get_all_tables(&pool).await;
 
-    let auth_tables = ["users", "login_attempts", "sessions", "invite_tokens", "player_account_links"];
+    let auth_tables = [
+        "users",
+        "login_attempts",
+        "sessions",
+        "invite_tokens",
+        "player_account_links",
+    ];
 
     for table in &auth_tables {
         assert!(
@@ -585,12 +785,13 @@ fn verify_columns(table_name: &str, actual_columns: &[ColumnInfo], expected_tabl
                 }
 
                 if let Some(exp_default) = exp_default {
-                    let actual_default = actual
-                        .default_value
-                        .as_deref()
-                        .unwrap_or("(no default)");
+                    let actual_default = actual.default_value.as_deref().unwrap_or("(no default)");
 
-                    let normalized_actual = actual_default.to_uppercase().replace('"', "'").trim().to_string();
+                    let normalized_actual = actual_default
+                        .to_uppercase()
+                        .replace('"', "'")
+                        .trim()
+                        .to_string();
                     let normalized_expected = exp_default.to_uppercase().trim().to_string();
 
                     if normalized_actual != normalized_expected {
@@ -762,9 +963,7 @@ async fn verify_fk_for_table(pool: &Pool<Sqlite>, table: &str) {
 
     let mut errors = Vec::new();
 
-    for (exp_table, exp_from, exp_ref_table, exp_ref_col, exp_on_delete) in
-        &expected_fks
-    {
+    for (exp_table, exp_from, exp_ref_table, exp_ref_col, exp_on_delete) in &expected_fks {
         let found = actual_fks.iter().find(|fk| {
             fk.from == *exp_from
                 && fk.table == *exp_ref_table
@@ -787,7 +986,10 @@ async fn verify_fk_for_table(pool: &Pool<Sqlite>, table: &str) {
             errors.join("\n"),
             actual_fks
                 .iter()
-                .map(|fk| format!("{}.{} -> {}.{} (ON DELETE {})", table, fk.from, fk.table, fk.to, fk.on_delete))
+                .map(|fk| format!(
+                    "{}.{} -> {}.{} (ON DELETE {})",
+                    table, fk.from, fk.table, fk.to, fk.on_delete
+                ))
                 .collect::<Vec<_>>()
         );
     }
@@ -828,17 +1030,31 @@ async fn test_is_active_defaults() {
     let pool = setup_test_database().await;
 
     let columns = get_table_columns(&pool, "leagues").await;
-    let is_active = columns.iter().find(|c| c.name == "is_active").expect("leagues.is_active not found");
+    let is_active = columns
+        .iter()
+        .find(|c| c.name == "is_active")
+        .expect("leagues.is_active not found");
     assert!(
-        is_active.default_value.as_deref().map(|d| d == "1").unwrap_or(false),
+        is_active
+            .default_value
+            .as_deref()
+            .map(|d| d == "1")
+            .unwrap_or(false),
         "leagues.is_active should have DEFAULT 1, got: {:?}",
         is_active.default_value
     );
 
     let columns = get_table_columns(&pool, "league_players").await;
-    let is_active = columns.iter().find(|c| c.name == "is_active").expect("league_players.is_active not found");
+    let is_active = columns
+        .iter()
+        .find(|c| c.name == "is_active")
+        .expect("league_players.is_active not found");
     assert!(
-        is_active.default_value.as_deref().map(|d| d == "1").unwrap_or(false),
+        is_active
+            .default_value
+            .as_deref()
+            .map(|d| d == "1")
+            .unwrap_or(false),
         "league_players.is_active should have DEFAULT 1, got: {:?}",
         is_active.default_value
     );
@@ -849,9 +1065,16 @@ async fn test_is_archived_default() {
     let pool = setup_test_database().await;
 
     let columns = get_table_columns(&pool, "leagues").await;
-    let is_archived = columns.iter().find(|c| c.name == "is_archived").expect("leagues.is_archived not found");
+    let is_archived = columns
+        .iter()
+        .find(|c| c.name == "is_archived")
+        .expect("leagues.is_archived not found");
     assert!(
-        is_archived.default_value.as_deref().map(|d| d == "0").unwrap_or(false),
+        is_archived
+            .default_value
+            .as_deref()
+            .map(|d| d == "0")
+            .unwrap_or(false),
         "leagues.is_archived should have DEFAULT 0, got: {:?}",
         is_archived.default_value
     );
@@ -862,9 +1085,15 @@ async fn test_force_password_change_default() {
     let pool = setup_test_database().await;
 
     let columns = get_table_columns(&pool, "users").await;
-    let fpc = columns.iter().find(|c| c.name == "force_password_change").expect("users.force_password_change not found");
+    let fpc = columns
+        .iter()
+        .find(|c| c.name == "force_password_change")
+        .expect("users.force_password_change not found");
     assert!(
-        fpc.default_value.as_deref().map(|d| d == "0").unwrap_or(false),
+        fpc.default_value
+            .as_deref()
+            .map(|d| d == "0")
+            .unwrap_or(false),
         "users.force_password_change should have DEFAULT 0, got: {:?}",
         fpc.default_value
     );
@@ -875,7 +1104,10 @@ async fn test_status_default() {
     let pool = setup_test_database().await;
 
     let columns = get_table_columns(&pool, "recalculation_jobs").await;
-    let status = columns.iter().find(|c| c.name == "status").expect("recalculation_jobs.status not found");
+    let status = columns
+        .iter()
+        .find(|c| c.name == "status")
+        .expect("recalculation_jobs.status not found");
     let default = status.default_value.as_deref().unwrap_or("(no default)");
     assert!(
         default.to_lowercase().contains("queued"),
@@ -889,8 +1121,14 @@ async fn test_player_type_default() {
     let pool = setup_test_database().await;
 
     let columns = get_table_columns(&pool, "players").await;
-    let player_type = columns.iter().find(|c| c.name == "player_type").expect("players.player_type not found");
-    let default = player_type.default_value.as_deref().unwrap_or("(no default)");
+    let player_type = columns
+        .iter()
+        .find(|c| c.name == "player_type")
+        .expect("players.player_type not found");
+    let default = player_type
+        .default_value
+        .as_deref()
+        .unwrap_or("(no default)");
     assert!(
         default.to_lowercase().contains("human"),
         "players.player_type should have DEFAULT 'human', got: '{}'",
@@ -903,7 +1141,10 @@ async fn test_matches_recorded_at_no_default() {
     let pool = setup_test_database().await;
 
     let columns = get_table_columns(&pool, "matches").await;
-    let recorded_at = columns.iter().find(|c| c.name == "recorded_at").expect("matches.recorded_at not found");
+    let recorded_at = columns
+        .iter()
+        .find(|c| c.name == "recorded_at")
+        .expect("matches.recorded_at not found");
 
     assert!(
         recorded_at.not_null,
@@ -980,18 +1221,10 @@ async fn test_complete_schema_verification() {
     // Verify each table has at least the expected columns
     for table in EXPECTED_TABLES {
         let columns = get_table_columns(&pool, table).await;
-        assert!(
-            !columns.is_empty(),
-            "Table '{}' has no columns",
-            table
-        );
+        assert!(!columns.is_empty(), "Table '{}' has no columns", table);
 
         let has_id = columns.iter().any(|c| c.name == "id");
-        assert!(
-            has_id,
-            "Table '{}' missing 'id' column",
-            table
-        );
+        assert!(has_id, "Table '{}' missing 'id' column", table);
     }
 
     // Verify all expected FKs exist
