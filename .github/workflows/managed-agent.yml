@@ -52,78 +52,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Always-on diagnostic: echoes each trigger's key context values and the
-  # result of every predicate that gates the `autofix` job. Runs on any
-  # pull_request_review or issue_comment without a guard, so a "skipped"
-  # predicate step is the definitive signal that that clause evaluated false.
-  #
-  # Cheap (~10s runner) and cannot access secrets meaningfully — steps only
-  # echo public event fields. Remove or gate once the trigger is stable.
-  diagnose:
-    if: github.event_name == 'pull_request_review' || github.event_name == 'issue_comment'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Dump event basics
-        env:
-          BODY: ${{ github.event.review.body }}
-          CMT_BODY: ${{ github.event.comment.body }}
-        run: |
-          echo "event_name=${{ github.event_name }}"
-          echo "actor=${{ github.actor }}"
-          echo "repository=${{ github.repository }}"
-          echo "--- pull_request_review fields ---"
-          echo "review.state=${{ github.event.review.state }}"
-          echo "review.user.login=${{ github.event.review.user.login }}"
-          echo "review.user.type=${{ github.event.review.user.type }}"
-          echo "review.author_association=${{ github.event.review.author_association }}"
-          echo "review.body.length=${#BODY}"
-          echo "pull_request.head.repo.full_name=${{ github.event.pull_request.head.repo.full_name }}"
-          echo "pull_request.base.repo.full_name=${{ github.event.pull_request.base.repo.full_name }}"
-          echo "--- issue_comment fields ---"
-          echo "comment.user.login=${{ github.event.comment.user.login }}"
-          echo "comment.author_association=${{ github.event.comment.author_association }}"
-          echo "comment.body.length=${#CMT_BODY}"
-          echo "issue.pull_request_present=${{ github.event.issue.pull_request != null }}"
-
-      # One step per sub-predicate; "skipped" => that predicate evaluated false.
-      - name: "P1 review.state != 'approved'"
-        if: github.event.review.state != 'approved'
-        run: 'echo P1=true'
-      - name: "P2 head.repo == github.repository"
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        run: 'echo P2=true'
-      - name: "P3 review.body non-null-non-empty"
-        if: github.event.review.body != null && github.event.review.body != ''
-        run: 'echo P3=true'
-      - name: "P4a review.author_association in [OWNER/MEMBER/COLLABORATOR]"
-        if: contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
-        run: 'echo P4a=true'
-      - name: "P4b review.user.login endsWith '[bot]'"
-        if: endsWith(github.event.review.user.login, '[bot]')
-        run: 'echo P4b=true'
-      - name: "P4c review.user.type == 'Bot'"
-        if: github.event.review.user.type == 'Bot'
-        run: 'echo P4c=true'
-      - name: "P5 vars.AUTOFIX_SKIP_REVIEW_ACTORS fallback pattern"
-        if: "!contains(fromJSON(vars.AUTOFIX_SKIP_REVIEW_ACTORS || '[]'), github.event.review.user.login)"
-        run: 'echo P5=true'
-
   autofix:
     # Trigger policy:
     #   * pull_request_review: non-approval reviews from trusted humans or bots
-    #     with a non-empty summary body (empty body = loop-prevention filter
-    #     for the agent's own MCP reply submissions).
+    #     with a non-empty summary body. Empty body = loop-prevention filter
+    #     for the agent's own MCP reply submissions (state=commented with no
+    #     summary, just inline comments).
     #   * issue_comment: conversation comments containing `@claude autofix`
     #     from OWNER/MEMBER/COLLABORATOR.
     #
-    # Simplifications vs. prior revision:
-    #   * `user.type == 'Bot'` replaces `endsWith(login, '[bot]')` — cleaner
-    #     string equality, no bracket literal that had to interact with
-    #     expression-grammar square brackets.
-    #   * Dropped the `vars.AUTOFIX_SKIP_REVIEW_ACTORS || '[]'` clause; the
-    #     empty-body filter already shuts down the observed loop source, and
-    #     `|| '[]'` fallback on an unset repo var was the second-most-likely
-    #     silent-skip suspect (alongside the bracket literal).
+    # Note: `user.type == 'Bot'` (not `endsWith(login, '[bot]')`) — the latter
+    # silently evaluates to false in the expression evaluator for logins like
+    # `copilot-pull-request-reviewer[bot]`, confirmed via a diagnostic probe.
     if: |
       (github.event_name == 'pull_request_review' &&
        github.event.review.state != 'approved' &&
