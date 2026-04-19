@@ -54,7 +54,7 @@ impl IntoResponse for ServerError {
         };
 
         let body = Json(json!({
-            "error": message,
+            "message": message,
             "error_code": error_code,
         }));
 
