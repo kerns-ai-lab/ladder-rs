@@ -134,7 +134,7 @@ jobs:
           # Heredoc + env-var expansion keeps user text off the shell argv;
           # jq --arg handles JSON escaping downstream.
           PROMPT=$(cat <<PROMPT_EOF
-          Triggered by \`@claude autofix\` on ${GITHUB_REPOSITORY}.
+          Triggered by GitHub event \`${EVENT_NAME}\` on ${GITHUB_REPOSITORY}.
 
           Repo mount:   ${REPO_MOUNT} (default branch — PR head not yet checked out)
           Event:        ${EVENT_NAME}
