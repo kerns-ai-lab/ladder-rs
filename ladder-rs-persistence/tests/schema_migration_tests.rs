@@ -906,22 +906,13 @@ async fn verify_table_indexes(pool: &Pool<Sqlite>, table: &str) {
 
     let mut errors = Vec::new();
 
-    for (_, exp_name, exp_cols) in &expected_for_table {
-        let found = indexes.iter().find(|idx| {
-            if idx.name == *exp_name {
-                return true;
-            }
-            // Fallback: check by columns
-            let idx_cols = futures::executor::block_on(get_index_columns(pool, &idx.name));
-            let exp_cols_set: HashSet<&str> = exp_cols.iter().copied().collect();
-            let idx_cols_set: HashSet<&str> = idx_cols.iter().map(|s| s.as_str()).collect();
-            idx_cols_set == exp_cols_set
-        });
+    for (_, exp_name, _exp_cols) in &expected_for_table {
+        let found = indexes.iter().find(|idx| idx.name == *exp_name);
 
         if found.is_none() {
             errors.push(format!(
                 "  Missing index '{}' on table '{}' with columns {:?}",
-                exp_name, table, exp_cols
+                exp_name, table, _exp_cols
             ));
         }
     }
