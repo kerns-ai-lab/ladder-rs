@@ -17,26 +17,26 @@ use handlers::swarm::{
 /// Build the Axum router with all routes registered.
 pub fn router(state: AppState) -> Router {
     Router::new()
-        .route("/api/leagues/{league_id}/dashboard", get(dashboard_summary))
+        .route("/api/leagues/:league_id/dashboard", get(dashboard_summary))
         .route(
-            "/api/leagues/{league_id}/dashboard/rating-distribution",
+            "/api/leagues/:league_id/dashboard/rating-distribution",
             get(rating_distribution),
         )
         .route(
-            "/api/leagues/{league_id}/dashboard/match-volume",
+            "/api/leagues/:league_id/dashboard/match-volume",
             get(match_volume),
         )
         .route(
-            "/api/leagues/{league_id}/dashboard/top-bottom",
+            "/api/leagues/:league_id/dashboard/top-bottom",
             get(top_bottom_agents),
         )
-        .route("/api/leagues/{league_id}/dashboard/agents", get(agents))
+        .route("/api/leagues/:league_id/dashboard/agents", get(agents))
         .route(
-            "/api/leagues/{league_id}/players/{player_id}/aliases",
+            "/api/leagues/:league_id/players/:player_id/aliases",
             post(handlers::create_alias),
         )
         .route(
-            "/api/leagues/{league_id}/players/{player_id}/aliases/{alias_player_id}",
+            "/api/leagues/:league_id/players/:player_id/aliases/:alias_player_id",
             delete(handlers::remove_alias),
         )
         .with_state(state)
