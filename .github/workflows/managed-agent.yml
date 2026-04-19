@@ -1,0 +1,166 @@
+name: managed-agent-autofix
+
+# Triggers a Claude Managed Agent session on:
+#   * Any PR review submission that isn't an approval (Copilot or human).
+#   * A PR-conversation / issue comment whose body contains `@claude autofix`
+#     (manual escape hatch).
+#
+# Standalone inline code-review comments are intentionally NOT a trigger — the
+# review-submission event already covers batched review comments, and this
+# avoids double-firing when a reviewer happens to embed `@claude autofix` in
+# one of their inline comments.
+#
+# Credentials / wiring (see repo Settings):
+#   secrets.ANTHROPIC_API_KEY   -- API key for the Managed Agents API
+#   vars.MANAGED_AGENT_ID       -- e.g. agent_011Ca7ocCH3E5AoH3byFrcV4
+#   vars.MANAGED_AGENT_ENV_ID   -- e.g. env_01JrMC1r5hYvSax4FDsWQtbb
+#   vars.MANAGED_AGENT_VAULT_ID -- e.g. vlt_011Ca7ohLqs85Fp9ZZEgeToV
+#   secrets.GITHUB_TOKEN        -- auto-provided by Actions; used to clone
+#                                  the repo into the session workspace.
+#
+# The agent replies to GitHub using the PAT stored in its vault, via the
+# GitHub MCP server attached to the agent — that credential is NOT managed
+# here.
+
+on:
+  # Fire on any review submission (Copilot or human) except pure approvals —
+  # nothing to fix if the reviewer is happy.
+  pull_request_review:
+    types: [submitted]
+  # Manual escape hatch on conversation comments.
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: write        # agent pushes fix commits back to the PR branch
+  issues: write          # allow the GITHUB_TOKEN path for thread replies
+  pull-requests: write
+
+# Serialize repeated triggers on the same PR/issue so parallel autofix
+# sessions don't fight over the branch. Queued, not cancelled.
+concurrency:
+  group: managed-agent-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  autofix:
+    # Trigger policy:
+    #   * Any review submission except pure approvals (no phrase gate).
+    #   * Any conversation comment, only if body contains `@claude autofix`.
+    if: |
+      (github.event_name == 'pull_request_review' && github.event.review.state != 'approved') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude autofix'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install jq
+        run: sudo apt-get update -y && sudo apt-get install -y jq
+
+      - name: Fire Managed Agent session
+        env:
+          ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
+          MANAGED_AGENT_ID:       ${{ vars.MANAGED_AGENT_ID }}
+          MANAGED_AGENT_ENV_ID:   ${{ vars.MANAGED_AGENT_ENV_ID }}
+          MANAGED_AGENT_VAULT_ID: ${{ vars.MANAGED_AGENT_VAULT_ID }}
+          REPO_URL:               https://github.com/${{ github.repository }}
+          REPO_MOUNT:             /workspace/repo
+          REPO_PAT:               ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME:             ${{ github.event_name }}
+          # PR / issue number — present on both supported events.
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          # Body / author / URL — safely injected via env vars, NOT shell-interpolated.
+          COMMENT_BODY_ISSUE:   ${{ github.event.comment.body }}
+          COMMENT_BODY_REVIEW:  ${{ github.event.review.body }}
+          COMMENT_URL:          ${{ github.event.comment.html_url || github.event.review.html_url }}
+          COMMENT_AUTHOR:       ${{ github.event.comment.user.login || github.event.review.user.login }}
+          # Review-submission context: review.id is needed to fetch the inline
+          # comments of that review via the GitHub MCP (they aren't in the
+          # `pull_request_review` event payload).
+          REVIEW_ID:       ${{ github.event.review.id }}
+          REVIEW_STATE:    ${{ github.event.review.state }}
+        run: |
+          set -euo pipefail
+          API="https://api.anthropic.com/v1"
+          BETA="anthropic-beta: managed-agents-2026-04-01"
+          VER="anthropic-version: 2023-06-01"
+
+          # Resolve the body from the right event path.
+          case "$EVENT_NAME" in
+            issue_comment)       BODY="$COMMENT_BODY_ISSUE"  ;;
+            pull_request_review) BODY="$COMMENT_BODY_REVIEW" ;;
+            *) echo "unsupported event: $EVENT_NAME" >&2; exit 1 ;;
+          esac
+
+          # Just the facts — the agent's own system prompt handles how to act.
+          # Heredoc + env-var expansion keeps user text off the shell argv;
+          # jq --arg handles JSON escaping downstream.
+          PROMPT=$(cat <<PROMPT_EOF
+          Triggered by \`@claude autofix\` on ${GITHUB_REPOSITORY}.
+
+          Repo mount:   ${REPO_MOUNT} (default branch — PR head not yet checked out)
+          Event:        ${EVENT_NAME}
+          PR number:    ${PR_NUMBER}
+          Comment URL:  ${COMMENT_URL}
+          Author:       ${COMMENT_AUTHOR}
+          Review id:    ${REVIEW_ID:-<n/a>}   (inline comments not inlined below — fetch via GitHub MCP if present)
+          Review state: ${REVIEW_STATE:-<n/a>}
+
+          Comment body:
+          ---
+          ${BODY}
+          ---
+
+          Check out the PR branch and get started.
+          PROMPT_EOF
+          )
+
+          # 1. Create session with the repo mounted.
+          SESSION_JSON=$(jq -cn \
+            --arg agent "$MANAGED_AGENT_ID" \
+            --arg env   "$MANAGED_AGENT_ENV_ID" \
+            --arg vault "$MANAGED_AGENT_VAULT_ID" \
+            --arg repo  "$REPO_URL" \
+            --arg mount "$REPO_MOUNT" \
+            --arg pat   "$REPO_PAT" \
+            --arg title "autofix PR #${PR_NUMBER}" \
+            '{
+              agent: $agent,
+              environment_id: $env,
+              vault_ids: [$vault],
+              title: $title,
+              resources: [{
+                type: "github_repository",
+                url: $repo,
+                mount_path: $mount,
+                authorization_token: $pat
+              }]
+            }')
+
+          echo "::group::Creating session"
+          SESSION_RESP=$(curl -fsS "$API/sessions" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "$VER" -H "$BETA" \
+            -H "content-type: application/json" \
+            -d "$SESSION_JSON")
+          SID=$(jq -r .id <<<"$SESSION_RESP")
+          if [ -z "$SID" ] || [ "$SID" = "null" ]; then
+            echo "session creation failed:" >&2
+            jq . <<<"$SESSION_RESP" >&2
+            exit 1
+          fi
+          echo "session:  $SID"
+          echo "console:  https://console.anthropic.com/managed-agents/sessions/$SID"
+          echo "::endgroup::"
+
+          # 2. Fire the user message.
+          EVENTS_JSON=$(jq -cn --arg text "$PROMPT" \
+            '{events:[{type:"user.message",content:[{type:"text",text:$text}]}]}')
+
+          curl -fsS "$API/sessions/$SID/events" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "$VER" -H "$BETA" \
+            -H "content-type: application/json" \
+            -d "$EVENTS_JSON" \
+            -o /dev/null
+
+          echo "session fired. The agent will reply to the comment thread when done."
+          echo "session_id=$SID" >> "$GITHUB_OUTPUT"
