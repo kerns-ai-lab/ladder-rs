@@ -62,6 +62,7 @@ pub struct MatchVolumeBucket {
 /// Validation error response body
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ValidationError {
+    pub error: String,
     pub error_code: String,
     pub details: Vec<FieldError>,
 }
@@ -136,19 +137,19 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[ignore = "placeholder: requires router + HTTP client to assert on real 200 response"]
     fn test_rating_distribution_returns_200_with_histogram() {
         // When GET /api/leagues/50/dashboard/rating-distribution is called
         // Then the response status is 200 OK
         // And the response body contains a histogram of current ratings across agents
-        assert_eq!(200, 200);
     }
 
     #[test]
+    #[ignore = "placeholder: requires router + HTTP client to verify histogram bucket structure"]
     fn test_rating_distribution_with_multiple_agents() {
         // Given agents with varying current ratings
         // When dashboard rating distribution is queried
         // Then each histogram bucket contains a rating range and an agent count
-        assert_eq!(true, true);
     }
 
     #[test]
@@ -163,9 +164,8 @@ mod tests {
     }
 
     #[test]
-    fn test_rating_distribution_requires_authentication() {
-        assert_eq!(401, 401);
-    }
+    #[ignore = "placeholder: requires router + HTTP client to assert 401 on unauthenticated request"]
+    fn test_rating_distribution_requires_authentication() {}
 
     // ============================================================================
     // MATCH VOLUME TESTS
@@ -194,6 +194,7 @@ mod tests {
     #[test]
     fn test_match_volume_invalid_period_returns_400_validation_error() {
         let error = ValidationError {
+            error: "Validation failed".to_string(),
             error_code: "VALIDATION_ERROR".to_string(),
             details: vec![FieldError {
                 field: "period".to_string(),
@@ -221,9 +222,8 @@ mod tests {
     }
 
     #[test]
-    fn test_match_volume_requires_authentication() {
-        assert_eq!(401, 401);
-    }
+    #[ignore = "placeholder: requires router + HTTP client to assert 401 on unauthenticated request"]
+    fn test_match_volume_requires_authentication() {}
 
     // ============================================================================
     // TOP/BOTTOM AGENTS TESTS
@@ -275,18 +275,16 @@ mod tests {
     }
 
     #[test]
-    fn test_top_bottom_agents_requires_authentication() {
-        assert_eq!(401, 401);
-    }
+    #[ignore = "placeholder: requires router + HTTP client to assert 401 on unauthenticated request"]
+    fn test_top_bottom_agents_requires_authentication() {}
 
     // ============================================================================
     // AGENTS LIST AND ACTIVE FILTER TESTS
     // ============================================================================
 
     #[test]
-    fn test_agents_endpoint_returns_agent_lifecycle_info() {
-        assert_eq!(true, true);
-    }
+    #[ignore = "placeholder: requires router + HTTP client to verify agent lifecycle info"]
+    fn test_agents_endpoint_returns_agent_lifecycle_info() {}
 
     #[test]
     fn test_active_only_filter_returns_only_active_agents() {
@@ -322,9 +320,8 @@ mod tests {
     }
 
     #[test]
-    fn test_active_only_false_returns_all_agents() {
-        assert_eq!(true, true);
-    }
+    #[ignore = "placeholder: requires router + HTTP client to verify all-agents filter"]
+    fn test_active_only_false_returns_all_agents() {}
 
     #[test]
     fn test_agent_with_zero_matches_is_never_active() {
@@ -342,9 +339,8 @@ mod tests {
     }
 
     #[test]
-    fn test_agents_requires_authentication() {
-        assert_eq!(401, 401);
-    }
+    #[ignore = "placeholder: requires router + HTTP client to assert 401 on unauthenticated request"]
+    fn test_agents_requires_authentication() {}
 
     // ============================================================================
     // DASHBOARD SUMMARY TESTS
@@ -364,9 +360,8 @@ mod tests {
     }
 
     #[test]
-    fn test_dashboard_summary_requires_authentication() {
-        assert_eq!(401, 401);
-    }
+    #[ignore = "placeholder: requires router + HTTP client to assert 401 on unauthenticated request"]
+    fn test_dashboard_summary_requires_authentication() {}
 
     // ============================================================================
     // LEAGUE SCOPING TESTS
@@ -399,28 +394,16 @@ mod tests {
     // ============================================================================
 
     #[test]
-    fn test_dashboard_post_returns_404_or_405() {
-        assert!(
-            StatusCode::NOT_FOUND == StatusCode::NOT_FOUND
-                || StatusCode::METHOD_NOT_ALLOWED == StatusCode::METHOD_NOT_ALLOWED
-        );
-    }
+    #[ignore = "placeholder: requires router + HTTP client to send POST and assert 404/405"]
+    fn test_dashboard_post_returns_404_or_405() {}
 
     #[test]
-    fn test_dashboard_put_returns_404_or_405() {
-        assert!(
-            StatusCode::NOT_FOUND == StatusCode::NOT_FOUND
-                || StatusCode::METHOD_NOT_ALLOWED == StatusCode::METHOD_NOT_ALLOWED
-        );
-    }
+    #[ignore = "placeholder: requires router + HTTP client to send PUT and assert 404/405"]
+    fn test_dashboard_put_returns_404_or_405() {}
 
     #[test]
-    fn test_dashboard_delete_returns_404_or_405() {
-        assert!(
-            StatusCode::NOT_FOUND == StatusCode::NOT_FOUND
-                || StatusCode::METHOD_NOT_ALLOWED == StatusCode::METHOD_NOT_ALLOWED
-        );
-    }
+    #[ignore = "placeholder: requires router + HTTP client to send DELETE and assert 404/405"]
+    fn test_dashboard_delete_returns_404_or_405() {}
 
     // ============================================================================
     // PERIOD VALIDATION TESTS
@@ -443,6 +426,7 @@ mod tests {
     #[test]
     fn test_validation_error_structure() {
         let error = ValidationError {
+            error: "Validation failed".to_string(),
             error_code: "VALIDATION_ERROR".to_string(),
             details: vec![FieldError {
                 field: "period".to_string(),
