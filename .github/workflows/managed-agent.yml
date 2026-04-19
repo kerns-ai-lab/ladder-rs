@@ -92,17 +92,33 @@ jobs:
           BETA="anthropic-beta: managed-agents-2026-04-01"
           VER="anthropic-version: 2023-06-01"
 
+          # Strip CR/LF/leading+trailing whitespace from every secret and ID.
+          # A trailing newline pasted into the GitHub secret UI gets stored
+          # verbatim — and if it ends up inside an HTTP/2 header value
+          # (`-H "x-api-key: $KEY"`), the request is malformed per RFC 7540
+          # §8.1.2.6 and the gateway returns a misleading 400 "could not
+          # parse request body as JSON".
+          trim() { printf '%s' "$1" | tr -d '\r\n' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
+          ANTHROPIC_API_KEY=$(trim "${ANTHROPIC_API_KEY:-}")
+          MANAGED_AGENT_ID=$(trim "${MANAGED_AGENT_ID:-}")
+          MANAGED_AGENT_ENV_ID=$(trim "${MANAGED_AGENT_ENV_ID:-}")
+          MANAGED_AGENT_VAULT_ID=$(trim "${MANAGED_AGENT_VAULT_ID:-}")
+          REPO_PAT=$(trim "${REPO_PAT:-}")
+
           # Preflight: surface missing-config clearly.
           missing=()
-          [ -n "${ANTHROPIC_API_KEY:-}" ]      || missing+=("secrets.ANTHROPIC_API_KEY")
-          [ -n "${MANAGED_AGENT_ID:-}" ]       || missing+=("vars.MANAGED_AGENT_ID")
-          [ -n "${MANAGED_AGENT_ENV_ID:-}" ]   || missing+=("vars.MANAGED_AGENT_ENV_ID")
-          [ -n "${MANAGED_AGENT_VAULT_ID:-}" ] || missing+=("vars.MANAGED_AGENT_VAULT_ID")
-          [ -n "${REPO_PAT:-}" ]               || missing+=("secrets.MANAGED_AGENT_CLONE_PAT")
+          [ -n "$ANTHROPIC_API_KEY" ]      || missing+=("secrets.ANTHROPIC_API_KEY")
+          [ -n "$MANAGED_AGENT_ID" ]       || missing+=("vars.MANAGED_AGENT_ID")
+          [ -n "$MANAGED_AGENT_ENV_ID" ]   || missing+=("vars.MANAGED_AGENT_ENV_ID")
+          [ -n "$MANAGED_AGENT_VAULT_ID" ] || missing+=("vars.MANAGED_AGENT_VAULT_ID")
+          [ -n "$REPO_PAT" ]               || missing+=("secrets.MANAGED_AGENT_CLONE_PAT")
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::Missing required config: ${missing[*]}"
             exit 1
           fi
+          # Non-sensitive length confirmation (sk-ant-... keys are ~108 chars).
+          echo "api key length after trim: ${#ANTHROPIC_API_KEY} chars"
+          echo "clone PAT length after trim: ${#REPO_PAT} chars"
 
           # Resolve the body from the right event path.
           case "$EVENT_NAME" in
