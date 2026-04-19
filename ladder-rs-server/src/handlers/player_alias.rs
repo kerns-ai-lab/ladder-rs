@@ -28,7 +28,9 @@ pub async fn create_alias(
     Path((_league_id, _player_id)): Path<(i64, i64)>,
     Json(_req): Json<CreateAliasRequest>,
 ) -> Result<Response, ServerError> {
-    todo!("player alias creation not yet implemented")
+    Err(ServerError::InternalError(
+        "player alias creation not yet implemented".to_string(),
+    ))
 }
 
 /// DELETE /api/leagues/{league_id}/players/{player_id}/aliases/{alias_player_id}
