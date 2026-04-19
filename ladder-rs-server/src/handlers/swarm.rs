@@ -737,7 +737,9 @@ mod tests {
     fn test_top_bottom_agents_invalid_n_parameter() {
         // When GET /api/leagues/50/dashboard/top-bottom?n=abc is sent
         // Then response status is 400 Bad Request (n must be integer)
-        todo!("When GET /api/leagues/50/dashboard/top-bottom?n=abc is sent, assert 400 Bad Request");
+        todo!(
+            "When GET /api/leagues/50/dashboard/top-bottom?n=abc is sent, assert 400 Bad Request"
+        );
     }
 
     #[test]
