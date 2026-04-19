@@ -6,7 +6,7 @@ use ladder_rs_persistence::{RatingHistoryResponse, SeasonOverviewResponse};
 
 /// GET /api/players/{player_id}/seasons/{season_id}/history
 pub async fn get_rating_history(
-    Path((player_id, season_id)): Path<(i64, i64)>,
+    Path((_player_id, _season_id)): Path<(i64, i64)>,
 ) -> Result<(StatusCode, Json<RatingHistoryResponse>)> {
     Ok((
         StatusCode::OK,
@@ -23,7 +23,7 @@ pub async fn get_rating_history_season_centric(
 
 /// GET /api/players/{player_id}/seasons
 pub async fn get_season_overview(
-    Path(player_id): Path<i64>,
+    Path(_player_id): Path<i64>,
 ) -> Result<(StatusCode, Json<SeasonOverviewResponse>)> {
     Ok((
         StatusCode::OK,
