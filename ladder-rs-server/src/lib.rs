@@ -39,5 +39,17 @@ pub fn router(state: AppState) -> Router {
             "/api/leagues/:league_id/players/:player_id/aliases/:alias_player_id",
             delete(handlers::remove_alias),
         )
+        .route(
+            "/api/players/:player_id/seasons/:season_id/history",
+            get(handlers::get_rating_history),
+        )
+        .route(
+            "/api/seasons/:season_id/players/:player_id/history",
+            get(handlers::get_rating_history_season_centric),
+        )
+        .route(
+            "/api/players/:player_id/seasons",
+            get(handlers::get_season_overview),
+        )
         .with_state(state)
 }

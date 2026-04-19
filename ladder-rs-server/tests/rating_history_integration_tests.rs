@@ -15,9 +15,8 @@
 //! - Season-centric URL alias works
 //! - Season overview via player-centric URL
 
-use serde_json::json;
-
 /// Test helper to set up a test database and server
+#[allow(dead_code)]
 struct TestContext {
     // Will contain: database connection, test server, etc.
     // Populated during implementation

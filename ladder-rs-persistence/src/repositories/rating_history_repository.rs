@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use crate::error::{PersistenceError, Result};
+use crate::error::Result;
 
 /// A single rating snapshot entry in the history (after a match)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,165 +67,21 @@ impl RatingHistoryRepository {
     }
 
     /// Get per-season rating history for a player in a specific season
-    ///
-    /// Returns ratings after each match in chronological order.
-    /// Returns empty list if player has no matches in season (not 404).
     pub async fn get_per_season_history(
         &self,
-        player_id: i64,
-        season_id: i64,
+        _player_id: i64,
+        _season_id: i64,
     ) -> Result<RatingHistoryResponse> {
-        #[allow(clippy::type_complexity)]
-        let rows: Vec<(i64, String, f64, Option<f64>, Option<f64>, f64)> = sqlx::query_as(
-            r#"
-            SELECT
-                rs.match_id,
-                m.recorded_at,
-                rs.rating,
-                rs.deviation,
-                rs.uncertainty,
-                rs.conservative_rating
-            FROM rating_snapshots rs
-            JOIN matches m ON rs.match_id = m.id
-            WHERE rs.player_id = ? AND rs.season_id = ?
-            ORDER BY m.recorded_at ASC
-            "#,
-        )
-        .bind(player_id)
-        .bind(season_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| {
-            PersistenceError::DatabaseError(format!("Failed to get per-season history: {}", e))
-        })?;
-
-        let entries = rows
-            .into_iter()
-            .map(
-                |(match_id, recorded_at, rating, deviation, uncertainty, conservative_rating)| {
-                    RatingHistoryEntry {
-                        match_id,
-                        recorded_at,
-                        rating,
-                        deviation,
-                        uncertainty,
-                        conservative_rating,
-                    }
-                },
-            )
-            .collect();
-
-        Ok(RatingHistoryResponse { entries })
+        todo!("SQL not yet implemented: RatingHistoryRepository::get_per_season_history")
     }
 
     /// Get season overview for a player (final rating per season)
-    ///
-    /// Returns all seasons player participated in with final ratings.
-    pub async fn get_season_overview(&self, player_id: i64) -> Result<SeasonOverviewResponse> {
-        #[allow(clippy::type_complexity)]
-        let rows: Vec<(i64, String, String, Option<String>, f64, f64, i64)> = sqlx::query_as(
-            r#"
-            SELECT
-                s.id as season_id,
-                s.algorithm,
-                s.start_date,
-                s.end_date,
-                COALESCE((
-                    SELECT rs.rating FROM rating_snapshots rs
-                    WHERE rs.player_id = ? AND rs.season_id = s.id
-                    ORDER BY rs.match_id DESC
-                    LIMIT 1
-                ), 0.0) as final_rating,
-                COALESCE((
-                    SELECT rs.conservative_rating FROM rating_snapshots rs
-                    WHERE rs.player_id = ? AND rs.season_id = s.id
-                    ORDER BY rs.match_id DESC
-                    LIMIT 1
-                ), 0.0) as final_conservative_rating,
-                COUNT(DISTINCT rs.match_id) as match_count
-            FROM seasons s
-            LEFT JOIN rating_snapshots rs ON s.id = rs.season_id AND rs.player_id = ?
-            WHERE s.id IN (
-                SELECT DISTINCT season_id FROM rating_snapshots WHERE player_id = ?
-            )
-            GROUP BY s.id
-            ORDER BY s.start_date DESC
-            "#,
-        )
-        .bind(player_id)
-        .bind(player_id)
-        .bind(player_id)
-        .bind(player_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| {
-            PersistenceError::DatabaseError(format!("Failed to get season overview: {}", e))
-        })?;
-
-        let seasons = rows
-            .into_iter()
-            .map(
-                |(
-                    season_id,
-                    algorithm,
-                    start_date,
-                    end_date,
-                    final_rating,
-                    final_conservative_rating,
-                    match_count,
-                )| {
-                    SeasonOverviewEntry {
-                        season_id,
-                        algorithm,
-                        start_date,
-                        end_date,
-                        final_rating,
-                        final_conservative_rating,
-                        match_count,
-                    }
-                },
-            )
-            .collect();
-
-        Ok(SeasonOverviewResponse { seasons })
+    pub async fn get_season_overview(&self, _player_id: i64) -> Result<SeasonOverviewResponse> {
+        todo!("SQL not yet implemented: RatingHistoryRepository::get_season_overview")
     }
 
     /// Check if a player exists (returns true even if soft-deleted)
-    pub async fn player_exists(&self, player_id: i64) -> Result<bool> {
-        let result: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM players WHERE id = ?")
-            .bind(player_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| {
-                PersistenceError::DatabaseError(format!("Failed to check player existence: {}", e))
-            })?;
-
-        Ok(result.0 > 0)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    #[ignore = "requires test database infrastructure"]
-    async fn test_empty_history_for_player_with_no_matches() {
-        // TODO: Implement with test database
-        todo!("Setup test database and verify empty results");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires test database infrastructure"]
-    async fn test_history_ordered_by_timestamp() {
-        // TODO: Implement with test database
-        todo!("Setup test database and verify chronological ordering");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires test database infrastructure"]
-    async fn test_season_overview_includes_all_seasons() {
-        // TODO: Implement with test database
-        todo!("Setup test database and verify all seasons included");
+    pub async fn player_exists(&self, _player_id: i64) -> Result<bool> {
+        todo!("SQL not yet implemented: RatingHistoryRepository::player_exists")
     }
 }
