@@ -56,9 +56,22 @@ jobs:
     # Trigger policy:
     #   * Any review submission except pure approvals (no phrase gate).
     #   * Any conversation comment, only if body contains `@claude autofix`.
+    #
+    # Loop-prevention guards (pull_request_review branch):
+    #   * Empty-body filter: the agent posts "reply-style" reviews via the
+    #     GitHub MCP — state=commented, no summary body, just inline comments.
+    #     Every real reviewer (Copilot, humans) writes a summary body, so
+    #     `review.body != ''` surgically drops the agent's own submissions
+    #     without affecting legitimate reviews.
+    #   * Optional actor skip: `vars.AUTOFIX_SKIP_REVIEW_ACTORS` is a JSON
+    #     array of review.user.login values to ignore. Unset by default.
+    #     Use this if you provision a dedicated bot account for the vault PAT
+    #     and want an explicit belt-and-suspenders exclusion.
     if: |
       (github.event_name == 'pull_request_review' && github.event.review.state != 'approved' &&
-       github.event.pull_request.head.repo.full_name == github.repository) ||
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.review.body != null && github.event.review.body != '' &&
+       !contains(fromJSON(vars.AUTOFIX_SKIP_REVIEW_ACTORS || '[]'), github.event.review.user.login)) ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude autofix') &&
        github.event.issue.pull_request != null &&
        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
