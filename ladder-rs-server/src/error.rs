@@ -39,17 +39,31 @@ impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
         let (status, error_code, message) = match self {
             ServerError::Unauthorized => {
-                (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", self.to_string())
+                (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", "Unauthorized".to_string())
             }
-            ServerError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", self.to_string()),
-            ServerError::NotFound(msg) => (StatusCode::NOT_FOUND, "NOT_FOUND", msg),
-            ServerError::Conflict(msg) => (StatusCode::CONFLICT, "CONFLICT", msg),
-            ServerError::InvalidInput(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
+            ServerError::Forbidden => {
+                (StatusCode::FORBIDDEN, "FORBIDDEN", "Forbidden".to_string())
+            }
+            err @ ServerError::NotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND", err.to_string()),
+            err @ ServerError::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT", err.to_string()),
+            err @ ServerError::InvalidInput(_) => {
+                (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", err.to_string())
+            }
             ServerError::DatabaseError(msg) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+                eprintln!("Database error: {msg}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR",
+                    "An internal server error occurred".to_string(),
+                )
             }
             ServerError::InternalError(msg) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+                eprintln!("Internal server error: {msg}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR",
+                    "An internal server error occurred".to_string(),
+                )
             }
         };
 
@@ -66,7 +80,7 @@ impl From<PersistenceError> for ServerError {
     fn from(e: PersistenceError) -> Self {
         match e {
             PersistenceError::NotFound { entity, id } => {
-                ServerError::NotFound(format!("{entity} with id {id}"))
+                ServerError::NotFound(format!("{entity} with id {id} not found"))
             }
             PersistenceError::Conflict(msg) => ServerError::Conflict(msg),
             PersistenceError::DatabaseError(msg) => ServerError::InternalError(msg),
