@@ -1,9 +1,8 @@
 //! Handler for PATCH /api/matches/{id} - admin match correction endpoint
 
 use crate::Result;
-use axum::{extract::Path, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::Path, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 /// Request body for match correction
 #[derive(Debug, Deserialize)]
@@ -34,8 +33,8 @@ pub struct CorrectMatchResponse {
 /// This endpoint is restricted to authenticated users with Admin role.
 /// Returns 202 Accepted with a job ID for async recalculation.
 pub async fn correct_match(
-    Path(match_id): Path<String>,
-    Json(payload): Json<CorrectMatchRequest>,
+    Path(_match_id): Path<String>,
+    Json(_payload): Json<CorrectMatchRequest>,
 ) -> Result<(StatusCode, Json<CorrectMatchResponse>)> {
     // Implementation will be added in task 900.1.2
     // For now, return a placeholder response
