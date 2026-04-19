@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS match_participants (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_match_participants_match ON match_participants(match_id);
+CREATE INDEX idx_match_participants_match_id ON match_participants(match_id);
 CREATE INDEX idx_match_participants_player_season ON match_participants(player_id);
 
 CREATE TABLE IF NOT EXISTS match_audit_log (
