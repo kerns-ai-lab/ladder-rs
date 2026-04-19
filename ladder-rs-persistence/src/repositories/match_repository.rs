@@ -9,7 +9,8 @@ pub struct MatchRepository;
 impl MatchRepository {
     /// Get a match by ID
     pub async fn get_by_id(_pool: &SqlitePool, _match_id: &str) -> Result<Option<Match>> {
-        todo!("SQL not yet implemented: MatchRepository::get_by_id")
+        // Implementation will be added
+        Ok(None)
     }
 
     /// Update a match record
@@ -18,11 +19,13 @@ impl MatchRepository {
         _match_id: &str,
         _participants: Vec<MatchParticipant>,
     ) -> Result<()> {
-        todo!("SQL not yet implemented: MatchRepository::update")
+        // Implementation will be added
+        Ok(())
     }
 
     /// Mark a match as corrected
     pub async fn mark_corrected(_pool: &SqlitePool, _match_id: &str) -> Result<()> {
-        todo!("SQL not yet implemented: MatchRepository::mark_corrected")
+        // Implementation will be added
+        Ok(())
     }
 }

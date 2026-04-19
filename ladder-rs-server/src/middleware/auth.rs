@@ -1,11 +1,11 @@
 //! Authentication and authorization middleware
 
-use std::fmt;
-
 use async_trait::async_trait;
-use axum::{extract::FromRequestParts, http::request::Parts};
-
-use crate::error::ServerError;
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use std::fmt;
 
 /// Authentication layer for extracting and validating user sessions
 pub struct AuthLayer;
@@ -30,6 +30,37 @@ pub struct UserContext {
     pub role: UserRole,
 }
 
+/// Fix 2 — C2: FromRequestParts for UserContext
+///
+/// Extracts the authenticated user from the request extensions.  The auth
+/// middleware must have inserted a `UserContext` into `request.extensions`
+/// before this extractor is called.  If no `UserContext` is present the
+/// request is rejected with 401 Unauthorized.
+#[async_trait]
+impl<S> FromRequestParts<S> for UserContext
+where
+    S: Send + Sync,
+{
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        parts
+            .extensions
+            .get::<UserContext>()
+            .cloned()
+            .ok_or_else(|| {
+                (
+                    StatusCode::UNAUTHORIZED,
+                    axum::Json(serde_json::json!({
+                        "message": "Unauthorized",
+                        "error_code": "UNAUTHORIZED",
+                    })),
+                )
+                    .into_response()
+            })
+    }
+}
+
 /// User role for authorization
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserRole {
@@ -42,25 +73,5 @@ impl UserRole {
     /// Check if this role is allowed to perform admin operations
     pub fn is_admin(&self) -> bool {
         *self == UserRole::Admin
-    }
-}
-
-#[async_trait]
-impl<S> FromRequestParts<S> for UserContext
-where
-    S: Send + Sync,
-{
-    type Rejection = ServerError;
-
-    /// Extract user context from request parts.
-    ///
-    /// TODO(900.x): Replace with real session/token extraction once auth
-    /// infrastructure lands. For now, returns a placeholder Admin context so
-    /// handler signatures that accept `UserContext` compile without error.
-    async fn from_request_parts(_parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        Ok(UserContext {
-            user_id: "placeholder-user-id".to_string(),
-            role: UserRole::Admin,
-        })
     }
 }

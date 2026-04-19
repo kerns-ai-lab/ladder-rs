@@ -2,4 +2,4 @@
 
 pub mod auth;
 
-pub use auth::AuthLayer;
+pub use auth::{AuthLayer, UserContext, UserRole};
