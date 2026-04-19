@@ -136,14 +136,27 @@ jobs:
             }')
 
           echo "::group::Creating session"
-          SESSION_RESP=$(curl -fsS "$API/sessions" \
+          # Capture both body and status. NOT using -f so we can surface the
+          # actual API error body on non-2xx responses.
+          HTTP_STATUS=$(curl -sS -o /tmp/session_resp.json -w "%{http_code}" \
+            "$API/sessions" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "$VER" -H "$BETA" \
             -H "content-type: application/json" \
             -d "$SESSION_JSON")
+          echo "POST /v1/sessions -> HTTP $HTTP_STATUS"
+          SESSION_RESP=$(cat /tmp/session_resp.json)
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::session creation failed (HTTP $HTTP_STATUS)"
+            echo "---- response body ----" >&2
+            jq . <<<"$SESSION_RESP" >&2 || echo "$SESSION_RESP" >&2
+            echo "---- request payload (redacted PAT) ----" >&2
+            jq '.resources[0].authorization_token = "<redacted>"' <<<"$SESSION_JSON" >&2
+            exit 1
+          fi
           SID=$(jq -r .id <<<"$SESSION_RESP")
           if [ -z "$SID" ] || [ "$SID" = "null" ]; then
-            echo "session creation failed:" >&2
+            echo "::error::session creation returned 2xx but no id"
             jq . <<<"$SESSION_RESP" >&2
             exit 1
           fi
@@ -155,12 +168,18 @@ jobs:
           EVENTS_JSON=$(jq -cn --arg text "$PROMPT" \
             '{events:[{type:"user.message",content:[{type:"text",text:$text}]}]}')
 
-          curl -fsS "$API/sessions/$SID/events" \
+          HTTP_STATUS=$(curl -sS -o /tmp/events_resp.json -w "%{http_code}" \
+            "$API/sessions/$SID/events" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "$VER" -H "$BETA" \
             -H "content-type: application/json" \
-            -d "$EVENTS_JSON" \
-            -o /dev/null
+            -d "$EVENTS_JSON")
+          echo "POST /v1/sessions/$SID/events -> HTTP $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::event fire failed (HTTP $HTTP_STATUS)"
+            jq . /tmp/events_resp.json >&2 || cat /tmp/events_resp.json >&2
+            exit 1
+          fi
 
           echo "session fired. The agent will reply to the comment thread when done."
           echo "session_id=$SID" >> "$GITHUB_OUTPUT"
