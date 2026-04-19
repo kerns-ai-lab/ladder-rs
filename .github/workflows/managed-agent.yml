@@ -87,26 +87,28 @@ jobs:
           echo "issue.pull_request_present=${{ github.event.issue.pull_request != null }}"
 
       # One step per sub-predicate; "skipped" => that predicate evaluated false.
+      # Each step is scoped to pull_request_review so issue_comment runs don't
+      # show null-field evaluations as spurious successes.
       - name: "P1 review.state != 'approved'"
-        if: github.event.review.state != 'approved'
+        if: github.event_name == 'pull_request_review' && github.event.review.state != 'approved'
         run: 'echo P1=true'
       - name: "P2 head.repo == github.repository"
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request_review' && github.event.pull_request.head.repo.full_name == github.repository
         run: 'echo P2=true'
       - name: "P3 review.body non-null-non-empty"
-        if: github.event.review.body != null && github.event.review.body != ''
+        if: github.event_name == 'pull_request_review' && github.event.review.body != null && github.event.review.body != ''
         run: 'echo P3=true'
       - name: "P4a review.author_association in [OWNER/MEMBER/COLLABORATOR]"
-        if: contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
+        if: github.event_name == 'pull_request_review' && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
         run: 'echo P4a=true'
       - name: "P4b review.user.login endsWith '[bot]'"
-        if: endsWith(github.event.review.user.login, '[bot]')
+        if: github.event_name == 'pull_request_review' && endsWith(github.event.review.user.login, '[bot]')
         run: 'echo P4b=true'
       - name: "P4c review.user.type == 'Bot'"
-        if: github.event.review.user.type == 'Bot'
+        if: github.event_name == 'pull_request_review' && github.event.review.user.type == 'Bot'
         run: 'echo P4c=true'
       - name: "P5 vars.AUTOFIX_SKIP_REVIEW_ACTORS fallback pattern"
-        if: "!contains(fromJSON(vars.AUTOFIX_SKIP_REVIEW_ACTORS || '[]'), github.event.review.user.login)"
+        if: "github.event_name == 'pull_request_review' && !contains(fromJSON(vars.AUTOFIX_SKIP_REVIEW_ACTORS || '[]'), github.event.review.user.login)"
         run: 'echo P5=true'
 
   autofix:
