@@ -2,7 +2,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Represents a player in the system
 #[derive(Debug, Clone, Serialize, Deserialize)]
