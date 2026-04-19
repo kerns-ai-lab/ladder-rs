@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS players (
     player_type TEXT NOT NULL DEFAULT 'human',
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_players_name ON players(name);

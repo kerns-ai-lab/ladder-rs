@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS rating_snapshots (
 );
 
 CREATE INDEX idx_rating_snapshots_season_rating ON rating_snapshots(season_id, conservative_rating DESC);
-CREATE INDEX idx_rating_snapshots_player_season_time ON rating_snapshots(player_id, season_id, timestamp ASC);
+CREATE INDEX idx_rating_snapshots_player_season_ts ON rating_snapshots(player_id, season_id, timestamp ASC);
 
 CREATE TABLE IF NOT EXISTS recalculation_jobs (
     id TEXT NOT NULL PRIMARY KEY,
