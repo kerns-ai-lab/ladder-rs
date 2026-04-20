@@ -32,7 +32,7 @@ fn test_recommendation_workflow_runs_ci_check() {
 #[test]
 fn test_pre_push_hook_exists() {
     assert!(
-        Path::new("githooks/pre-push").exists(),
+        Path::new("hooks/pre-push").exists(),
         "pre-push hook must exist"
     );
 }

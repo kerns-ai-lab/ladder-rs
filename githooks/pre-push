@@ -1,7 +1,0 @@
-#!/bin/bash
-# Git pre-push hook to run formatting, clippy and tests
-set -e
-
-cargo fmt -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-features

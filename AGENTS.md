@@ -148,3 +148,30 @@ For more details, see README.md and docs/QUICKSTART.md.
 - If push fails, resolve and retry until it succeeds
 
 <!-- END BEADS INTEGRATION -->
+
+## Git Hooks
+
+This project uses tracked git hooks in the `hooks/` directory. Configure with:
+```bash
+git config core.hooksPath hooks
+```
+
+Alternatively, use the installer script:
+```bash
+./scripts/install-hooks.sh
+```
+
+### Pre-push Hook (`hooks/pre-push`)
+
+The pre-push hook enforces:
+1. **No direct pushes to `main`** — all changes must go through pull requests
+2. **`cargo fmt` check** — code must be formatted
+3. **`cargo clippy` check** — no warnings allowed (`--all-targets --all-features`)
+4. **`cargo test`** — all tests must pass (`--all-features`)
+
+To push to `main`, create a feature branch and open a PR:
+```bash
+git checkout -b feat/my-feature
+git push origin feat/my-feature
+gh pr create --base main --head feat/my-feature
+```

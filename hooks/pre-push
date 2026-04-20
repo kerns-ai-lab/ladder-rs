@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# Pre-push hook for ladder-rs
+# Runs cargo fmt, clippy, and tests before allowing push
+# Blocks direct pushes to main
+
+# Read ref update lines from stdin (local_ref local_sha remote_ref remote_sha)
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+        echo "❌ Direct push to 'main' is blocked!"
+        echo "Please create a feature branch and open a pull request."
+        echo ""
+        echo "Example workflow:"
+        echo "  git checkout -b feat/my-feature"
+        echo "  git push origin feat/my-feature"
+        echo "  gh pr create --base main --head feat/my-feature"
+        exit 1
+    fi
+done
+
+echo "Running cargo fmt check..."
+
+# Run cargo fmt check
+cargo fmt -- --check
+
+# Capture the exit code
+FMT_EXIT_CODE=$?
+
+if [ $FMT_EXIT_CODE -ne 0 ]; then
+    echo "❌ Formatting check failed!"
+    echo "Please run 'cargo fmt' to fix formatting issues before pushing."
+    exit 1
+fi
+
+echo "✅ Formatting check passed!"
+
+# Run cargo clippy (linter) on all targets
+echo "Running cargo clippy..."
+cargo clippy --all-targets --all-features -- -D warnings
+
+CLIPPY_EXIT_CODE=$?
+
+if [ $CLIPPY_EXIT_CODE -ne 0 ]; then
+    echo "❌ Clippy check failed!"
+    echo "Please fix the clippy warnings before pushing."
+    echo ""
+    echo "To see all clippy warnings, run:"
+    echo "  cargo clippy --all-targets --all-features -- -D warnings"
+    exit 1
+fi
+
+echo "✅ Clippy check passed!"
+
+# Run tests with all features
+echo "Running tests..."
+cargo test --all-features
+
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+    echo "❌ Tests failed!"
+    echo "Please fix the failing tests before pushing."
+    exit 1
+fi
+
+echo "✅ All tests passed!"
+echo "✅ All checks passed. Proceeding with push."
+
+exit 0
