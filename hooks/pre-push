@@ -1,22 +1,22 @@
 #!/bin/bash
 
 # Pre-push hook for ladder-rs
-# Runs cargo fmt check before allowing push
-# Blocks direct pushes to protected branches
+# Runs cargo fmt, clippy, and tests before allowing push
+# Blocks direct pushes to main
 
-# Read remote and URL from stdin
-stdin_data=$(cat)
-
-if echo "$stdin_data" | grep -q "refs/heads/main"; then
-    echo "❌ Direct push to 'main' is blocked!"
-    echo "Please create a feature branch and open a pull request."
-    echo ""
-    echo "Example workflow:"
-    echo "  git checkout -b feat/my-feature"
-    echo "  git push origin feat/my-feature"
-    echo "  gh pr create --base main --head feat/my-feature"
-    exit 1
-fi
+# Read ref update lines from stdin (local_ref local_sha remote_ref remote_sha)
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+        echo "❌ Direct push to 'main' is blocked!"
+        echo "Please create a feature branch and open a pull request."
+        echo ""
+        echo "Example workflow:"
+        echo "  git checkout -b feat/my-feature"
+        echo "  git push origin feat/my-feature"
+        echo "  gh pr create --base main --head feat/my-feature"
+        exit 1
+    fi
+done
 
 echo "Running cargo fmt check..."
 
@@ -51,9 +51,9 @@ fi
 
 echo "✅ Clippy check passed!"
 
-# Optional: Run tests
+# Run tests with all features
 echo "Running tests..."
-cargo test --quiet
+cargo test --all-features
 
 TEST_EXIT_CODE=$?
 

@@ -156,13 +156,18 @@ This project uses tracked git hooks in the `hooks/` directory. Configure with:
 git config core.hooksPath hooks
 ```
 
+Alternatively, use the installer script:
+```bash
+./scripts/install-hooks.sh
+```
+
 ### Pre-push Hook (`hooks/pre-push`)
 
 The pre-push hook enforces:
 1. **No direct pushes to `main`** — all changes must go through pull requests
 2. **`cargo fmt` check** — code must be formatted
-3. **`cargo clippy` check** — no warnings allowed
-4. **`cargo test`** — all tests must pass
+3. **`cargo clippy` check** — no warnings allowed (`--all-targets --all-features`)
+4. **`cargo test`** — all tests must pass (`--all-features`)
 
 To push to `main`, create a feature branch and open a PR:
 ```bash
