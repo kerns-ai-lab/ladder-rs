@@ -44,11 +44,13 @@ pub struct MatchParticipant {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RatingSnapshot {
     pub id: String,
+    pub match_id: String,
     pub player_id: String,
     pub season_id: String,
     pub rating_value: f64,
     pub uncertainty: Option<f64>,
     pub volatility: Option<f64>,
+    pub conservative_rating: f64,
     pub rating_period: i32,
     pub created_at: DateTime<Utc>,
 }
