@@ -11,7 +11,9 @@ pub mod pool;
 pub mod rating_engine_bridge;
 pub mod repositories;
 
-pub use auth_repository::{AdminBootstrap, AuthRepository, BootstrapCredentials};
+pub use auth_repository::{
+    AdminBootstrap, AuthRepository, BootstrapCredentials, InviteToken, User,
+};
 pub use error::{PersistenceError, Result};
 pub use models::*;
 pub use pool::{acquire_connection, create_pool, create_pool_with_config, PoolConfig};
@@ -24,6 +26,7 @@ pub use repositories::{
     alias_repository::{AliasRepository, PlayerAlias},
     audit_log_repository::AuditLogRepository,
     job_repository::JobRepository,
+    league_repository::{League, LeagueFilter, LeagueOperator, LeaguePatch, LeagueRepository},
     match_repository::{
         BatchEntry, BatchEntryResult, MatchCorrection, MatchFilter, MatchRepository, MatchResult,
     },
