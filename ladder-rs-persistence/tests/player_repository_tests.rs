@@ -17,99 +17,23 @@ use sqlx::SqlitePool;
 // TEST HELPERS
 // ============================================================================
 
-/// Creates an in-memory SQLite database and sets up the minimal schema
-/// (players, league_players, leagues, users, player_account_links) needed
-/// for PlayerRepository tests.
+/// Runs the full migration suite and returns an in-memory pool.
+/// Uses real migrations to prevent schema drift.
 async fn setup_test_db() -> SqlitePool {
+    use sqlx::migrate::Migrator;
+    use std::path::Path;
+
     let pool = create_pool("sqlite::memory:")
         .await
         .expect("Failed to create pool");
 
-    // Create tables required by PlayerRepository
-    // (mirrors migrations 01 through 03 so FKs resolve)
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS users (
-            id TEXT NOT NULL PRIMARY KEY,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL,
-            force_password_change INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create users table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS leagues (
-            id TEXT NOT NULL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            algorithm TEXT NOT NULL,
-            visibility TEXT NOT NULL DEFAULT 'public',
-            is_active INTEGER NOT NULL DEFAULT 1,
-            is_archived INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create leagues table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS players (
-            id TEXT NOT NULL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            nickname TEXT,
-            player_type TEXT NOT NULL DEFAULT 'human',
-            is_active INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create players table");
-
-    sqlx::query("CREATE INDEX IF NOT EXISTS idx_players_name ON players(name)")
-        .execute(&pool)
-        .await
-        .expect("Failed to create players name index");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS league_players (
-            id TEXT NOT NULL PRIMARY KEY,
-            league_id TEXT NOT NULL REFERENCES leagues(id) ON DELETE RESTRICT,
-            player_id TEXT NOT NULL REFERENCES players(id) ON DELETE RESTRICT,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(league_id, player_id)
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create league_players table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS player_account_links (
-            id TEXT NOT NULL PRIMARY KEY,
-            player_id TEXT NOT NULL,
-            user_id TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE RESTRICT,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
-            UNIQUE(player_id),
-            UNIQUE(user_id)
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create player_account_links table");
+    let migrations_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    if migrations_path.exists() {
+        let migrator = Migrator::new(migrations_path)
+            .await
+            .expect("Failed to create migrator");
+        migrator.run(&pool).await.expect("Failed to run migrations");
+    }
 
     pool
 }

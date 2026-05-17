@@ -18,7 +18,7 @@
 
 use chrono::{DateTime, Utc};
 use ladder_rs_persistence::{
-    BatchEntry, MatchCorrection, MatchFilter, MatchParticipant, MatchRepository,
+    BatchEntry, MatchCorrection, MatchFilter, MatchParticipant, MatchRepository, PersistenceError,
 };
 use sqlx::SqlitePool;
 
@@ -1345,39 +1345,53 @@ async fn test_correct_match_marks_match_as_corrected() {
 #[tokio::test]
 async fn test_correct_match_empty_reason_rejected() {
     let pool = setup_migrated_pool().await;
+    let (_league_id, season_id, player_ids) = seed_fixtures(&pool).await;
 
-    let correction = MatchCorrection {
-        new_participants: vec![MatchParticipant {
-            player_id: uuid::Uuid::new_v4().to_string(),
-            placement: 1,
-        }],
-        reason: "".to_string(), // empty reason
-        score_metadata: None,
-    };
+    // Record a match first so we have a valid match to correct
+    let participants = make_participants(&player_ids[..2]);
+    let record_result =
+        MatchRepository::record_match(&pool, &season_id, participants, None, test_timestamp())
+            .await;
 
-    let match_id = uuid::Uuid::new_v4().to_string();
+    match record_result {
+        Ok(match_result) => {
+            let correction = MatchCorrection {
+                new_participants: vec![MatchParticipant {
+                    player_id: player_ids[2].clone(),
+                    placement: 1,
+                }],
+                reason: "".to_string(), // empty reason — should be rejected
+                score_metadata: None,
+            };
 
-    let result = MatchRepository::correct_match(&pool, &match_id, &correction, "admin_user").await;
+            let result = MatchRepository::correct_match(
+                &pool,
+                &match_result.match_id,
+                &correction,
+                "admin_user",
+            )
+            .await;
 
-    match result {
-        Ok(_) => {
-            panic!("Expected error when correcting match with empty reason");
+            match result {
+                Ok(_) => {
+                    panic!("Expected error when correcting match with empty reason");
+                }
+                Err(PersistenceError::InvalidInput(_)) => {
+                    // Expected: empty reason should be rejected as invalid input
+                }
+                Err(PersistenceError::Unknown(msg)) if msg.contains("not yet implemented") => {
+                    eprintln!("TDD stub: correct_match not yet implemented — {}", msg);
+                }
+                Err(e) => {
+                    eprintln!("correct_match with empty reason returned error: {:?}", e);
+                }
+            }
         }
-        Err(ladder_rs_persistence::PersistenceError::InvalidInput(_)) => {
-            // Expected: empty reason should be rejected
-        }
-        Err(ladder_rs_persistence::PersistenceError::Unknown(msg))
-            if msg.contains("not yet implemented") =>
-        {
-            eprintln!("TDD stub: correct_match not yet implemented — {}", msg);
+        Err(PersistenceError::Unknown(msg)) if msg.contains("not yet implemented") => {
+            eprintln!("TDD stub: record_match not yet implemented — {}", msg);
         }
         Err(e) => {
-            // Any error is acceptable; the test verifies the contract that
-            // an empty reason should not succeed
-            eprintln!(
-                "correct_match with empty reason returned error (expected): {:?}",
-                e
-            );
+            panic!("Unexpected error from record_match: {:?}", e);
         }
     }
 }
@@ -1385,34 +1399,53 @@ async fn test_correct_match_empty_reason_rejected() {
 #[tokio::test]
 async fn test_correct_match_empty_participants_rejected() {
     let pool = setup_migrated_pool().await;
+    let (_league_id, season_id, player_ids) = seed_fixtures(&pool).await;
 
-    let correction = MatchCorrection {
-        new_participants: Vec::new(), // empty participants
-        reason: "Valid reason".to_string(),
-        score_metadata: None,
-    };
+    // Record a match first so we have a valid match to correct
+    let participants = make_participants(&player_ids[..2]);
+    let record_result =
+        MatchRepository::record_match(&pool, &season_id, participants, None, test_timestamp())
+            .await;
 
-    let match_id = uuid::Uuid::new_v4().to_string();
+    match record_result {
+        Ok(match_result) => {
+            let correction = MatchCorrection {
+                new_participants: Vec::new(), // empty participants — should be rejected
+                reason: "Valid reason".to_string(),
+                score_metadata: None,
+            };
 
-    let result = MatchRepository::correct_match(&pool, &match_id, &correction, "admin_user").await;
+            let result = MatchRepository::correct_match(
+                &pool,
+                &match_result.match_id,
+                &correction,
+                "admin_user",
+            )
+            .await;
 
-    match result {
-        Ok(_) => {
-            panic!("Expected error when correcting match with empty participants");
+            match result {
+                Ok(_) => {
+                    panic!("Expected error when correcting match with empty participants");
+                }
+                Err(PersistenceError::InvalidInput(_)) => {
+                    // Expected: empty participants should be rejected as invalid input
+                }
+                Err(PersistenceError::Unknown(msg)) if msg.contains("not yet implemented") => {
+                    eprintln!("TDD stub: correct_match not yet implemented — {}", msg);
+                }
+                Err(e) => {
+                    eprintln!(
+                        "correct_match with empty participants returned error: {:?}",
+                        e
+                    );
+                }
+            }
         }
-        Err(ladder_rs_persistence::PersistenceError::InvalidInput(_)) => {
-            // Expected: empty participants should be rejected
-        }
-        Err(ladder_rs_persistence::PersistenceError::Unknown(msg))
-            if msg.contains("not yet implemented") =>
-        {
-            eprintln!("TDD stub: correct_match not yet implemented — {}", msg);
+        Err(PersistenceError::Unknown(msg)) if msg.contains("not yet implemented") => {
+            eprintln!("TDD stub: record_match not yet implemented — {}", msg);
         }
         Err(e) => {
-            eprintln!(
-                "correct_match with empty participants returned error (expected): {:?}",
-                e
-            );
+            panic!("Unexpected error from record_match: {:?}", e);
         }
     }
 }

@@ -26,11 +26,24 @@ use sqlx::SqlitePool;
 
 // ── Test Fixtures ───────────────────────────────────────────────────────────
 
-/// Creates an in-memory SQLite pool for isolated test execution.
+/// Creates an in-memory SQLite pool with full migrations applied.
 async fn setup_test_db() -> SqlitePool {
-    create_pool("sqlite::memory:")
+    use sqlx::migrate::Migrator;
+    use std::path::Path;
+
+    let pool = create_pool("sqlite::memory:")
         .await
-        .expect("Failed to create in-memory SQLite pool for testing")
+        .expect("Failed to create in-memory SQLite pool for testing");
+
+    let migrations_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    if migrations_path.exists() {
+        let migrator = Migrator::new(migrations_path)
+            .await
+            .expect("Failed to create migrator");
+        migrator.run(&pool).await.expect("Failed to run migrations");
+    }
+
+    pool
 }
 
 // ── Helper: Extract error message for inspection ────────────────────────────
