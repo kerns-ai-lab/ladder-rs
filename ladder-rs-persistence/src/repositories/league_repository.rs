@@ -69,11 +69,22 @@ pub struct LeagueOperator {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/// Parse an rfc3339 string from the database into a DateTime<Utc>.
+/// Parse a timestamp string from the database into a DateTime<Utc>.
+///
+/// Handles both RFC 3339 format (from `create_league` et al.) and SQLite's
+/// `CURRENT_TIMESTAMP` default format (`YYYY-MM-DD HH:MM:SS`).
 fn parse_rfc3339(s: &str) -> std::result::Result<chrono::DateTime<Utc>, String> {
-    chrono::DateTime::parse_from_rfc3339(s)
-        .map(|dt| dt.with_timezone(&Utc))
-        .map_err(|e| format!("Failed to parse timestamp '{}': {}", s, e))
+    // First try RFC 3339 (used by explicit code writes).
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return Ok(dt.with_timezone(&Utc));
+    }
+    // Fall back to SQLite default CURRENT_TIMESTAMP format: "YYYY-MM-DD HH:MM:SS".
+    // This is produced when rows are inserted without an explicit timestamp value,
+    // such as by the seed_league* test helpers.
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+        return Ok(naive.and_utc());
+    }
+    Err(format!("Failed to parse timestamp '{}': unknown format", s))
 }
 
 /// Convert an `sqlx::Error` into a `PersistenceError`.
@@ -288,44 +299,27 @@ impl LeagueRepository {
         let now = Utc::now();
         let now_rfc3339 = now.to_rfc3339();
 
-        // Build dynamic UPDATE SET clause
+        // Build dynamic UPDATE SET clause.
+        // updated_at is always included, so there are always changes.
         let mut set_clauses: Vec<String> = Vec::new();
-        let mut has_changes = false;
-
-        // always update updated_at
         set_clauses.push("updated_at = ?".to_string());
-        has_changes = true;
 
-        if let Some(ref name) = patch.name {
+        if let Some(ref _name) = patch.name {
             set_clauses.push("name = ?".to_string());
-            has_changes = true;
         }
-        if let Some(ref description) = patch.description {
+        if let Some(ref _description) = patch.description {
             set_clauses.push("description = ?".to_string());
-            has_changes = true;
         }
-        if let Some(ref visibility) = patch.visibility {
+        if let Some(ref _visibility) = patch.visibility {
             set_clauses.push("visibility = ?".to_string());
-            has_changes = true;
         }
-        if let Some(is_active) = patch.is_active {
+        if let Some(_is_active) = patch.is_active {
             set_clauses.push("is_active = ?".to_string());
-            has_changes = true;
-        }
-
-        if !has_changes {
-            // Nothing to update; fetch and return current state
-            return Self::get_league(pool, id)
-                .await?
-                .ok_or_else(|| PersistenceError::NotFound {
-                    entity: "league".into(),
-                    id: id.to_string(),
-                });
         }
 
         // Build and execute the UPDATE
         let set_sql = set_clauses.join(", ");
-        let mut sql = format!("UPDATE leagues SET {} WHERE id = ?", set_sql);
+        let sql = format!("UPDATE leagues SET {} WHERE id = ?", set_sql);
 
         let mut query = sqlx::query(&sql);
 
