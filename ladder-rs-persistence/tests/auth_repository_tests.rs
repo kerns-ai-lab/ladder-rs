@@ -117,21 +117,26 @@ async fn insert_league_operator_raw(pool: &SqlitePool, id: &str, league_id: &str
 async fn insert_invite_token_raw(
     pool: &SqlitePool,
     id: &str,
-    user_id: &str,
-    token: &str,
+    player_id: &str,
+    created_by: &str,
+    token_hash: &str,
     expires_at: &str,
-    used_at: Option<&str>,
+    claimed_at: Option<&str>,
 ) {
     let now = Utc::now().to_rfc3339();
+    // If claimed_at is set, the token was already claimed; provide a placeholder claimed_by.
+    let claimed_by: Option<&str> = claimed_at.map(|_| "previous-claimant");
     query(
-        "INSERT INTO invite_tokens (id, user_id, token, expires_at, used_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO invite_tokens (id, player_id, token_hash, created_by, claimed_by, claimed_at, expires_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(id)
-    .bind(user_id)
-    .bind(token)
+    .bind(player_id)
+    .bind(token_hash)
+    .bind(created_by)
+    .bind(claimed_by)
+    .bind(claimed_at)
     .bind(expires_at)
-    .bind(used_at)
     .bind(&now)
     .execute(pool)
     .await
@@ -1193,25 +1198,30 @@ mod invite_tokens {
         )
         .await;
 
-        // Create a token first (RED: stub, will fail until implemented)
+        // Create a token
+        let token_hash: String;
         let created = AuthRepository::create_invite_token(&pool, "player-789", &created_by).await;
-        if created.is_err() {
-            // While create_invite_token is a stub, insert via raw SQL for test integrity
+        if let Ok(ref token) = created {
+            token_hash = token.token_hash.clone();
+        } else {
+            // Fallback: while create_invite_token is a stub, insert via raw SQL
             let future = (Utc::now() + ChronoDuration::days(7)).to_rfc3339();
+            let th = "valid_token_hash_abc".to_string();
             insert_invite_token_raw(
                 &pool,
                 &unique_id(),
-                &claiming_user_id, // the user who this token is FOR
-                "valid_token_hash_abc",
+                "player-789",
+                &created_by,
+                &th,
                 &future,
                 None,
             )
             .await;
+            token_hash = th;
         }
 
         let result =
-            AuthRepository::claim_invite_token(&pool, "valid_token_hash_abc", &claiming_user_id)
-                .await;
+            AuthRepository::claim_invite_token(&pool, &token_hash, &claiming_user_id).await;
         // RED: stub returns Err(Unknown)
         assert!(
             result.is_ok(),
@@ -1246,6 +1256,7 @@ mod invite_tokens {
         insert_invite_token_raw(
             &pool,
             &unique_id(),
+            &claiming_user_id,
             &claiming_user_id,
             "expired_token_hash",
             &past,
@@ -1304,6 +1315,7 @@ mod invite_tokens {
             &pool,
             &unique_id(),
             &original_claimant,
+            &original_claimant,
             "claimed_token_hash",
             &future,
             Some(&claimed_at),
@@ -1345,6 +1357,7 @@ mod invite_tokens {
         insert_invite_token_raw(
             &pool,
             &unique_id(),
+            &user_id,
             &user_id,
             "findable_token_hash",
             &future,
