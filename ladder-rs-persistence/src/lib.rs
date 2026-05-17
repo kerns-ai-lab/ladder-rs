@@ -15,11 +15,16 @@ pub use pool::{acquire_connection, create_pool, create_pool_with_config, PoolCon
 
 // Re-export commonly used items
 pub use repositories::{
+    alias_repository::{AliasRepository, PlayerAlias},
     audit_log_repository::AuditLogRepository,
     job_repository::JobRepository,
-    match_repository::MatchRepository,
+    match_repository::{
+        BatchEntry, BatchEntryResult, MatchCorrection, MatchFilter, MatchRepository, MatchResult,
+    },
+    player_repository::{PlayerFilter, PlayerPatch, PlayerRepository},
     rating_history_repository::{
         RatingHistoryEntry, RatingHistoryRepository, RatingHistoryResponse, SeasonOverviewEntry,
         SeasonOverviewResponse,
     },
+    season_repository::{AlgorithmParams, SeasonRepository, SeedingChoice},
 };

@@ -3,11 +3,18 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Represents a player in the system
+/// Represents a player in the system.
+///
+/// Players are global entities (not scoped to a single league).
+/// League membership is managed via the `league_players` join table.
+/// `league_id` is an optional context field populated when querying
+/// within a league context (e.g., listing players in a league).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub id: String,
-    pub league_id: String,
+    /// Optional league context — set when querying within a league scope,
+    /// None for global player lookups.
+    pub league_id: Option<String>,
     pub name: String,
     pub nickname: Option<String>,
     pub is_active: bool,
