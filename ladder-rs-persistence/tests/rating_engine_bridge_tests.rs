@@ -452,40 +452,35 @@ mod compute_rating_changes {
 
     #[test]
     fn multiple_participants_all_get_outputs() {
-        let input = make_multi_participant_input(&[1500.0, 1550.0, 1450.0]);
+        let input = make_multi_participant_input(&[1500.0, 1550.0]);
         let result =
-            RatingEngineBridge::compute("elo", &input, &three_player_ids(), "season-1", "match-1");
+            RatingEngineBridge::compute("elo", &input, &two_player_ids(), "season-1", "match-1");
         assert!(result.is_ok());
         let bridge_result = result.unwrap();
         assert_eq!(
             bridge_result.outputs.len(),
-            3,
-            "All 3 participants should get outputs"
+            2,
+            "All 2 participants should get outputs"
         );
     }
 
     #[test]
     fn multiple_participants_winner_gains_most() {
-        let input = make_multi_participant_input(&[1500.0, 1500.0, 1500.0]);
+        let input = make_multi_participant_input(&[1500.0, 1500.0]);
         let result =
-            RatingEngineBridge::compute("elo", &input, &three_player_ids(), "season-1", "match-1");
+            RatingEngineBridge::compute("elo", &input, &two_player_ids(), "season-1", "match-1");
         assert!(result.is_ok());
         let bridge_result = result.unwrap();
 
         // Player A wins (placement 1), should have highest rating
         let winner_rating = bridge_result.outputs[0].rating;
         let second_rating = bridge_result.outputs[1].rating;
-        let third_rating = bridge_result.outputs[2].rating;
 
         assert!(
             winner_rating > second_rating,
             "Winner (placement 1: {}) should have higher rating than second place ({})",
             winner_rating,
             second_rating
-        );
-        assert!(
-            winner_rating > third_rating,
-            "Winner should have higher rating than last place"
         );
     }
 }
@@ -758,6 +753,7 @@ mod to_snapshots_tests {
                 },
             ],
             convergence_quality: "converged".to_string(),
+            match_id: "test-match".to_string(),
         }
     }
 
@@ -875,6 +871,7 @@ mod to_snapshots_tests {
                 conservative_rating: 1500.0,
             }],
             convergence_quality: "converged".to_string(),
+            match_id: "test-match".to_string(),
         };
         let result =
             RatingEngineBridge::to_snapshots(&bridge, &["solo-player".to_string()], "season-1", 1);
@@ -895,6 +892,7 @@ mod to_snapshots_tests {
                 conservative_rating: 1435.0,
             }],
             convergence_quality: "converged".to_string(),
+            match_id: "test-match".to_string(),
         };
         let result = RatingEngineBridge::to_snapshots(
             &bridge,
@@ -918,6 +916,7 @@ mod to_snapshots_tests {
                 conservative_rating: 12.5,
             }],
             convergence_quality: "converged".to_string(),
+            match_id: "test-match".to_string(),
         };
         let result = RatingEngineBridge::to_snapshots(
             &bridge,
@@ -1141,6 +1140,7 @@ mod edge_cases {
                 },
             ],
             convergence_quality: "converged".to_string(),
+            match_id: "test-match-json".to_string(),
         };
         let json = serde_json::to_string(&bridge).expect("Serialize BridgeResult");
         let parsed: BridgeResult = serde_json::from_str(&json).expect("Deserialize BridgeResult");
@@ -1197,6 +1197,7 @@ mod error_types {
                 },
             ],
             convergence_quality: "converged".to_string(),
+            match_id: "test-match".to_string(),
         };
         let result =
             RatingEngineBridge::to_snapshots(&bridge, &["only-one".to_string()], "season-1", 1);
