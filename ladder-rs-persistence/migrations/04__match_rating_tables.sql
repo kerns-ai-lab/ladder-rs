@@ -52,9 +52,14 @@ CREATE INDEX idx_rating_snapshots_player_season_ts ON rating_snapshots(player_id
 CREATE TABLE IF NOT EXISTS recalculation_jobs (
     id TEXT NOT NULL PRIMARY KEY,
     season_id TEXT NOT NULL REFERENCES seasons(id) ON DELETE RESTRICT,
-    job_type TEXT NOT NULL,  -- 'alias_link', 'alias_unlink', 'match_correction'
-    status TEXT NOT NULL DEFAULT 'queued',  -- 'queued', 'in_progress', 'completed', 'failed'
+    triggered_by TEXT NOT NULL,  -- 'alias_link', 'alias_unlink', 'match_correction'
+    status TEXT NOT NULL DEFAULT 'queued',  -- 'queued', 'in_progress', 'completed', 'failed', 'permanently_failed'
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    max_retries INTEGER NOT NULL DEFAULT 3,
+    error_message TEXT,
+    started_at TEXT,
     created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     completed_at TEXT
 );
 
