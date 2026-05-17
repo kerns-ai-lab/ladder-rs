@@ -8,6 +8,7 @@
 //! the `conservative_rating` column to avoid per-query arithmetic in leaderboard queries.
 
 use crate::{PersistenceError, RatingSnapshot, Result};
+use ladder_rs::{Rating, RatingSystem, TeamRating};
 use serde::{Deserialize, Serialize};
 
 /// Input to the rating engine bridge: a single player's pre-match state.
@@ -41,6 +42,8 @@ pub struct BridgeResult {
     pub outputs: Vec<RatingOutput>,
     /// Whether the algorithm fully converged ("converged" or "degraded")
     pub convergence_quality: String,
+    /// The match that produced this result (flowed through to snapshots)
+    pub match_id: String,
 }
 
 /// Match input for the rating engine bridge.
@@ -71,15 +74,67 @@ impl RatingEngineBridge {
     /// * `season_id` — the season this match belongs to
     /// * `match_id` — the match this computation is for
     pub fn compute(
-        _algorithm: &str,
-        _input: &MatchInput,
-        _player_ids: &[String],
+        algorithm: &str,
+        input: &MatchInput,
+        player_ids: &[String],
         _season_id: &str,
-        _match_id: &str,
+        match_id: &str,
     ) -> Result<BridgeResult> {
-        Err(PersistenceError::Unknown(
-            "compute not yet implemented".into(),
-        ))
+        // --- input validation ---
+        let n = input.ratings.len();
+        if n == 0 {
+            return Err(PersistenceError::InvalidInput(
+                "ratings must not be empty".into(),
+            ));
+        }
+        if input.placements.len() != n {
+            return Err(PersistenceError::InvalidInput(
+                "placements length must match ratings length".into(),
+            ));
+        }
+        if input.draws.len() != n {
+            return Err(PersistenceError::InvalidInput(
+                "draws length must match ratings length".into(),
+            ));
+        }
+        if player_ids.len() != n {
+            return Err(PersistenceError::InvalidInput(
+                "player_ids length must match ratings length".into(),
+            ));
+        }
+
+        // --- degenerate single-participant case: return input as output ---
+        if n == 1 {
+            let r = &input.ratings[0];
+            let conservative = Self::conservative_rating(algorithm, r.rating, r.uncertainty);
+            return Ok(BridgeResult {
+                outputs: vec![RatingOutput {
+                    rating: r.rating,
+                    uncertainty: r.uncertainty,
+                    volatility: r.volatility,
+                    conservative_rating: conservative,
+                }],
+                convergence_quality: "degraded".into(),
+                match_id: match_id.into(),
+            });
+        }
+
+        // --- construct GameOutcome from placements ---
+        let outcome = ladder_rs::core::GameOutcome::new(
+            input.placements.iter().map(|&p| p as usize).collect(),
+        );
+
+        // --- dispatch to algorithm-specific computation ---
+        match algorithm {
+            "elo" => Self::compute_elo(input, &outcome, match_id),
+            "glicko" => Self::compute_glicko(input, &outcome, match_id),
+            "glicko2" => Self::compute_glicko2(input, &outcome, match_id),
+            "trueskill" => Self::compute_trueskill(input, &outcome, match_id),
+            other => Err(PersistenceError::InvalidInput(format!(
+                "unknown algorithm: '{}'",
+                other
+            ))),
+        }
     }
 
     /// Compute the conservative rating from a rating value and uncertainty.
@@ -113,13 +168,228 @@ impl RatingEngineBridge {
 
     /// Convert a `BridgeResult` into `RatingSnapshot` values for persistence.
     pub fn to_snapshots(
-        _result: &BridgeResult,
-        _player_ids: &[String],
-        _season_id: &str,
-        _rating_period: i32,
+        result: &BridgeResult,
+        player_ids: &[String],
+        season_id: &str,
+        rating_period: i32,
     ) -> Result<Vec<RatingSnapshot>> {
-        Err(PersistenceError::Unknown(
-            "to_snapshots not yet implemented".into(),
-        ))
+        let n = result.outputs.len();
+        if n == 0 {
+            return Err(PersistenceError::InvalidInput(
+                "bridge result has no outputs".into(),
+            ));
+        }
+        if player_ids.len() != n {
+            return Err(PersistenceError::InvalidInput(format!(
+                "player_ids length ({}) does not match outputs length ({})",
+                player_ids.len(),
+                n
+            )));
+        }
+
+        let now = chrono::Utc::now();
+        let match_id = &result.match_id;
+
+        let snapshots: Vec<RatingSnapshot> = result
+            .outputs
+            .iter()
+            .zip(player_ids.iter())
+            .map(|(output, pid)| RatingSnapshot {
+                id: uuid::Uuid::new_v4().to_string(),
+                match_id: match_id.clone(),
+                player_id: pid.clone(),
+                season_id: season_id.to_string(),
+                rating_value: output.rating,
+                uncertainty: output.uncertainty,
+                volatility: output.volatility,
+                conservative_rating: output.conservative_rating,
+                rating_period,
+                created_at: now,
+            })
+            .collect();
+
+        Ok(snapshots)
+    }
+
+    // ------------------------------------------------------------------
+    //  private algorithm helpers
+    // ------------------------------------------------------------------
+
+    fn compute_elo(
+        input: &MatchInput,
+        outcome: &ladder_rs::core::GameOutcome,
+        match_id: &str,
+    ) -> Result<BridgeResult> {
+        let system = ladder_rs::EloSystem::default();
+        let ratings: Vec<ladder_rs::EloRating> = input
+            .ratings
+            .iter()
+            .map(|r| ladder_rs::EloRating::new(r.rating))
+            .collect();
+
+        let teams: Vec<ladder_rs::EloTeamRating> = ratings
+            .into_iter()
+            .map(|r| ladder_rs::EloTeamRating::from_player_ratings(vec![r]))
+            .collect();
+
+        let updated = system.rate(&teams, outcome).map_err(map_ladder_error)?;
+
+        let outputs: Vec<RatingOutput> = updated
+            .iter()
+            .map(|team| {
+                let rating = &team.player_ratings()[0];
+                RatingOutput {
+                    rating: rating.rating(),
+                    uncertainty: None,
+                    volatility: None,
+                    conservative_rating: rating.conservative_rating(),
+                }
+            })
+            .collect();
+
+        Ok(BridgeResult {
+            outputs,
+            convergence_quality: "converged".into(),
+            match_id: match_id.into(),
+        })
+    }
+
+    fn compute_glicko(
+        input: &MatchInput,
+        outcome: &ladder_rs::core::GameOutcome,
+        match_id: &str,
+    ) -> Result<BridgeResult> {
+        let system = ladder_rs::Glicko::default();
+        let ratings: Vec<ladder_rs::GlickoRating> = input
+            .ratings
+            .iter()
+            .map(|r| {
+                let rd = r.uncertainty.unwrap_or(350.0);
+                ladder_rs::GlickoRating::new(r.rating, rd)
+            })
+            .collect();
+
+        let teams: Vec<ladder_rs::GlickoTeamRating> = ratings
+            .into_iter()
+            .map(|r| ladder_rs::GlickoTeamRating::from_player_ratings(vec![r]))
+            .collect();
+
+        let updated = system.rate(&teams, outcome).map_err(map_ladder_error)?;
+
+        let outputs: Vec<RatingOutput> = updated
+            .iter()
+            .map(|team| {
+                let rating = &team.player_ratings()[0];
+                RatingOutput {
+                    rating: rating.mu,
+                    uncertainty: Some(rating.rd),
+                    volatility: None,
+                    conservative_rating: rating.conservative_rating(),
+                }
+            })
+            .collect();
+
+        Ok(BridgeResult {
+            outputs,
+            convergence_quality: "converged".into(),
+            match_id: match_id.into(),
+        })
+    }
+
+    fn compute_glicko2(
+        input: &MatchInput,
+        outcome: &ladder_rs::core::GameOutcome,
+        match_id: &str,
+    ) -> Result<BridgeResult> {
+        let system = ladder_rs::glicko::Glicko2::default();
+        let ratings: Vec<ladder_rs::glicko::Glicko2Rating> = input
+            .ratings
+            .iter()
+            .map(|r| {
+                let rd = r.uncertainty.unwrap_or(350.0);
+                let vol = r.volatility.unwrap_or(0.06);
+                ladder_rs::glicko::Glicko2Rating::new(r.rating, rd, vol)
+            })
+            .collect();
+
+        let teams: Vec<ladder_rs::glicko::Glicko2TeamRating> = ratings
+            .into_iter()
+            .map(|r| ladder_rs::glicko::Glicko2TeamRating::from_player_ratings(vec![r]))
+            .collect();
+
+        let updated = system.rate(&teams, outcome).map_err(map_ladder_error)?;
+
+        let outputs: Vec<RatingOutput> = updated
+            .iter()
+            .map(|team| {
+                let rating = &team.player_ratings()[0];
+                RatingOutput {
+                    rating: rating.mu,
+                    uncertainty: Some(rating.rd),
+                    volatility: Some(rating.volatility),
+                    conservative_rating: rating.conservative_rating(),
+                }
+            })
+            .collect();
+
+        Ok(BridgeResult {
+            outputs,
+            convergence_quality: "converged".into(),
+            match_id: match_id.into(),
+        })
+    }
+
+    fn compute_trueskill(
+        input: &MatchInput,
+        outcome: &ladder_rs::core::GameOutcome,
+        match_id: &str,
+    ) -> Result<BridgeResult> {
+        let system = ladder_rs::TrueSkill::default();
+        let ratings: Vec<ladder_rs::TrueSkillRating> = input
+            .ratings
+            .iter()
+            .map(|r| {
+                let sigma = r.uncertainty.unwrap_or(8.333);
+                system.create_rating_with_values(r.rating, sigma * sigma)
+            })
+            .collect();
+
+        let teams: Vec<ladder_rs::TrueSkillTeam> = ratings
+            .into_iter()
+            .map(|r| ladder_rs::TrueSkillTeam::from_player_ratings(vec![r]))
+            .collect();
+
+        let updated = system.rate(&teams, outcome).map_err(map_ladder_error)?;
+
+        let outputs: Vec<RatingOutput> = updated
+            .iter()
+            .map(|team| {
+                let rating = &team.player_ratings()[0];
+                RatingOutput {
+                    rating: rating.mean(),
+                    uncertainty: Some(rating.std_dev()),
+                    volatility: None,
+                    conservative_rating: rating.conservative_rating(),
+                }
+            })
+            .collect();
+
+        Ok(BridgeResult {
+            outputs,
+            convergence_quality: "converged".into(),
+            match_id: match_id.into(),
+        })
+    }
+}
+
+// --------------------------------------------------------------------------
+//  helpers
+// --------------------------------------------------------------------------
+
+/// Map a `ladder_rs::error::Error` into a `PersistenceError`.
+fn map_ladder_error(err: ladder_rs::error::Error) -> PersistenceError {
+    match err {
+        ladder_rs::error::Error::InvalidInput(msg) => PersistenceError::InvalidInput(msg),
+        other => PersistenceError::Unknown(other.to_string()),
     }
 }

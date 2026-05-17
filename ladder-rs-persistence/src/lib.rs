@@ -4,12 +4,14 @@
 //! All database operations go through this layer. Both the Axum backend and
 //! swarm operators consume this library for DB access.
 
+pub mod auth_repository;
 pub mod error;
 pub mod models;
 pub mod pool;
 pub mod rating_engine_bridge;
 pub mod repositories;
 
+pub use auth_repository::{AdminBootstrap, AuthRepository, BootstrapCredentials};
 pub use error::{PersistenceError, Result};
 pub use models::*;
 pub use pool::{acquire_connection, create_pool, create_pool_with_config, PoolConfig};
