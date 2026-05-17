@@ -6,10 +6,12 @@
 
 pub mod error;
 pub mod models;
+pub mod pool;
 pub mod repositories;
 
 pub use error::{PersistenceError, Result};
 pub use models::*;
+pub use pool::{acquire_connection, create_pool, create_pool_with_config, PoolConfig};
 
 // Re-export commonly used items
 pub use repositories::{

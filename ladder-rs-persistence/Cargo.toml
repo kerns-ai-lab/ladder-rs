@@ -21,3 +21,4 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["full"] }
 sqlx = { workspace = true, features = ["migrate", "runtime-tokio-rustls", "sqlite", "chrono"] }
 futures = "0.3"
+scopeguard = "1.2"
