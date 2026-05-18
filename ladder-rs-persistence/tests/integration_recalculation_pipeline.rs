@@ -21,9 +21,9 @@
 
 use chrono::Utc;
 use ladder_rs_persistence::{
-    create_pool, AlgorithmParams, AliasRepository, JobRepository, LeagueRepository,
-    MatchInput, MatchParticipant, MatchRepository, PlayerRepository, RatingEngineBridge,
-    RatingInput, SeedingChoice, SeasonRepository,
+    create_pool, AlgorithmParams, AliasRepository, JobRepository, LeagueRepository, MatchInput,
+    MatchParticipant, MatchRepository, PlayerRepository, RatingEngineBridge, RatingInput,
+    SeasonRepository, SeedingChoice,
 };
 use sqlx::SqlitePool;
 use std::collections::HashSet;
@@ -46,10 +46,7 @@ async fn setup_test_db() -> SqlitePool {
         let migrator = Migrator::new(migrations_path)
             .await
             .expect("Failed to create migrator");
-        migrator
-            .run(&pool)
-            .await
-            .expect("Failed to run migrations");
+        migrator.run(&pool).await.expect("Failed to run migrations");
     }
 
     pool
@@ -94,19 +91,29 @@ async fn seed_league_season_players(
 ) -> (String, String, Vec<String>) {
     // Create league with unique name (leagues.name has unique constraint)
     let league_name = format!("Test League {}", uuid::Uuid::new_v4());
-    let league = LeagueRepository::create_league(pool, &league_name, "", algorithm, "public", "admin")
-        .await
-        .expect("Failed to create league");
+    let league =
+        LeagueRepository::create_league(pool, &league_name, "", algorithm, "public", "admin")
+            .await
+            .expect("Failed to create league");
 
     // Create season
     let params = AlgorithmParams {
-        initial_rating: if algorithm == "trueskill" { 25.0 } else { 1500.0 },
-        initial_deviation: if algorithm == "elo" { None } else { Some(350.0) },
+        initial_rating: if algorithm == "trueskill" {
+            25.0
+        } else {
+            1500.0
+        },
+        initial_deviation: if algorithm == "elo" {
+            None
+        } else {
+            Some(350.0)
+        },
         extra: None,
     };
-    let season = SeasonRepository::create_season(pool, &league.id, algorithm, &params, SeedingChoice::Reset)
-        .await
-        .expect("Failed to create season");
+    let season =
+        SeasonRepository::create_season(pool, &league.id, algorithm, &params, SeedingChoice::Reset)
+            .await
+            .expect("Failed to create season");
 
     // Create players with unique names (players.name has unique constraint)
     let mut player_ids = Vec::with_capacity(player_count);
@@ -122,27 +129,29 @@ async fn seed_league_season_players(
 }
 
 /// Reads match participants directly from the database.
-async fn read_match_participants(
-    pool: &SqlitePool,
-    match_id: &str,
-) -> Vec<(String, i32)> {
+async fn read_match_participants(pool: &SqlitePool, match_id: &str) -> Vec<(String, i32)> {
     #[derive(sqlx::FromRow)]
     struct Row {
         player_id: String,
         placement: i32,
     }
     let rows: Vec<Row> = sqlx::query_as(
-        "SELECT player_id, placement FROM match_participants WHERE match_id = ? ORDER BY placement"
+        "SELECT player_id, placement FROM match_participants WHERE match_id = ? ORDER BY placement",
     )
     .bind(match_id)
     .fetch_all(pool)
     .await
     .unwrap_or_else(|e| panic!("Failed to read match participants: {}", e));
-    rows.into_iter().map(|r| (r.player_id, r.placement)).collect()
+    rows.into_iter()
+        .map(|r| (r.player_id, r.placement))
+        .collect()
 }
 
 /// Reads all rating snapshots for a season, ordered by created_at.
-async fn read_season_snapshots(pool: &SqlitePool, season_id: &str) -> Vec<ladder_rs_persistence::RatingSnapshot> {
+async fn read_season_snapshots(
+    pool: &SqlitePool,
+    season_id: &str,
+) -> Vec<ladder_rs_persistence::RatingSnapshot> {
     #[derive(sqlx::FromRow)]
     struct Row {
         id: String,
@@ -156,7 +165,7 @@ async fn read_season_snapshots(pool: &SqlitePool, season_id: &str) -> Vec<ladder
 
     let rows: Vec<Row> = sqlx::query_as(
         "SELECT id, season_id, player_id, match_id, conservative_rating, rating_json, created_at \
-         FROM rating_snapshots WHERE season_id = ? ORDER BY created_at ASC"
+         FROM rating_snapshots WHERE season_id = ? ORDER BY created_at ASC",
     )
     .bind(season_id)
     .fetch_all(pool)
@@ -172,8 +181,8 @@ async fn read_season_snapshots(pool: &SqlitePool, season_id: &str) -> Vec<ladder
                 volatility: Option<f64>,
                 rating_period: i32,
             }
-            let rj: RatingJson = serde_json::from_str(&r.rating_json)
-                .expect("Failed to parse rating_json");
+            let rj: RatingJson =
+                serde_json::from_str(&r.rating_json).expect("Failed to parse rating_json");
             let created_at = chrono::DateTime::parse_from_rfc3339(&r.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .expect("Failed to parse created_at");
@@ -278,8 +287,7 @@ async fn test_alias_trigger_creates_recalculation_jobs() {
     let pool = setup_test_db().await;
     seed_user(&pool, "admin").await;
 
-    let (_league_id, season_id, player_ids) =
-        seed_league_season_players(&pool, "elo", 3).await;
+    let (_league_id, season_id, player_ids) = seed_league_season_players(&pool, "elo", 3).await;
 
     // Record matches so the season has player history
     MatchRepository::record_match(
@@ -303,14 +311,9 @@ async fn test_alias_trigger_creates_recalculation_jobs() {
     .expect("Failed to record match");
 
     // Create alias between player 0 and player 1
-    let job_ids = AliasRepository::create_alias(
-        &pool,
-        &player_ids[0],
-        &player_ids[1],
-        "admin",
-    )
-    .await
-    .expect("create_alias should succeed");
+    let job_ids = AliasRepository::create_alias(&pool, &player_ids[0], &player_ids[1], "admin")
+        .await
+        .expect("create_alias should succeed");
 
     // Verify job IDs returned
     assert!(
@@ -342,13 +345,8 @@ async fn test_alias_trigger_creates_recalculation_jobs() {
     }
 
     // Verify no duplicate jobs created for the same season (deduplication)
-    let alias2_job_ids = AliasRepository::create_alias(
-        &pool,
-        &player_ids[0],
-        &player_ids[1],
-        "admin",
-    )
-    .await;
+    let alias2_job_ids =
+        AliasRepository::create_alias(&pool, &player_ids[0], &player_ids[1], "admin").await;
 
     // The second create_alias should fail because the unique constraint
     // on (primary_player_id, alias_player_id) prevents re-inserting the same alias.
@@ -384,8 +382,7 @@ async fn test_full_recalculation_pipeline_alias_trigger_to_leaderboard() {
     let pool = setup_test_db().await;
     seed_user(&pool, "admin").await;
 
-    let (_league_id, season_id, player_ids) =
-        seed_league_season_players(&pool, "elo", 3).await;
+    let (_league_id, season_id, player_ids) = seed_league_season_players(&pool, "elo", 3).await;
 
     // Record several matches
     let _match1 = MatchRepository::record_match(
@@ -416,14 +413,9 @@ async fn test_full_recalculation_pipeline_alias_trigger_to_leaderboard() {
     );
 
     // Create alias
-    let job_ids = AliasRepository::create_alias(
-        &pool,
-        &player_ids[0],
-        &player_ids[1],
-        "admin",
-    )
-    .await
-    .expect("create_alias should succeed");
+    let job_ids = AliasRepository::create_alias(&pool, &player_ids[0], &player_ids[1], "admin")
+        .await
+        .expect("create_alias should succeed");
 
     assert!(!job_ids.is_empty(), "Alias creation must create jobs");
 
@@ -495,14 +487,9 @@ async fn test_full_recalculation_pipeline_alias_trigger_to_leaderboard() {
             draws,
         };
 
-        let bridge_result = RatingEngineBridge::compute(
-            "elo",
-            &match_input,
-            &player_ids_m,
-            &season_id,
-            &m.id,
-        )
-        .expect("RatingEngineBridge::compute should succeed");
+        let bridge_result =
+            RatingEngineBridge::compute("elo", &match_input, &player_ids_m, &season_id, &m.id)
+                .expect("RatingEngineBridge::compute should succeed");
 
         let snaps = RatingEngineBridge::to_snapshots(
             &bridge_result,
@@ -572,8 +559,7 @@ async fn test_full_recalculation_pipeline_alias_trigger_to_leaderboard() {
 async fn test_full_season_replay_is_deterministic() {
     let pool = setup_test_db().await;
 
-    let (_league_id, season_id, player_ids) =
-        seed_league_season_players(&pool, "elo", 4).await;
+    let (_league_id, season_id, player_ids) = seed_league_season_players(&pool, "elo", 4).await;
 
     // Record several matches
     for offset in &[0, 10, 20, 30, 40] {
@@ -625,14 +611,11 @@ async fn test_full_season_replay_is_deterministic() {
             let ratings: Vec<RatingInput> = pids
                 .iter()
                 .map(|pid| {
-                    current_ratings
-                        .get(pid)
-                        .cloned()
-                        .unwrap_or(RatingInput {
-                            rating: 1500.0,
-                            uncertainty: None,
-                            volatility: None,
-                        })
+                    current_ratings.get(pid).cloned().unwrap_or(RatingInput {
+                        rating: 1500.0,
+                        uncertainty: None,
+                        volatility: None,
+                    })
                 })
                 .collect();
 
@@ -697,8 +680,7 @@ async fn test_full_season_replay_is_deterministic() {
 async fn test_snapshot_replace_preserves_deterministic_output() {
     let pool = setup_test_db().await;
 
-    let (_league_id, season_id, player_ids) =
-        seed_league_season_players(&pool, "glicko2", 2).await;
+    let (_league_id, season_id, player_ids) = seed_league_season_players(&pool, "glicko2", 2).await;
 
     // Record a match
     let match_result = MatchRepository::record_match(
@@ -749,13 +731,9 @@ async fn test_snapshot_replace_preserves_deterministic_output() {
     )
     .expect("compute should succeed");
 
-    let recomputed_snapshots = RatingEngineBridge::to_snapshots(
-        &bridge_result,
-        &pids,
-        &season_id,
-        1,
-    )
-    .expect("to_snapshots should succeed");
+    let recomputed_snapshots =
+        RatingEngineBridge::to_snapshots(&bridge_result, &pids, &season_id, 1)
+            .expect("to_snapshots should succeed");
 
     assert_eq!(
         recomputed_snapshots.len(),
@@ -826,8 +804,7 @@ async fn test_alias_removal_creates_jobs_and_enables_independent_replay() {
     let pool = setup_test_db().await;
     seed_user(&pool, "admin").await;
 
-    let (_league_id, season_id, player_ids) =
-        seed_league_season_players(&pool, "elo", 3).await;
+    let (_league_id, season_id, player_ids) = seed_league_season_players(&pool, "elo", 3).await;
 
     // Record matches before alias
     MatchRepository::record_match(
@@ -841,14 +818,10 @@ async fn test_alias_removal_creates_jobs_and_enables_independent_replay() {
     .expect("Failed to record match 1");
 
     // Create alias between player 0 and player 1
-    let _alias_job_ids = AliasRepository::create_alias(
-        &pool,
-        &player_ids[0],
-        &player_ids[1],
-        "admin",
-    )
-    .await
-    .expect("create_alias should succeed");
+    let _alias_job_ids =
+        AliasRepository::create_alias(&pool, &player_ids[0], &player_ids[1], "admin")
+            .await
+            .expect("create_alias should succeed");
 
     // Record another match
     MatchRepository::record_match(
@@ -862,8 +835,7 @@ async fn test_alias_removal_creates_jobs_and_enables_independent_replay() {
     .expect("Failed to record match 2");
 
     // Capture the latest snapshots for all players
-    let snapshots_with_alias =
-        read_latest_snapshots(&pool, &season_id, &player_ids).await;
+    let snapshots_with_alias = read_latest_snapshots(&pool, &season_id, &player_ids).await;
     assert_eq!(
         snapshots_with_alias.len(),
         3,
@@ -883,13 +855,9 @@ async fn test_alias_removal_creates_jobs_and_enables_independent_replay() {
     }
 
     // Now remove the alias
-    let removal_job_ids = AliasRepository::remove_alias(
-        &pool,
-        &player_ids[0],
-        &player_ids[1],
-    )
-    .await
-    .expect("remove_alias should succeed");
+    let removal_job_ids = AliasRepository::remove_alias(&pool, &player_ids[0], &player_ids[1])
+        .await
+        .expect("remove_alias should succeed");
 
     assert!(
         !removal_job_ids.is_empty(),
@@ -944,14 +912,11 @@ async fn test_alias_removal_creates_jobs_and_enables_independent_replay() {
         let ratings: Vec<RatingInput> = pids
             .iter()
             .map(|pid| {
-                current_ratings
-                    .get(pid)
-                    .cloned()
-                    .unwrap_or(RatingInput {
-                        rating: 1500.0,
-                        uncertainty: None,
-                        volatility: None,
-                    })
+                current_ratings.get(pid).cloned().unwrap_or(RatingInput {
+                    rating: 1500.0,
+                    uncertainty: None,
+                    volatility: None,
+                })
             })
             .collect();
 
@@ -961,9 +926,8 @@ async fn test_alias_removal_creates_jobs_and_enables_independent_replay() {
             draws,
         };
 
-        let result =
-            RatingEngineBridge::compute("elo", &match_input, &pids, &season_id, &m.id)
-                .expect("compute should succeed");
+        let result = RatingEngineBridge::compute("elo", &match_input, &pids, &season_id, &m.id)
+            .expect("compute should succeed");
 
         for (pid, output) in pids.iter().zip(result.outputs.iter()) {
             current_ratings.insert(
@@ -1007,8 +971,7 @@ async fn test_multiple_alias_triggers_no_duplicate_jobs() {
     let pool = setup_test_db().await;
     seed_user(&pool, "admin").await;
 
-    let (_league_id, season_id, player_ids) =
-        seed_league_season_players(&pool, "elo", 4).await;
+    let (_league_id, season_id, player_ids) = seed_league_season_players(&pool, "elo", 4).await;
 
     // Record matches to give all players history in the season
     MatchRepository::record_match(
@@ -1032,14 +995,9 @@ async fn test_multiple_alias_triggers_no_duplicate_jobs() {
     .expect("Failed to record match 2");
 
     // Create first alias
-    let job_ids_1 = AliasRepository::create_alias(
-        &pool,
-        &player_ids[0],
-        &player_ids[1],
-        "admin",
-    )
-    .await
-    .expect("First create_alias should succeed");
+    let job_ids_1 = AliasRepository::create_alias(&pool, &player_ids[0], &player_ids[1], "admin")
+        .await
+        .expect("First create_alias should succeed");
 
     assert!(!job_ids_1.is_empty(), "Should create at least one job");
 
@@ -1049,7 +1007,7 @@ async fn test_multiple_alias_triggers_no_duplicate_jobs() {
         cnt: i64,
     }
     let count_before: CountRow = sqlx::query_as(
-        "SELECT COUNT(*) as cnt FROM recalculation_jobs WHERE season_id = ? AND status = 'queued'"
+        "SELECT COUNT(*) as cnt FROM recalculation_jobs WHERE season_id = ? AND status = 'queued'",
     )
     .bind(&season_id)
     .fetch_one(&pool)
@@ -1062,20 +1020,15 @@ async fn test_multiple_alias_triggers_no_duplicate_jobs() {
     // additional jobs for the same season, but the first alias's job already
     // covers it. The insert_job method deduplicates: if a queued or in_progress
     // job already exists for the season, it returns the existing job ID.
-    let job_ids_2 = AliasRepository::create_alias(
-        &pool,
-        &player_ids[2],
-        &player_ids[3],
-        "admin",
-    )
-    .await
-    .expect("Second create_alias should succeed");
+    let job_ids_2 = AliasRepository::create_alias(&pool, &player_ids[2], &player_ids[3], "admin")
+        .await
+        .expect("Second create_alias should succeed");
 
     // Since there's already a queued job for this season, insert_job
     // should deduplicate and return the existing job ID.
     // The returned job_ids should be the same as before (the existing queued job).
     let count_after: CountRow = sqlx::query_as(
-        "SELECT COUNT(*) as cnt FROM recalculation_jobs WHERE season_id = ? AND status = 'queued'"
+        "SELECT COUNT(*) as cnt FROM recalculation_jobs WHERE season_id = ? AND status = 'queued'",
     )
     .bind(&season_id)
     .fetch_one(&pool)
@@ -1106,8 +1059,7 @@ async fn test_recalculation_job_lifecycle_claim_and_complete() {
     let pool = setup_test_db().await;
     seed_user(&pool, "admin").await;
 
-    let (_league_id, season_id, player_ids) =
-        seed_league_season_players(&pool, "elo", 2).await;
+    let (_league_id, season_id, player_ids) = seed_league_season_players(&pool, "elo", 2).await;
 
     // Record a match
     MatchRepository::record_match(
@@ -1121,14 +1073,9 @@ async fn test_recalculation_job_lifecycle_claim_and_complete() {
     .expect("Failed to record match");
 
     // Trigger a recalculation via alias
-    let job_ids = AliasRepository::create_alias(
-        &pool,
-        &player_ids[0],
-        &player_ids[1],
-        "admin",
-    )
-    .await
-    .expect("create_alias should succeed");
+    let job_ids = AliasRepository::create_alias(&pool, &player_ids[0], &player_ids[1], "admin")
+        .await
+        .expect("create_alias should succeed");
 
     assert_eq!(job_ids.len(), 1, "Should create exactly one job");
 
@@ -1140,10 +1087,7 @@ async fn test_recalculation_job_lifecycle_claim_and_complete() {
 
     assert_eq!(claimed.id, job_ids[0], "Should claim the created job");
     assert!(
-        matches!(
-            claimed.status,
-            ladder_rs_persistence::JobStatus::InProgress
-        ),
+        matches!(claimed.status, ladder_rs_persistence::JobStatus::InProgress),
         "Job should be InProgress after claim"
     );
 
@@ -1179,8 +1123,7 @@ async fn test_recalculation_job_lifecycle_claim_and_complete() {
 
     // Test failure path with a new job
     // Close the season so we can test with a fresh job
-    let (_league_id2, season_id2, player_ids2) =
-        seed_league_season_players(&pool, "elo", 2).await;
+    let (_league_id2, season_id2, player_ids2) = seed_league_season_players(&pool, "elo", 2).await;
 
     MatchRepository::record_match(
         &pool,
@@ -1192,14 +1135,9 @@ async fn test_recalculation_job_lifecycle_claim_and_complete() {
     .await
     .expect("Failed to record match");
 
-    let _job_ids2 = AliasRepository::create_alias(
-        &pool,
-        &player_ids2[0],
-        &player_ids2[1],
-        "admin",
-    )
-    .await
-    .expect("create_alias should succeed");
+    let _job_ids2 = AliasRepository::create_alias(&pool, &player_ids2[0], &player_ids2[1], "admin")
+        .await
+        .expect("create_alias should succeed");
 
     // Claim and then fail
     let claimed2 = JobRepository::claim_next_job(&pool)
@@ -1270,23 +1208,13 @@ async fn test_rating_engine_bridge_determinism_across_algorithms() {
             draws,
         };
 
-        let result1 = RatingEngineBridge::compute(
-            algo,
-            &input1,
-            &player_ids,
-            "season-test",
-            "match-test",
-        )
-        .unwrap_or_else(|e| panic!("compute should succeed for {}: {}", algo, e));
+        let result1 =
+            RatingEngineBridge::compute(algo, &input1, &player_ids, "season-test", "match-test")
+                .unwrap_or_else(|e| panic!("compute should succeed for {}: {}", algo, e));
 
-        let result2 = RatingEngineBridge::compute(
-            algo,
-            &input2,
-            &player_ids,
-            "season-test",
-            "match-test",
-        )
-        .unwrap_or_else(|e| panic!("compute should succeed for {}: {}", algo, e));
+        let result2 =
+            RatingEngineBridge::compute(algo, &input2, &player_ids, "season-test", "match-test")
+                .unwrap_or_else(|e| panic!("compute should succeed for {}: {}", algo, e));
 
         assert_eq!(
             result1.outputs.len(),
@@ -1295,7 +1223,12 @@ async fn test_rating_engine_bridge_determinism_across_algorithms() {
             algo
         );
 
-        for (i, (o1, o2)) in result1.outputs.iter().zip(result2.outputs.iter()).enumerate() {
+        for (i, (o1, o2)) in result1
+            .outputs
+            .iter()
+            .zip(result2.outputs.iter())
+            .enumerate()
+        {
             assert!(
                 (o1.rating - o2.rating).abs() < 1e-10,
                 "Algorithm {}: rating for player {} should be deterministic: {} vs {}",
@@ -1325,23 +1258,11 @@ async fn test_rating_engine_bridge_determinism_across_algorithms() {
     };
     let single_pids = vec!["solo".to_string()];
 
-    let result_a = RatingEngineBridge::compute(
-        "elo",
-        &single_input,
-        &single_pids,
-        "s",
-        "m",
-    )
-    .expect("Single player compute should succeed");
+    let result_a = RatingEngineBridge::compute("elo", &single_input, &single_pids, "s", "m")
+        .expect("Single player compute should succeed");
 
-    let result_b = RatingEngineBridge::compute(
-        "elo",
-        &single_input,
-        &single_pids,
-        "s",
-        "m",
-    )
-    .expect("Single player compute should succeed");
+    let result_b = RatingEngineBridge::compute("elo", &single_input, &single_pids, "s", "m")
+        .expect("Single player compute should succeed");
 
     assert_eq!(result_a.outputs.len(), 1);
     assert_eq!(result_b.outputs.len(), 1);
@@ -1373,10 +1294,7 @@ async fn test_rating_engine_bridge_error_paths() {
         "s",
         "m",
     );
-    assert!(
-        result.is_err(),
-        "Empty ratings should produce an error"
-    );
+    assert!(result.is_err(), "Empty ratings should produce an error");
 
     // Mismatched lengths
     let result = RatingEngineBridge::compute(
@@ -1465,10 +1383,7 @@ async fn test_rating_engine_bridge_error_paths() {
         "s",
         "m",
     );
-    assert!(
-        result.is_err(),
-        "Unknown algorithm should produce an error"
-    );
+    assert!(result.is_err(), "Unknown algorithm should produce an error");
     if let Err(e) = result {
         let msg = format!("{}", e).to_lowercase();
         assert!(
@@ -1487,8 +1402,7 @@ async fn test_rating_engine_bridge_error_paths() {
 async fn test_correct_match_creates_recalculation_job() {
     let pool = setup_test_db().await;
 
-    let (_league_id, season_id, player_ids) =
-        seed_league_season_players(&pool, "elo", 4).await;
+    let (_league_id, season_id, player_ids) = seed_league_season_players(&pool, "elo", 4).await;
 
     // Record a match
     let match_result = MatchRepository::record_match(
@@ -1517,14 +1431,10 @@ async fn test_correct_match_creates_recalculation_job() {
         score_metadata: None,
     };
 
-    let job_id = MatchRepository::correct_match(
-        &pool,
-        &match_result.match_id,
-        &correction,
-        "admin_user",
-    )
-    .await
-    .expect("correct_match should succeed");
+    let job_id =
+        MatchRepository::correct_match(&pool, &match_result.match_id, &correction, "admin_user")
+            .await
+            .expect("correct_match should succeed");
 
     assert!(!job_id.is_empty(), "Correction should return a job_id");
     assert!(
