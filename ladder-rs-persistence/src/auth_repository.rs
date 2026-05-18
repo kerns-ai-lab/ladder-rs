@@ -500,12 +500,8 @@ impl AdminBootstrap {
             return Ok(None);
         }
 
-        let password = format!(
-            "{}-{}",
-            uuid::Uuid::new_v4(),
-            uuid::Uuid::new_v4()
-        )
-        .replace('-', "");
+        let password =
+            format!("{}-{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4()).replace('-', "");
 
         let password_hash = format!("bootstrap:admin@local:{}", password);
         let now = Utc::now().to_rfc3339();
