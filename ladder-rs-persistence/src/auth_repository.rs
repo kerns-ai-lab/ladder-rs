@@ -406,8 +406,8 @@ impl AuthRepository {
         .bind(player_id)
         .bind(&token_hash)
         .bind(created_by)
-        .bind(&expires_at.to_rfc3339())
-        .bind(&now.to_rfc3339())
+        .bind(expires_at.to_rfc3339())
+        .bind(now.to_rfc3339())
         .execute(pool)
         .await
         .map_err(|e| PersistenceError::DatabaseError(e.to_string()))?;
@@ -451,7 +451,7 @@ impl AuthRepository {
                 // Claim it
                 sqlx::query("UPDATE invite_tokens SET claimed_by = ?, claimed_at = ? WHERE id = ?")
                     .bind(claiming_user_id)
-                    .bind(&now.to_rfc3339())
+                    .bind(now.to_rfc3339())
                     .bind(&t.id)
                     .execute(pool)
                     .await
@@ -502,8 +502,8 @@ impl AdminBootstrap {
 
         let password = format!(
             "{}-{}",
-            uuid::Uuid::new_v4().to_string(),
-            uuid::Uuid::new_v4().to_string()
+            uuid::Uuid::new_v4(),
+            uuid::Uuid::new_v4()
         )
         .replace('-', "");
 

@@ -345,7 +345,7 @@ impl MatchRepository {
                     pre_match_inputs.push(ri);
                 }
                 None => {
-                    let ri = default_rating_input(&algorithm);
+                    let ri = default_rating_input(algorithm);
                     let rj = RatingJson {
                         rating_value: ri.rating,
                         uncertainty: ri.uncertainty,
@@ -366,7 +366,7 @@ impl MatchRepository {
         let recorded_at_str = recorded_at.to_rfc3339();
         let score_metadata_str = score_metadata
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| {
                 PersistenceError::InvalidInput(format!("Failed to serialize score_metadata: {}", e))
@@ -380,7 +380,7 @@ impl MatchRepository {
         .bind(season_id)
         .bind(&recorded_at_str)
         .bind(&score_metadata_str)
-        .bind(&now.to_rfc3339())
+        .bind(now.to_rfc3339())
         .execute(&mut *tx)
         .await
         .map_err(|e| PersistenceError::DatabaseError(e.to_string()))?;
@@ -403,7 +403,7 @@ impl MatchRepository {
             .bind(p.placement)
             .bind(&pre_match_jsons[i])
             .bind("") // rating_after is empty for now — will be filled post-computation
-            .bind(&now.to_rfc3339())
+            .bind(now.to_rfc3339())
             .execute(&mut *tx)
             .await
             .map_err(|e| PersistenceError::DatabaseError(e.to_string()))?;
@@ -479,8 +479,8 @@ impl MatchRepository {
             .bind(&snapshot.match_id)
             .bind(snapshot.conservative_rating)
             .bind(&rating_json_str)
-            .bind(&snapshot.created_at.to_rfc3339())
-            .bind(&snapshot.created_at.to_rfc3339())
+            .bind(snapshot.created_at.to_rfc3339())
+            .bind(snapshot.created_at.to_rfc3339())
             .execute(&mut *tx)
             .await
             .map_err(|e| PersistenceError::DatabaseError(e.to_string()))?;
@@ -703,7 +703,7 @@ impl MatchRepository {
         .bind(&before_state_str)
         .bind(&after_state_str)
         .bind(&correction.reason)
-        .bind(&now.to_rfc3339())
+        .bind(now.to_rfc3339())
         .execute(&mut *tx)
         .await
         .map_err(|e| PersistenceError::DatabaseError(e.to_string()))?;
