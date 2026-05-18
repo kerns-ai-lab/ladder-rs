@@ -66,6 +66,54 @@ impl JobRepository {
         Ok(job_id)
     }
 
+    /// Transaction-aware variant of insert_job. Works inside an existing
+    /// transaction so the job insertion is atomic with the caller's work.
+    pub async fn insert_job_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        season_id: &str,
+        triggered_by: &str,
+    ) -> Result<String> {
+        if season_id.is_empty() {
+            return Err(PersistenceError::InvalidInput(
+                "season_id cannot be empty".into(),
+            ));
+        }
+        if triggered_by.is_empty() {
+            return Err(PersistenceError::InvalidInput(
+                "triggered_by cannot be empty".into(),
+            ));
+        }
+
+        // Check for existing queued or in_progress job
+        let existing: Option<(String,)> =
+            sqlx::query_as("SELECT id FROM recalculation_jobs WHERE season_id = ? AND status IN ('queued', 'in_progress') LIMIT 1")
+                .bind(season_id)
+                .fetch_optional(&mut **tx)
+                .await
+                .map_err(|e| PersistenceError::DatabaseError(e.to_string()))?;
+
+        if let Some((existing_id,)) = existing {
+            return Ok(existing_id);
+        }
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
+
+        sqlx::query(
+            "INSERT INTO recalculation_jobs (id, season_id, triggered_by, status, created_at, updated_at) VALUES (?, ?, ?, 'queued', ?, ?)",
+        )
+        .bind(&job_id)
+        .bind(season_id)
+        .bind(triggered_by)
+        .bind(&now)
+        .bind(&now)
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| PersistenceError::DatabaseError(e.to_string()))?;
+
+        Ok(job_id)
+    }
+
     /// Atomically claim the next queued job for execution.
     ///
     /// Uses a two-step approach (SQLite doesn't support RETURNING):

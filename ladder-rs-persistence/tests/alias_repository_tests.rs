@@ -20,9 +20,11 @@
 //!
 //! Total: 23 tests
 
+use chrono::Utc;
 use ladder_rs_persistence::pool::create_pool;
 use ladder_rs_persistence::{AliasRepository, PersistenceError, PlayerAlias};
 use sqlx::SqlitePool;
+use uuid::Uuid;
 
 // ── Test Fixtures ───────────────────────────────────────────────────────────
 
@@ -46,6 +48,114 @@ async fn setup_test_db() -> SqlitePool {
     pool
 }
 
+// ── Data Seeding Helpers ────────────────────────────────────────────────────
+
+async fn seed_user(pool: &SqlitePool, id: &str, username: &str) {
+    sqlx::query(
+        "INSERT INTO users (id, username, email, password_hash, role) VALUES (?, ?, ?, 'hash', 'user')",
+    )
+    .bind(id)
+    .bind(username)
+    .bind(format!("{}@test.local", username))
+    .execute(pool)
+    .await
+    .unwrap_or_else(|e| panic!("Failed to insert user {}: {}", id, e));
+}
+
+async fn seed_player(pool: &SqlitePool, id: &str, name: &str) {
+    sqlx::query("INSERT INTO players (id, name, player_type) VALUES (?, ?, 'human')")
+        .bind(id)
+        .bind(name)
+        .execute(pool)
+        .await
+        .unwrap_or_else(|e| panic!("Failed to insert player {}: {}", id, e));
+}
+
+async fn seed_league(pool: &SqlitePool, id: &str, name: &str) {
+    sqlx::query(
+        "INSERT INTO leagues (id, name, algorithm, visibility) VALUES (?, ?, 'elo', 'public')",
+    )
+    .bind(id)
+    .bind(name)
+    .execute(pool)
+    .await
+    .unwrap_or_else(|e| panic!("Failed to insert league {}: {}", id, e));
+}
+
+async fn seed_season(pool: &SqlitePool, id: &str, league_id: &str) {
+    sqlx::query(
+        "INSERT INTO seasons (id, league_id, algorithm, start_date) VALUES (?, ?, 'elo', ?)",
+    )
+    .bind(id)
+    .bind(league_id)
+    .bind(Utc::now().to_rfc3339())
+    .execute(pool)
+    .await
+    .unwrap_or_else(|e| panic!("Failed to insert season {}: {}", id, e));
+}
+
+async fn seed_match(pool: &SqlitePool, id: &str, season_id: &str) {
+    sqlx::query("INSERT INTO matches (id, season_id, recorded_at) VALUES (?, ?, ?)")
+        .bind(id)
+        .bind(season_id)
+        .bind(Utc::now().to_rfc3339())
+        .execute(pool)
+        .await
+        .unwrap_or_else(|e| panic!("Failed to insert match {}: {}", id, e));
+}
+
+async fn seed_match_participant(pool: &SqlitePool, id: &str, match_id: &str, player_id: &str) {
+    sqlx::query(
+        "INSERT INTO match_participants (id, match_id, player_id, placement) VALUES (?, ?, ?, 1)",
+    )
+    .bind(id)
+    .bind(match_id)
+    .bind(player_id)
+    .execute(pool)
+    .await
+    .unwrap_or_else(|e| panic!("Failed to insert match_participant {}: {}", id, e));
+}
+
+async fn seed_alias(pool: &SqlitePool, primary_id: &str, alias_id: &str, created_by: &str) {
+    sqlx::query(
+        "INSERT INTO player_aliases (id, primary_player_id, alias_player_id, created_by) VALUES (?, ?, ?, ?)",
+    )
+    .bind(Uuid::new_v4().to_string())
+    .bind(primary_id)
+    .bind(alias_id)
+    .bind(created_by)
+    .execute(pool)
+    .await
+    .unwrap_or_else(|e| panic!("Failed to insert alias {}-{}: {}", primary_id, alias_id, e));
+}
+
+/// Full seeding for tests that need job creation (players + user + season + match).
+async fn seed_for_job_tests(pool: &SqlitePool) {
+    seed_user(pool, "user-1", "user1").await;
+    seed_player(pool, "player-a", "Player A").await;
+    seed_player(pool, "player-b", "Player B").await;
+    seed_player(pool, "player-x", "Player X").await;
+    seed_player(pool, "player-y", "Player Y").await;
+    seed_league(pool, "league-1", "Test League").await;
+    seed_season(pool, "season-1", "league-1").await;
+    seed_match(pool, "match-1", "season-1").await;
+    seed_match_participant(pool, "mp-1", "match-1", "player-a").await;
+}
+
+/// Seeding for alias group resolution tests (players + aliases).
+async fn seed_for_resolve_tests(pool: &SqlitePool) {
+    seed_user(pool, "user-1", "user1").await;
+    seed_player(pool, "player-a", "Player A").await;
+    seed_player(pool, "player-b", "Player B").await;
+    seed_player(pool, "player-c", "Player C").await;
+    seed_player(pool, "player-no-aliases", "Player No Aliases").await;
+    seed_player(pool, "player-no-links", "Player No Links").await;
+    seed_player(pool, "player-solo", "Player Solo").await;
+    // Alias chain: A -> B -> C
+    seed_alias(pool, "player-a", "player-b", "user-1").await;
+    seed_alias(pool, "player-b", "player-c", "user-1").await;
+}
+
 // ── Helper: Extract error message for inspection ────────────────────────────
 
 /// Extracts the inner message from a `PersistenceError` for assertion.
@@ -59,16 +169,11 @@ fn error_message(err: &PersistenceError) -> String {
 
 #[tokio::test]
 async fn test_create_alias_links_two_players_and_returns_job_ids() {
-    // When implementation is complete:
-    //   create_alias should insert a row into player_aliases and queue
-    //   recalculation jobs for all seasons containing either player.
-    //
-    // Currently STUBBED → returns Unknown error → assertion fails (TDD red phase).
     let pool = setup_test_db().await;
+    seed_for_job_tests(&pool).await;
 
     let result = AliasRepository::create_alias(&pool, "player-a", "player-b", "user-1").await;
 
-    // Once implemented: Ok(job_ids) where job_ids is not empty
     let job_ids = result.expect("create_alias should succeed with valid inputs");
     assert!(
         !job_ids.is_empty(),
@@ -81,7 +186,6 @@ async fn test_create_alias_links_two_players_and_returns_job_ids() {
 
 #[tokio::test]
 async fn test_create_alias_with_same_primary_and_alias_returns_error() {
-    // Self-referencing aliases make no semantic sense and should be rejected.
     let pool = setup_test_db().await;
 
     let result = AliasRepository::create_alias(
@@ -109,18 +213,15 @@ async fn test_create_alias_with_same_primary_and_alias_returns_error() {
 
 #[tokio::test]
 async fn test_create_alias_with_nonexistent_players_returns_error() {
-    // Both primary and alias players must exist in the players table
-    // before an alias link can be created (FK constraint).
     let pool = setup_test_db().await;
+    // No players exist — FK constraint will reject the INSERT.
 
-    // Non-existent primary
     let result = AliasRepository::create_alias(&pool, "nonexistent-p", "player-b", "user-1").await;
     assert!(
         result.is_err(),
         "create_alias with non-existent primary player should return error"
     );
 
-    // Non-existent alias
     let result = AliasRepository::create_alias(&pool, "player-a", "nonexistent-a", "user-1").await;
     assert!(
         result.is_err(),
@@ -130,10 +231,10 @@ async fn test_create_alias_with_nonexistent_players_returns_error() {
 
 #[tokio::test]
 async fn test_remove_alias_removes_link_and_returns_job_ids() {
-    // When implementation is complete:
-    //   remove_alias should delete the player_aliases row and queue
-    //   recalculation jobs for affected seasons.
     let pool = setup_test_db().await;
+    seed_for_job_tests(&pool).await;
+    // Pre-seed the alias so we can remove it
+    seed_alias(&pool, "player-a", "player-b", "user-1").await;
 
     let result = AliasRepository::remove_alias(&pool, "player-a", "player-b").await;
 
@@ -145,14 +246,25 @@ async fn test_remove_alias_removes_link_and_returns_job_ids() {
     for id in &job_ids {
         assert!(!id.is_empty(), "job IDs must not be empty strings");
     }
+
+    // Verify the alias was actually removed
+    let aliases = AliasRepository::get_aliases(&pool, "player-a")
+        .await
+        .expect("get_aliases should succeed");
+    let still_linked = aliases.iter().any(|a| {
+        (a.primary_player_id == "player-a" && a.alias_player_id == "player-b")
+            || (a.primary_player_id == "player-b" && a.alias_player_id == "player-a")
+    });
+    assert!(!still_linked, "Alias should be removed after remove_alias");
 }
 
 #[tokio::test]
 async fn test_remove_alias_with_nonexistent_link_is_idempotent_or_error() {
-    // Removing an alias that doesn't exist should either:
-    //   a) Return an error indicating the link doesn't exist, OR
-    //   b) Succeed idempotently (maybe returning 0 job_ids).
     let pool = setup_test_db().await;
+    // Players must exist to avoid FK issues on the lookup
+    seed_user(&pool, "user-1", "user1").await;
+    seed_player(&pool, "player-no-link", "Player No Link").await;
+    seed_player(&pool, "player-other", "Player Other").await;
 
     let result = AliasRepository::remove_alias(&pool, "player-no-link", "player-other").await;
 
@@ -184,9 +296,8 @@ async fn test_remove_alias_with_nonexistent_link_is_idempotent_or_error() {
 
 #[tokio::test]
 async fn test_create_alias_returns_non_empty_vec_of_job_ids() {
-    // Creating an alias must insert recalculation jobs for affected seasons.
-    // The returned Vec<String> must be non-empty.
     let pool = setup_test_db().await;
+    seed_for_job_tests(&pool).await;
 
     let result = AliasRepository::create_alias(&pool, "player-a", "player-b", "user-1").await;
 
@@ -199,9 +310,9 @@ async fn test_create_alias_returns_non_empty_vec_of_job_ids() {
 
 #[tokio::test]
 async fn test_remove_alias_returns_non_empty_vec_of_job_ids() {
-    // Removing an alias must also trigger recalculation by inserting jobs.
-    // The returned Vec<String> must be non-empty.
     let pool = setup_test_db().await;
+    seed_for_job_tests(&pool).await;
+    seed_alias(&pool, "player-a", "player-b", "user-1").await;
 
     let result = AliasRepository::remove_alias(&pool, "player-a", "player-b").await;
 
@@ -214,8 +325,8 @@ async fn test_remove_alias_returns_non_empty_vec_of_job_ids() {
 
 #[tokio::test]
 async fn test_job_ids_are_valid_strings() {
-    // Every returned job_id must be a non-empty, valid UUID or similar identifier.
     let pool = setup_test_db().await;
+    seed_for_job_tests(&pool).await;
 
     let result = AliasRepository::create_alias(&pool, "player-x", "player-y", "user-1").await;
 
@@ -237,8 +348,9 @@ async fn test_job_ids_are_valid_strings() {
 
 #[tokio::test]
 async fn test_resolve_alias_group_for_player_with_no_aliases_returns_self() {
-    // A player with no aliases should resolve to just themselves.
     let pool = setup_test_db().await;
+    seed_user(&pool, "user-1", "user1").await;
+    seed_player(&pool, "player-no-aliases", "Player No Aliases").await;
 
     let result = AliasRepository::resolve_alias_group(&pool, "player-no-aliases").await;
 
@@ -256,8 +368,11 @@ async fn test_resolve_alias_group_for_player_with_no_aliases_returns_self() {
 
 #[tokio::test]
 async fn test_resolve_alias_group_for_player_with_one_alias_returns_both() {
-    // If A is linked to B (as primary/alias), resolving A should return [A, B].
     let pool = setup_test_db().await;
+    seed_user(&pool, "user-1", "user1").await;
+    seed_player(&pool, "player-a", "Player A").await;
+    seed_player(&pool, "player-b", "Player B").await;
+    seed_alias(&pool, "player-a", "player-b", "user-1").await;
 
     let result = AliasRepository::resolve_alias_group(&pool, "player-a").await;
 
@@ -279,9 +394,8 @@ async fn test_resolve_alias_group_for_player_with_one_alias_returns_both() {
 
 #[tokio::test]
 async fn test_resolve_alias_group_for_player_in_chain_returns_all() {
-    // Given: A linked to B (primary->alias), B linked to C (primary->alias)
-    // Resolving A should return [A, B, C] — the full transitive closure.
     let pool = setup_test_db().await;
+    seed_for_resolve_tests(&pool).await;
 
     let result = AliasRepository::resolve_alias_group(&pool, "player-a").await;
 
@@ -307,7 +421,6 @@ async fn test_resolve_alias_group_for_player_in_chain_returns_all() {
 
 #[tokio::test]
 async fn test_resolve_alias_group_for_nonexistent_player_returns_error() {
-    // Resolving a player that does not exist should produce an error.
     let pool = setup_test_db().await;
 
     let result = AliasRepository::resolve_alias_group(&pool, "nonexistent-id").await;
@@ -334,21 +447,26 @@ async fn test_resolve_alias_group_for_nonexistent_player_returns_error() {
 
 #[tokio::test]
 async fn test_get_aliases_returns_all_alias_records_for_a_player() {
-    // get_aliases should return every PlayerAlias where the given player_id
-    // appears as either primary_player_id or alias_player_id.
     let pool = setup_test_db().await;
+    seed_user(&pool, "user-1", "user1").await;
+    seed_player(&pool, "player-a", "Player A").await;
+    seed_player(&pool, "player-b", "Player B").await;
+    seed_player(&pool, "player-c", "Player C").await;
+    seed_player(&pool, "player-x", "Player X").await;
+    // player-a is primary in two aliases, alias in one
+    seed_alias(&pool, "player-a", "player-b", "user-1").await;
+    seed_alias(&pool, "player-a", "player-c", "user-1").await;
+    seed_alias(&pool, "player-x", "player-a", "user-1").await;
 
     let result = AliasRepository::get_aliases(&pool, "player-a").await;
 
     let aliases = result.expect("get_aliases should succeed");
-    // When stubs are complete, this player should have at least one alias record.
     assert!(
         !aliases.is_empty(),
         "get_aliases should return alias records for a player with links"
     );
 
     for alias in &aliases {
-        // Every record must reference the queried player in one of the directions
         let matches = alias.primary_player_id == "player-a" || alias.alias_player_id == "player-a";
         assert!(
             matches,
@@ -356,7 +474,6 @@ async fn test_get_aliases_returns_all_alias_records_for_a_player() {
             alias.primary_player_id, alias.alias_player_id,
         );
 
-        // Structural validations
         assert!(!alias.id.is_empty(), "alias record ID must not be empty");
         assert!(
             alias.primary_player_id != alias.alias_player_id,
@@ -368,8 +485,9 @@ async fn test_get_aliases_returns_all_alias_records_for_a_player() {
 
 #[tokio::test]
 async fn test_get_aliases_for_player_with_no_aliases_returns_empty_vec() {
-    // A player with no alias links should get an empty Vec, not an error.
     let pool = setup_test_db().await;
+    seed_user(&pool, "user-1", "user1").await;
+    seed_player(&pool, "player-no-links", "Player No Links").await;
 
     let result = AliasRepository::get_aliases(&pool, "player-no-links").await;
 
@@ -383,10 +501,17 @@ async fn test_get_aliases_for_player_with_no_aliases_returns_empty_vec() {
 
 #[tokio::test]
 async fn test_get_aliases_distinguishes_primary_vs_alias_direction() {
-    // When listing aliases for a player, the results must correctly indicate
-    // whether the queried player is the primary or the alias in each link.
-    // This test verifies that both directions are represented.
     let pool = setup_test_db().await;
+    seed_user(&pool, "user-1", "user1").await;
+    seed_player(&pool, "player-a", "Player A").await;
+    seed_player(&pool, "player-b", "Player B").await;
+    seed_player(&pool, "player-c", "Player C").await;
+    seed_player(&pool, "player-x", "Player X").await;
+    // player-a as primary
+    seed_alias(&pool, "player-a", "player-b", "user-1").await;
+    seed_alias(&pool, "player-a", "player-c", "user-1").await;
+    // player-a as alias
+    seed_alias(&pool, "player-x", "player-a", "user-1").await;
 
     let result = AliasRepository::get_aliases(&pool, "player-a").await;
 
@@ -401,8 +526,7 @@ async fn test_get_aliases_distinguishes_primary_vs_alias_direction() {
         .filter(|a| a.alias_player_id == "player-a")
         .collect();
 
-    // A player may be primary in some links and alias in others.
-    // The sum of both categories should equal total returned records.
+    // Sum of both categories should equal total returned records
     assert_eq!(
         as_primary.len() + as_alias.len(),
         aliases.len(),
@@ -450,7 +574,6 @@ async fn test_create_alias_with_empty_primary_player_id_returns_error() {
         result.is_err(),
         "create_alias with empty primary_player_id should return error"
     );
-    // Expected: PersistenceError::InvalidInput or similar
 }
 
 #[tokio::test]
@@ -483,7 +606,6 @@ async fn test_create_alias_with_both_player_ids_empty_returns_error() {
 
 #[tokio::test]
 async fn test_create_alias_with_self_referencing_players_is_rejected() {
-    // Self-referencing alias (primary == alias) must always be rejected.
     let pool = setup_test_db().await;
 
     let result = AliasRepository::create_alias(&pool, "player-solo", "player-solo", "user-1").await;
@@ -518,7 +640,6 @@ async fn test_create_alias_with_empty_created_by_returns_error() {
         result.is_err(),
         "create_alias with empty created_by should return error"
     );
-    // Every alias must be auditable — created_by identifies who created the link.
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -556,7 +677,6 @@ async fn test_remove_alias_with_empty_alias_player_id_returns_error() {
 #[tokio::test]
 async fn test_player_alias_struct_has_required_fields() {
     // Verify the PlayerAlias struct compiles with all required fields.
-    // This is a compile-time check, but we exercise it at runtime too.
     let alias = PlayerAlias {
         id: "alias-1".to_string(),
         primary_player_id: "player-a".to_string(),
@@ -581,18 +701,3 @@ async fn test_player_alias_struct_has_required_fields() {
         "created_at should be a recent timestamp"
     );
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// TDD STATUS NOTE
-//
-// All tests above will FAIL at runtime until the `AliasRepository` stubs are
-// implemented. The stubs currently return `PersistenceError::Unknown(...)` for
-// every method. Tests that expect `Ok(...)` will panic; tests that check for
-// specific error variants (e.g., `InvalidInput`, `NotFound`) may also fail
-// because the stubs return the generic `Unknown` variant.
-//
-// This is the expected TDD workflow:
-//   1. Tests written (RED)   ← WE ARE HERE
-//   2. Implementation (GREEN)
-//   3. Refinement (REFACTOR)
-// ══════════════════════════════════════════════════════════════════════════════
