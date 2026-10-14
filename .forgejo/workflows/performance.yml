@@ -1,0 +1,72 @@
+# Forgejo Actions port of .github/workflows/performance.yml.
+#
+# Runner differences from GitHub-hosted ubuntu-latest (Rialto, catthehacker
+# act-24.04 image): no Chrome is preinstalled (wasm-pack's chromedriver then
+# fails on missing libnspr4/libnss3), so Google Chrome stable is installed
+# from Google's .deb, which pulls in its shared-library dependencies.
+# Forgejo has no job summaries, so the summary is written to the log.
+name: Performance Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  wasm-tests:
+    name: WASM Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      matrix:
+        browser: [chrome]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Install headless Chrome
+        run: |
+          SUDO=""
+          if [ "$(id -u)" -ne 0 ]; then SUDO=sudo; fi
+          curl -fsSL -o /tmp/google-chrome.deb \
+            https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          $SUDO apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq --no-install-recommends /tmp/google-chrome.deb
+          rm -f /tmp/google-chrome.deb
+          google-chrome --version
+
+      - name: Build WASM module
+        run: |
+          cd wasm
+          wasm-pack build --target web --out-dir pkg
+
+      - name: Run WASM tests - ${{ matrix.browser }}
+        run: |
+          cd wasm
+          wasm-pack test --headless --${{ matrix.browser }} --test minimal_perf_test
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## WASM Test Summary"
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "WASM tests passed in ${{ matrix.browser }}"
+          else
+            echo "WASM tests failed in ${{ matrix.browser }}"
+          fi

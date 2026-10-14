@@ -1,0 +1,41 @@
+# Forgejo Actions port of .github/workflows/ci.yml.
+# .github/workflows/ci-recommendation.yml was a duplicate of ci.yml (same
+# triggers, same ./scripts/ci-check.sh) and is folded into this single job.
+#
+# Runner differences from GitHub-hosted ubuntu-latest (Rialto, catthehacker
+# act-24.04 image): no Rust toolchain is preinstalled, so rustfmt/clippy
+# components and the wasm32 target (used by the bundle-size check) are
+# requested explicitly.
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Run CI checks
+        run: ./scripts/ci-check.sh
