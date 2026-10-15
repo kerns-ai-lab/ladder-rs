@@ -32,10 +32,21 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install wasm-pack
+      # wasm-pack otherwise compiles wasm-bindgen-cli from source (~70s) in the
+      # bundle-size step. It uses a prebuilt binary on PATH instead when the
+      # version matches the wasm-bindgen crate in Cargo.lock, so read it there.
+      - name: Resolve wasm-bindgen version from Cargo.lock
+        id: bindgen
+        run: |
+          version=$(awk '$0 == "name = \"wasm-bindgen\"" { getline; gsub(/version = |"/, ""); print; exit }' Cargo.lock)
+          if [ -z "$version" ]; then echo "wasm-bindgen not found in Cargo.lock" >&2; exit 1; fi
+          echo "wasm-bindgen $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install wasm-pack and wasm-bindgen-cli
         uses: taiki-e/install-action@v2
         with:
-          tool: wasm-pack
+          tool: wasm-pack,wasm-bindgen@${{ steps.bindgen.outputs.version }}
 
       - name: Run CI checks
         run: ./scripts/ci-check.sh
