@@ -43,10 +43,11 @@ jobs:
           echo "wasm-bindgen $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Install wasm-pack and wasm-bindgen-cli
+      # cargo-nextest: ci-check.sh runs the workspace tests with it when present.
+      - name: Install wasm-pack, wasm-bindgen-cli and cargo-nextest
         uses: taiki-e/install-action@v2
         with:
-          tool: wasm-pack,wasm-bindgen@${{ steps.bindgen.outputs.version }}
+          tool: wasm-pack,wasm-bindgen@${{ steps.bindgen.outputs.version }},cargo-nextest
 
       - name: Run CI checks
         run: ./scripts/ci-check.sh
