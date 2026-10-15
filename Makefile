@@ -9,23 +9,23 @@ ci-check:
 
 # Format code
 fmt:
-	cargo fmt
+	cargo fmt --all
 
 # Run tests
 test:
-	cargo test --all-features
+	cargo test --workspace --all-features
 
 # Run clippy linter
 clippy:
-	cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 # Run clippy and fix automatically fixable warnings
 clippy-fix:
-	cargo clippy --all-targets --all-features --fix --allow-dirty
+	cargo clippy --workspace --all-targets --all-features --fix --allow-dirty
 
 # Build documentation
 doc:
-	cargo doc --no-deps --all-features --open
+	cargo doc --workspace --no-deps --all-features --open
 
 # Build all targets
 build:

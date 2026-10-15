@@ -16,7 +16,7 @@ make ci-check
 # or
 ./scripts/ci-check.sh
 ```
-This runs exactly what CI will run on GitHub.
+This runs exactly what CI runs, across every workspace crate.
 
 ### 3. Fix Common Issues Automatically
 ```bash
@@ -56,20 +56,21 @@ If using VS Code, the project includes settings that will:
 ## Common Commands
 
 ```bash
+# The root Cargo.toml is both a package and the workspace (no default-members),
+# so pass --workspace (--all for fmt) to cover every crate, as CI does.
+
 # Format code
-cargo fmt
+cargo fmt --all
 
 # Run clippy
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-# Run tests
-cargo test --all-features
-
-# Build everything
-cargo build --all-targets --all-features
+# Run tests (CI uses `cargo nextest run --workspace --all-features` plus
+# `cargo test --workspace --all-features --doc`)
+cargo test --workspace --all-features
 
 # Generate docs
-cargo doc --no-deps --all-features --open
+cargo doc --workspace --no-deps --all-features --open
 ```
 
 ## Troubleshooting

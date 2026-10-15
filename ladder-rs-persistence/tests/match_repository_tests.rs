@@ -390,6 +390,11 @@ async fn test_is_duplicate_same_participants_and_timestamp() {
     let participants = make_participants(&player_ids[..2]);
     let recorded_at = test_timestamp();
 
+    // A duplicate needs an existing match to duplicate.
+    MatchRepository::record_match(&pool, &season_id, participants.clone(), None, recorded_at)
+        .await
+        .expect("Failed to record the original match");
+
     let result =
         MatchRepository::is_duplicate(&pool, &season_id, &participants, &recorded_at).await;
 

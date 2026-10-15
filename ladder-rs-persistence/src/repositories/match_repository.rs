@@ -5,6 +5,7 @@
 //! detection and season write protection.
 
 use crate::error::{PersistenceError, Result};
+use crate::pool::begin_immediate;
 use crate::rating_engine_bridge::{MatchInput, RatingEngineBridge, RatingInput};
 use crate::repositories::job_repository::JobRepository;
 use crate::{Match, MatchParticipant, RatingSnapshot};
@@ -286,10 +287,9 @@ impl MatchRepository {
         }
 
         // ── Transaction ─────────────────────────────────────────────────
-        let mut tx = pool
-            .begin()
-            .await
-            .map_err(|e| PersistenceError::TransactionError(e.to_string()))?;
+        // Reads (season state, duplicates, prior ratings) precede the writes,
+        // so take the write lock first; see `begin_immediate`.
+        let mut tx = begin_immediate(pool).await?;
 
         // Step 1: Check season not closed
         let closed = Self::is_season_closed_tx(&mut tx, season_id).await?;
@@ -625,10 +625,9 @@ impl MatchRepository {
         ensure_user_exists(pool, changed_by).await?;
 
         // ── Transaction ─────────────────────────────────────────────────
-        let mut tx = pool
-            .begin()
-            .await
-            .map_err(|e| PersistenceError::TransactionError(e.to_string()))?;
+        // Reads (the match and its participants) precede the writes, so take
+        // the write lock first; see `begin_immediate`.
+        let mut tx = begin_immediate(pool).await?;
 
         // Step 1: Verify match exists and capture before state
         let existing = sqlx::query_as::<_, (String,)>("SELECT id FROM matches WHERE id = ?")

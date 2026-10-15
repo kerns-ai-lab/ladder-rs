@@ -1,11 +1,12 @@
-//! Workspace structure and compilation tests for ladder-rs.
+//! Workspace structure tests for ladder-rs.
 //!
-//! These tests verify that the Cargo workspace is correctly configured,
-//! all crates compile, and the dependency graph is valid.
+//! These tests verify that the Cargo workspace is correctly configured and
+//! the dependency graph is valid. That every crate compiles (all targets,
+//! all features) is checked by CI's workspace-wide clippy and test run
+//! (scripts/ci-check.sh), not by nested cargo invocations here.
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 const WORKSPACE_ROOT: &str = env!("CARGO_MANIFEST_DIR");
 
@@ -14,16 +15,6 @@ fn read_cargo_toml(path: &str) -> Result<toml::Value, Box<dyn std::error::Error>
     let content = fs::read_to_string(path)?;
     let value: toml::Value = toml::from_str(&content)?;
     Ok(value)
-}
-
-/// Helper to run a cargo command and check success
-fn run_cargo(args: &[&str]) -> bool {
-    let output = Command::new("cargo")
-        .args(args)
-        .current_dir(WORKSPACE_ROOT)
-        .output()
-        .expect("Failed to execute cargo");
-    output.status.success()
 }
 
 // ============================================================================
@@ -292,70 +283,6 @@ fn test_server_uses_workspace_dependencies() {
             dep
         );
     }
-}
-
-// ============================================================================
-// Compilation Tests
-// ============================================================================
-
-#[test]
-fn test_workspace_compiles() {
-    assert!(
-        run_cargo(&["check", "--workspace"]),
-        "Entire workspace must compile successfully"
-    );
-}
-
-#[test]
-fn test_persistence_crate_compiles() {
-    assert!(
-        run_cargo(&["check", "-p", "ladder-rs-persistence"]),
-        "ladder-rs-persistence crate must compile successfully"
-    );
-}
-
-#[test]
-fn test_server_crate_compiles() {
-    assert!(
-        run_cargo(&["check", "-p", "ladder-rs-server"]),
-        "ladder-rs-server crate must compile successfully"
-    );
-}
-
-#[test]
-fn test_workspace_tests_compile() {
-    assert!(
-        run_cargo(&["test", "--workspace", "--no-run"]),
-        "All workspace tests must compile"
-    );
-}
-
-// ============================================================================
-// Feature Flag Tests
-// ============================================================================
-
-#[test]
-fn test_default_features_compile() {
-    assert!(
-        run_cargo(&["check", "--workspace", "--features", "default"]),
-        "Workspace must compile with default features"
-    );
-}
-
-#[test]
-fn test_elo_only_feature_compiles() {
-    assert!(
-        run_cargo(&["check", "-p", "ladder-rs", "--features", "elo-only"]),
-        "ladder-rs must compile with elo-only feature"
-    );
-}
-
-#[test]
-fn test_all_algorithms_feature_compiles() {
-    assert!(
-        run_cargo(&["check", "-p", "ladder-rs", "--features", "all-algorithms"]),
-        "ladder-rs must compile with all-algorithms feature"
-    );
 }
 
 // ============================================================================
