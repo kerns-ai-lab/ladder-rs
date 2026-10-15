@@ -493,19 +493,6 @@ async fn get_table_indexes(pool: &Pool<Sqlite>, table: &str) -> Vec<IndexInfo> {
         .collect()
 }
 
-/// Get columns for a specific index using PRAGMA index_info
-async fn get_index_columns(pool: &Pool<Sqlite>, index_name: &str) -> Vec<String> {
-    let query = format!("PRAGMA index_info({})", index_name);
-    let rows: Vec<(i64, i64, String)> = sqlx::query_as(&query)
-        .fetch_all(pool)
-        .await
-        .unwrap_or_else(|e| panic!("Failed to get columns for index '{}': {}", index_name, e));
-
-    let mut cols: Vec<_> = rows.into_iter().map(|(_, _, name)| name).collect();
-    cols.sort();
-    cols
-}
-
 /// Get FK constraints for a table using PRAGMA foreign_key_list
 struct FKInfo {
     from: String,
@@ -514,13 +501,16 @@ struct FKInfo {
     on_delete: String,
 }
 
+/// A `PRAGMA foreign_key_list` row:
+/// (id, seq, table, from, to, on_update, on_delete, match)
+type ForeignKeyListRow = (i64, i64, String, String, String, String, String, String);
+
 async fn get_table_fks(pool: &Pool<Sqlite>, table: &str) -> Vec<FKInfo> {
     let query = format!("PRAGMA foreign_key_list({})", table);
-    let rows: Vec<(i64, i64, String, String, String, String, String, String)> =
-        sqlx::query_as(&query)
-            .fetch_all(pool)
-            .await
-            .unwrap_or_else(|e| panic!("Failed to get FKs for table '{}': {}", table, e));
+    let rows: Vec<ForeignKeyListRow> = sqlx::query_as(&query)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_else(|e| panic!("Failed to get FKs for table '{}': {}", table, e));
 
     rows.into_iter()
         .map(|(_, _, table, from, to, _, on_delete, _)| FKInfo {
@@ -1230,7 +1220,7 @@ async fn test_complete_schema_verification() {
 
     for expected_table in EXPECTED_TABLES {
         assert!(
-            tables.contains(&expected_table.to_string()),
+            tables.iter().any(|t| t == expected_table),
             "Table '{}' not found",
             expected_table
         );

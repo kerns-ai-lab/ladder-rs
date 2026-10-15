@@ -378,6 +378,9 @@ impl JsError {
     }
 
     /// Convert to string
+    // This is JS's `toString`, exported through wasm-bindgen; a Display impl
+    // would not be visible to JavaScript.
+    #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         format!("{}: {}", self.error_type, self.message)

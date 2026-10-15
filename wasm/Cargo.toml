@@ -12,6 +12,13 @@ readme = "README.md"
 # Disable auto-discovery of test files; only [[test]] entries below are compiled.
 # This prevents broken test stubs from blocking wasm-pack test compilation.
 autotests = false
+# Disable auto-discovery of benches too. benches/wasm_performance.rs targets an
+# API that no longer exists (serde on core rating types, Team::players(),
+# TrueSkill::match_quality) and has no criterion dev-dependency, so it does not
+# compile; auto-discovery would put it in `cargo clippy --all-targets` and
+# `cargo test --all-targets`. Native benchmarks live in the root crate's
+# benches/. Re-enable with a [[bench]] entry once it is ported.
+autobenches = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -134,7 +141,7 @@ debug-assertions = false
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-# Note: Native benchmarks are in wasm/benches/wasm_performance.rs covering all algorithms.
-# Run locally with: cargo bench --manifest-path wasm/Cargo.toml
+# Note: wasm/benches/wasm_performance.rs is not built (autobenches = false above)
+# until it is ported to the current API. Native benchmarks: `cargo bench -p ladder-rs`.
 # Do NOT include benchmarks in GitHub Actions workflows - they consume too many CI minutes.
 

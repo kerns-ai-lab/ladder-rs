@@ -90,6 +90,12 @@ pub struct EloSystem {
     inner: CoreEloSystem,
 }
 
+impl Default for EloSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl EloSystem {
     /// Creates a new Elo system with default parameters
@@ -338,7 +344,7 @@ impl EloUtils {
         let values: Vec<f64> = serde_json::from_str(values_json)
             .map_err(|e| JsValue::from_str(&format!("Invalid values JSON: {}", e)))?;
 
-        let ratings: Vec<EloRating> = values.into_iter().map(|v| EloRating::new(v)).collect();
+        let ratings: Vec<EloRating> = values.into_iter().map(EloRating::new).collect();
 
         serde_json::to_string(&ratings)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))

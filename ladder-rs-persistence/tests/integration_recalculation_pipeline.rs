@@ -470,14 +470,11 @@ async fn test_full_recalculation_pipeline_alias_trigger_to_leaderboard() {
         let ratings: Vec<RatingInput> = player_ids_m
             .iter()
             .map(|pid| {
-                current_ratings
-                    .get(pid)
-                    .cloned()
-                    .unwrap_or_else(|| RatingInput {
-                        rating: 1500.0,
-                        uncertainty: None,
-                        volatility: None,
-                    })
+                current_ratings.get(pid).cloned().unwrap_or(RatingInput {
+                    rating: 1500.0,
+                    uncertainty: None,
+                    volatility: None,
+                })
             })
             .collect();
 
