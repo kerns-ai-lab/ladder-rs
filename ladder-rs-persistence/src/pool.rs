@@ -116,6 +116,35 @@ pub async fn create_pool_with_config(
     Ok(pool)
 }
 
+/// Begins a transaction that takes SQLite's write lock up front, the equivalent
+/// of `BEGIN IMMEDIATE`, for transactions that read before they write.
+///
+/// `Pool::begin` issues a deferred `BEGIN`: the transaction takes a read
+/// snapshot at its first `SELECT` and only asks for the write lock at its first
+/// write. When two such transactions run concurrently, the one that upgrades
+/// second cannot proceed without invalidating its snapshot, so SQLite fails it
+/// at once with `SQLITE_BUSY` (WAL file) or `SQLITE_LOCKED` "database is
+/// deadlocked" (shared-cache in-memory), ignoring `busy_timeout`. Taking the
+/// write lock before any read makes concurrent writers queue on
+/// `busy_timeout` instead.
+///
+/// sqlx 0.7 cannot issue `BEGIN IMMEDIATE`, so the transaction's first
+/// statement is a write that matches no rows. Any `UPDATE` acquires the write
+/// lock when it starts, whether or not it changes a row.
+pub(crate) async fn begin_immediate(
+    pool: &Pool<Sqlite>,
+) -> Result<sqlx::Transaction<'static, Sqlite>, PersistenceError> {
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| PersistenceError::TransactionError(e.to_string()))?;
+    sqlx::query("UPDATE matches SET id = id WHERE 0")
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| PersistenceError::TransactionError(e.to_string()))?;
+    Ok(tx)
+}
+
 /// Acquires a single connection from the pool for health checking or direct use.
 pub async fn acquire_connection(
     pool: &Pool<Sqlite>,

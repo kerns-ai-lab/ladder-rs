@@ -854,3 +854,51 @@ async fn many_readers_during_heavy_writes() {
         elapsed
     );
 }
+
+/// Concurrent `record_match` calls with no external write serialization must
+/// all succeed: each waits on busy_timeout for the write lock. Before
+/// `record_match` took the write lock up front, its transaction read first and
+/// upgraded to a write later, and all but one concurrent caller failed at once
+/// with SQLITE_BUSY ("database is locked") regardless of busy_timeout.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_record_match_writers_all_succeed() {
+    let (pool, cleanup_path) = setup_seeded_file_db().await;
+    let _guard = scopeguard::guard(cleanup_path.clone(), |p| cleanup_db(&p));
+
+    let (_league_id, season_id, player_ids) = seed_fixtures(&pool).await;
+    let participants = make_participants(&player_ids[..2]);
+    let base_time = Utc::now();
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let pool = pool.clone();
+            let season_id = season_id.clone();
+            let participants = participants.clone();
+            // Distinct timestamps so no call is rejected as a duplicate.
+            let recorded_at = base_time + chrono::Duration::seconds(i);
+            tokio::spawn(async move {
+                MatchRepository::record_match(&pool, &season_id, participants, None, recorded_at)
+                    .await
+            })
+        })
+        .collect();
+
+    let mut errors = Vec::new();
+    for handle in handles {
+        if let Err(e) = handle.await.expect("writer task panicked") {
+            errors.push(format!("{:?}", e));
+        }
+    }
+    assert!(
+        errors.is_empty(),
+        "Concurrent record_match calls failed: {:?}",
+        errors
+    );
+
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM matches WHERE season_id = ?")
+        .bind(&season_id)
+        .fetch_one(&pool)
+        .await
+        .expect("count matches");
+    assert_eq!(count, 8, "all 8 concurrent matches should be recorded");
+}

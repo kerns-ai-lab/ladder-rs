@@ -91,7 +91,9 @@ const EXPECTED_FK_CONSTRAINTS: &[(&str, &str, &str, &str, &str)] = &[
     // Auth FKs
     ("login_attempts", "user_id", "users", "id", "CASCADE"),
     ("sessions", "user_id", "users", "id", "CASCADE"),
-    ("invite_tokens", "user_id", "users", "id", "CASCADE"),
+    // invite_tokens was recreated by migration 07: created_by is the only FK
+    // (player_id is a plain string, claimed_by has no constraint).
+    ("invite_tokens", "created_by", "users", "id", "CASCADE"),
     ("player_account_links", "user_id", "users", "id", "RESTRICT"),
     (
         "player_account_links",
@@ -199,12 +201,14 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
         true,
         Some("CURRENT_TIMESTAMP"),
     ),
-    // invite_tokens table
+    // invite_tokens table (schema from migration 07)
     ("invite_tokens", "id", "TEXT", true, None),
-    ("invite_tokens", "user_id", "TEXT", true, None),
-    ("invite_tokens", "token", "TEXT", true, None),
+    ("invite_tokens", "player_id", "TEXT", true, None),
+    ("invite_tokens", "token_hash", "TEXT", true, None),
+    ("invite_tokens", "created_by", "TEXT", true, None),
+    ("invite_tokens", "claimed_by", "TEXT", false, None),
+    ("invite_tokens", "claimed_at", "TEXT", false, None),
     ("invite_tokens", "expires_at", "TEXT", true, None),
-    ("invite_tokens", "used_at", "TEXT", false, None),
     (
         "invite_tokens",
         "created_at",
@@ -392,7 +396,23 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
     // recalculation_jobs table
     ("recalculation_jobs", "id", "TEXT", true, None),
     ("recalculation_jobs", "season_id", "TEXT", true, None),
-    ("recalculation_jobs", "job_type", "TEXT", true, None),
+    ("recalculation_jobs", "triggered_by", "TEXT", true, None),
+    (
+        "recalculation_jobs",
+        "retry_count",
+        "INTEGER",
+        true,
+        Some("0"),
+    ),
+    (
+        "recalculation_jobs",
+        "max_retries",
+        "INTEGER",
+        true,
+        Some("3"),
+    ),
+    ("recalculation_jobs", "error_message", "TEXT", false, None),
+    ("recalculation_jobs", "started_at", "TEXT", false, None),
     (
         "recalculation_jobs",
         "status",
@@ -403,6 +423,13 @@ const EXPECTED_COLUMNS: &[(&str, &str, &str, bool, Option<&str>)] = &[
     (
         "recalculation_jobs",
         "created_at",
+        "TEXT",
+        true,
+        Some("CURRENT_TIMESTAMP"),
+    ),
+    (
+        "recalculation_jobs",
+        "updated_at",
         "TEXT",
         true,
         Some("CURRENT_TIMESTAMP"),
