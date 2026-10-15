@@ -1,0 +1,52 @@
+# Forgejo Actions port of .github/workflows/ci.yml.
+# .github/workflows/ci-recommendation.yml was a duplicate of ci.yml (same
+# triggers, same ./scripts/ci-check.sh) and is folded into this single job.
+#
+# Runner differences from GitHub-hosted ubuntu-latest (Rialto, catthehacker
+# act-24.04 image): no Rust toolchain is preinstalled, so rustfmt/clippy
+# components and the wasm32 target (used by the bundle-size check) are
+# requested explicitly.
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      # wasm-pack otherwise compiles wasm-bindgen-cli from source (~70s) in the
+      # bundle-size step. It uses a prebuilt binary on PATH instead when the
+      # version matches the wasm-bindgen crate in Cargo.lock, so read it there.
+      - name: Resolve wasm-bindgen version from Cargo.lock
+        id: bindgen
+        run: |
+          version=$(awk '$0 == "name = \"wasm-bindgen\"" { getline; gsub(/version = |"/, ""); print; exit }' Cargo.lock)
+          if [ -z "$version" ]; then echo "wasm-bindgen not found in Cargo.lock" >&2; exit 1; fi
+          echo "wasm-bindgen $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install wasm-pack and wasm-bindgen-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack,wasm-bindgen@${{ steps.bindgen.outputs.version }}
+
+      - name: Run CI checks
+        run: ./scripts/ci-check.sh
