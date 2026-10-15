@@ -25,38 +25,6 @@ impl TestFixture {
     }
 }
 
-/// HTTP error response structures used in tests
-mod error_responses {
-    use serde_json::json;
-
-    pub struct ValidationErrorResponse {
-        pub message: String,
-        pub error_code: String,
-        pub details: Option<Vec<String>>,
-    }
-
-    pub fn build_validation_error(error: &str, code: &str) -> serde_json::Value {
-        json!({
-            "message": error,
-            "error_code": code
-        })
-    }
-
-    pub fn build_not_found_error(resource: &str) -> serde_json::Value {
-        json!({
-            "message": format!("{} not found", resource),
-            "error_code": "NOT_FOUND"
-        })
-    }
-
-    pub fn build_conflict_error(reason: &str) -> serde_json::Value {
-        json!({
-            "message": reason,
-            "error_code": "CONFLICT"
-        })
-    }
-}
-
 /// Scenario: Admin corrects the outcome of an existing match
 ///
 /// Given "admin" is authenticated

@@ -10,13 +10,15 @@
 //! - rayon enters only via ladder-rs's "full-deps" feature (never enabled in WASM)
 //! - The fix was changing to features = ["all-algorithms"] which enables TrueSkill
 
+// Browser tests (wasm-pack test); on native targets they would be dead code.
+#![cfg(target_arch = "wasm32")]
+
 extern crate ladder_rs_wasm;
 use js_sys::Array;
 use ladder_rs_wasm::{
     EloRating, EloSystem, MatchOutcome, TrueSkillRating, TrueSkillSystem, TrueSkillTeam,
     TrueSkillUtils,
 };
-use serde_json;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);

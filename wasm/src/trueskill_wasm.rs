@@ -167,6 +167,12 @@ pub struct TrueSkillSystem {
     inner: CoreTrueSkillSystem,
 }
 
+impl Default for TrueSkillSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl TrueSkillSystem {
     /// Creates a new TrueSkill system with default parameters
@@ -302,7 +308,7 @@ impl TrueSkillSystem {
     }
 
     /// Processes a match and returns updated teams
-    /// ranks: array where ranks[i] is the rank of team i (1 = first place, 2 = second, etc.)
+    /// ranks: array where `ranks[i]` is the rank of team `i` (1 = first place, 2 = second, etc.)
     pub fn process_match(
         &self,
         teams: &js_sys::Array,
@@ -605,7 +611,7 @@ pub struct TrueSkillUtils;
 impl TrueSkillUtils {
     /// Processes multiple matches in batch
     /// Takes JSON strings: ratings array and matches array
-    /// Match format: {"teams": [[player_indices], ...], "ranks": [1, 2, ...]}
+    /// Match format: `{"teams": [[player_indices], ...], "ranks": [1, 2, ...]}`
     /// Returns updated ratings as JSON string
     pub fn batch_process(
         system: &TrueSkillSystem,

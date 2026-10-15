@@ -174,7 +174,7 @@ pub async fn rating_distribution(
     (StatusCode::OK, Json(response))
 }
 
-/// GET /api/leagues/:league_id/dashboard/match-volume?period=<period>
+/// `GET /api/leagues/:league_id/dashboard/match-volume?period=<period>`
 ///
 /// Returns 400 with a `VALIDATION_ERROR` body if `period` is not one of:
 /// `hour`, `day`, `week`, `monthly`.
@@ -205,7 +205,7 @@ pub async fn match_volume(
     (StatusCode::OK, Json(response)).into_response()
 }
 
-/// GET /api/leagues/:league_id/dashboard/top-bottom?n=<n>
+/// `GET /api/leagues/:league_id/dashboard/top-bottom?n=<n>`
 pub async fn top_bottom_agents(
     State(_state): State<AppState>,
     Path(_league_id): Path<i64>,
@@ -218,7 +218,7 @@ pub async fn top_bottom_agents(
     (StatusCode::OK, Json(response))
 }
 
-/// GET /api/leagues/:league_id/dashboard/agents?active_only=<bool>
+/// `GET /api/leagues/:league_id/dashboard/agents?active_only=<bool>`
 pub async fn agents(
     State(_state): State<AppState>,
     Path(_league_id): Path<i64>,

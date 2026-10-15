@@ -256,7 +256,8 @@ impl PerformanceCompat {
     }
 }
 
-#[cfg(test)]
+// Browser tests (wasm-pack test); on native targets they would be dead code.
+#[cfg(all(test, target_arch = "wasm32"))]
 mod tests {
     use super::*;
     use wasm_bindgen_test::*;

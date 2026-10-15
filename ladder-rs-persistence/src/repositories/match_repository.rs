@@ -68,8 +68,6 @@ struct RatingJson {
 struct MatchRow {
     id: String,
     season_id: String,
-    recorded_at: String,
-    score_metadata_json: Option<String>,
     is_corrected: bool,
     created_at: String,
     /// Computed via window function, not a real column

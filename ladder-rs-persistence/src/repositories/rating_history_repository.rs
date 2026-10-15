@@ -57,6 +57,8 @@ pub struct SeasonOverviewResponse {
 
 /// Repository for rating history queries
 pub struct RatingHistoryRepository {
+    // Unread until the todo!() queries below are implemented.
+    #[allow(dead_code)]
     pool: SqlitePool,
 }
 

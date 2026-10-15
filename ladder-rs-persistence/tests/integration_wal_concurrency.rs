@@ -807,7 +807,7 @@ async fn many_readers_during_heavy_writes() {
             let mut reads = 0usize;
             for _ in 0..8 {
                 // Alternate between different queries
-                if reads % 3 == 0 {
+                if reads.is_multiple_of(3) {
                     let _ = query_leaderboard(&rp).await;
                 } else if reads % 3 == 1 {
                     let _ = query_players(&rp).await;

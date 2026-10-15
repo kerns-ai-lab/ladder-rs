@@ -1088,7 +1088,7 @@ async fn test_create_multiple_seasons_same_league() {
             SeedingChoice::Reset,
         )
         .await
-        .expect(&format!("Failed to create season {}", i));
+        .unwrap_or_else(|_| panic!("Failed to create season {}", i));
 
         ids.push(season.id);
     }

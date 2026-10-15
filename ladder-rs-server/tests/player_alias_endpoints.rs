@@ -8,27 +8,6 @@
 
 #[cfg(test)]
 mod player_alias_endpoint_tests {
-    use serde_json::json;
-
-    /// Test data structures for request/response validation
-    #[derive(serde::Deserialize, Debug, Clone)]
-    struct AliasResponse {
-        job_id: String,
-        status: String,
-    }
-
-    #[derive(serde::Deserialize, Debug, Clone)]
-    struct ErrorResponse {
-        error: String,
-    }
-
-    #[derive(serde::Deserialize, Debug, Clone)]
-    struct PlayerResponse {
-        id: i64,
-        name: String,
-        aliases: Option<Vec<i64>>,
-    }
-
     // ============================================================================
     // Create Alias Endpoint Tests
     // ============================================================================

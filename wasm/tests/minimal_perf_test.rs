@@ -2,6 +2,9 @@
 //!
 //! This is the simplest possible test to ensure the WASM build works.
 
+// Browser tests (wasm-pack test); on native targets they would be dead code.
+#![cfg(target_arch = "wasm32")]
+
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -9,8 +12,9 @@ wasm_bindgen_test_configure!(run_in_browser);
 /// Basic smoke test
 #[wasm_bindgen_test]
 fn test_basic_wasm_functionality() {
-    // Just test that we can run a test
-    assert_eq!(1 + 1, 2);
+    // Exercise the crate itself, not just the test harness
+    let system = ladder_rs_wasm::EloSystem::new();
+    assert_eq!(system.create_rating().value(), 1500.0);
 }
 
 /// Test that web_sys works
